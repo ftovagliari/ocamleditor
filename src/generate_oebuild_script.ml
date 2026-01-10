@@ -53,25 +53,26 @@ let create_script () =
     output_string ochan "#load \"threads.cma\"\n";
     output_string ochan "let split re = Str.split (Str.regexp re)\n";
     let modules = [
-      "../common/argc";
-      "../common/log";
-      "../common/shell";
-      "../common/ocaml_config";
-      "../common/app_config";
-      "../common/spawn";
-      "../task";
-      "../build_script_command";
-      "oebuild_util";
-      "oebuild_table";
-      "oebuild_dag";
-      "oebuild_dep";
-      "oebuild_dep_dag";
-      "oebuild_parallel";
-      "oebuild";
-      "../build_script_util";
+      "common/argc";
+      "common/log";
+      "common/shell";
+      "common/ocaml_config";
+      "common/app_config";
+      "common/spawn";
+      "task";
+      "build_script_command";
+      "oebuild/oebuild_util";
+      "oebuild/oebuild_table";
+      "oebuild/oebuild_dag";
+      "oebuild/oebuild_dep";
+      "oebuild/oebuild_dep_dag";
+      "oebuild/oebuild_parallel";
+      "oebuild/oebuild";
+      "build_script_util";
     ] in
     List.iter begin fun name ->
-      let buf = Util.replace_header (File_util.read (name ^ ".ml")) in
+      let filename = sprintf "%s/%s" (Sys.getcwd()) name in
+      let buf = Util.replace_header (File_util.read (filename ^ ".ml")) in
       let name = Filename.basename name in
       fprintf ochan "module %s = struct " (String.capitalize_ascii name);
       output_string ochan buf;
@@ -93,14 +94,17 @@ let code_of_script () =
   with ex -> (finally());;
 
 let _ =
-  pushd "oebuild";
-  Util.header := Buffer.contents (File_util.read (".."//".."//"header"));
+  pushd "../../../src";
+  Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) filename;
+  Util.header := Buffer.contents (File_util.read (".."//"header"));
   create_script ();
   code_of_script();
-  let new_filename = ".."//filename in
+  let new_filename = ".."//"_build"//"default"//"src"//filename in
   if Sys.file_exists new_filename then (Sys.remove new_filename);
   Sys.rename filename new_filename;
-  popd ()
+  Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) new_filename;
+  popd();
+  exit 0
 
 
 

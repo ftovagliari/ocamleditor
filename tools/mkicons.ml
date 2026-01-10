@@ -21,13 +21,13 @@
 *)
 
 
-#cd "src"
-    #use "../tools/scripting.ml"
+#cd "../../src";;
+#use "../../../tools/scripting.ml";;
 
 open Printf
 
 let generate ochan path =
-  let icons = ".." // "icons" // path in
+  let icons = ".." // ".." // ".." // "icons" // path in
   let files =
     icons
     |> Sys.readdir

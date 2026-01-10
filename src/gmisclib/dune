@@ -1,0 +1,7 @@
+(library
+ (name gmisclib)
+ (libraries lablgtk2 unix)
+ (modules_without_implementation entry_combo_search)
+ (wrapped false)
+)
+ 

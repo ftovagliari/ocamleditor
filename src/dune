@@ -1,0 +1,50 @@
+(rule
+ (targets err_lexer.ml)
+ (deps err_lexer.mll)
+ (action
+  (run ocamllex %{deps})))
+
+(rule
+ (targets err_parser.ml)
+ (deps err_parser.mly)
+ (action
+  (run ocamlyacc %{deps})))
+
+(rule
+ (targets settings_t.ml settings_t.mli)
+ (deps settings.atd)
+ (action
+  (run atdgen -t %{deps})))
+
+(rule
+ (targets settings_j.ml settings_j.mli)
+ (deps settings.atd)
+ (action
+  (run atdgen -j %{deps})))
+
+(rule
+ (targets merlin_t.ml merlin_t.mli)
+ (deps merlin.atd)
+ (action
+  (run atdgen -t %{deps})))
+
+(rule
+ (targets merlin_j.ml merlin_j.mli)
+ (deps merlin.atd)
+ (action
+  (run atdgen -j %{deps})))
+
+(rule
+ (target oebuild_script.ml)
+ (deps generate_oebuild_script.ml)
+ (action
+  (run ocaml -I common/.common.objs/byte -I +unix -I +str str.cma unix.cma common/.common.objs/byte/utils.cmo common/.common.objs/byte/file_util.cmo %{deps})))
+
+(executable
+ (name ocamleditor)
+ (libraries 
+  common icons oebuildlib gmisclib otherwidgets atdgen-runtime curl dynlink lablgtk2 ocamldiff ocp-indent.lib str unix xml-light yojson compiler-libs ocamldoc inotify))
+
+(env (dev (flags (:standard -warn-error -A))))
+
+
