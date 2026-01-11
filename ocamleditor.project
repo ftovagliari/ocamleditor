@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- OCamlEditor-1.18.1-ocaml414 XML Project -->
+<!-- OCamlEditor-2.0.0-ocaml530 XML Project -->
 <project>
   <ocaml_home></ocaml_home>
   <ocamllib></ocamllib>
@@ -7,7 +7,7 @@
   <name>ocamleditor</name>
   <author></author>
   <description/>
-  <version>1.18.1-ocaml414</version>
+  <version>2.0.0-ocaml530</version>
   <autocomp enabled="true" delay="0.764" cflags=""/>
   <targets>
     <target name="common" default="false" id="4" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
@@ -358,7 +358,7 @@
           <cmd>ocaml</cmd>
           <args>
             <arg enabled="true">mkversion.ml</arg>
-            <arg enabled="true">1.18.1-ocaml414</arg>
+            <arg enabled="true">2.0.0-ocaml530</arg>
           </args>
           <phase>Before_clean</phase>
         </task>
