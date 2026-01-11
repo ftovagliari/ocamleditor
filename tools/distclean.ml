@@ -21,8 +21,8 @@
 *)
 
 
-#cd "src"
-    #use "../tools/scripting.ml"
+#cd "src";;
+#use "../tools/scripting.ml";;
 
 open Printf
 
@@ -32,6 +32,7 @@ let distclean () =
   remove_file "annot_parser.mli";
   run (rm ^ " settings_t.* settings_j.*");
   run (rm ^ " merlin_t.* merlin_j.*");
+  run (rm ^ " icons"//"icons.*");
   remove_file "err_lexer.ml";
   remove_file "err_parser.ml";
   remove_file "err_parser.mli";
@@ -40,14 +41,13 @@ let distclean () =
   remove_file "resource.res";
   remove_file "build_id.ml";
   let run_no_errors cmd = try sys_command [cmd] with Script_error _ -> () in
-  kprintf run_no_errors "%s *.exe *.bak *.annot *~" rm;
-  let rmdir dir = if Sys.file_exists dir then (kprintf run_no_errors "%s %s" rmr dir) in
+  ksprintf run_no_errors "%s *.exe *.bak *.annot *~" rm;
+  let rmdir dir = if Sys.file_exists dir then (ksprintf run_no_errors "%s %s" rmr dir) in
   rmdir (Filename.parent_dir_name // "plugins");
   rmdir (Filename.parent_dir_name // "bak");
   rmdir (Filename.parent_dir_name // "_build");
   rmdir (Filename.parent_dir_name // ".tmp");
   rmdir (Filename.parent_dir_name // ".cache");
-  kprintf run_no_errors "%s icons" rmr;
 ;;
 
 let _ = main ~default_target:distclean ~options:[] ()

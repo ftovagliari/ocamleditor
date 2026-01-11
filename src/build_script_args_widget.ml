@@ -343,58 +343,82 @@ class widget ~project ?packing () =
       List.iter begin fun arg ->
         let row = model#append () in
         model#set ~row ~column:col_opt_def_ovr arg.bsa_default_override;
-        model#set ~row ~column:col_opt_type (string_of_type arg.bsa_type);
-        model#set ~row ~column:col_opt_key arg.bsa_key;
-        model#set ~row ~column:col_opt_doc arg.bsa_doc;
+        arg.bsa_type |> string_of_type |> Convert.to_utf8 |> model#set ~row ~column:col_opt_type;
+        arg.bsa_key |> model#set ~row ~column:col_opt_key;
+        arg.bsa_doc |> model#set ~row ~column:col_opt_doc;
         begin
           match arg.bsa_default with
           | `flag x -> model#set ~row ~column:col_opt_def_flag x;
           | `bool x -> model#set ~row ~column:col_opt_def_value (string_of_bool x);
-          | `string x -> model#set ~row ~column:col_opt_def_value x;
+          | `string x -> x |> Convert.to_utf8 |> model#set ~row ~column:col_opt_def_value;
         end;
-        model#set ~row ~column:col_opt_et_name (taskname_of_task arg.bsa_task);
-        model#set ~row ~column:col_opt_arg begin
+        arg.bsa_task |> taskname_of_task |> Convert.to_utf8 |> model#set ~row ~column:col_opt_et_name;
+        begin
           match arg.bsa_mode with
           | `add -> string_of_add
           | `replace arg -> arg
-        end;
-        model#set ~row ~column:col_opt_cmd (Build_script_command.string_of_command arg.bsa_cmd);
-        model#set ~row ~column:col_opt_pass (string_of_pass arg.bsa_pass);
+        end
+        |> Convert.to_utf8
+        |> model#set ~row ~column:col_opt_arg;
+        arg.bsa_cmd
+        |> Build_script_command.string_of_command
+        |> Convert.to_utf8
+        |> model#set ~row ~column:col_opt_cmd;
+        arg.bsa_pass
+        |> string_of_pass
+        |> Convert.to_utf8
+        |> model#set ~row ~column:col_opt_pass;
       end args;
 
     method get () =
       let arguments = ref [] in
       let count = ref 0 in
       model#foreach begin fun path row ->
-        let bc_et = self#find_task_by_name (model#get ~row ~column:col_opt_et_name) in
-        (*match self#find_task_by_name (model#get ~row ~column:col_opt_et_name) with
-          | Some bc_et ->*)
-        let bsa_type = type_of_string (model#get ~row ~column:col_opt_type) in
-        let bsa_default =
-          match bsa_type with
-          | Flag -> `flag (model#get ~row ~column:col_opt_def_flag)
-          | Bool -> `bool (bool_of_string (model#get ~row ~column:col_opt_def_value))
-          | String -> `string (model#get ~row ~column:col_opt_def_value)
-        in
-        let bsa_mode =
-          let arg = model#get ~row ~column:col_opt_arg in
-          if arg = string_of_add then `add else (`replace arg)
-        in
-        arguments            := {
-          bsa_id               = !count;
-          bsa_type             = bsa_type;
-          bsa_key              = (model#get ~row ~column:col_opt_key);
-          bsa_doc              = (model#get ~row ~column:col_opt_doc);
-          bsa_default_override = (model#get ~row ~column:col_opt_def_ovr);
-          bsa_default          = bsa_default;
-          bsa_task             = bc_et;
-          bsa_mode             = bsa_mode;
-          bsa_pass             = (pass_of_string (model#get ~row ~column:col_opt_pass));
-          bsa_cmd              = (Build_script_command.command_of_string (model#get ~row ~column:col_opt_cmd))
-        } :: !arguments;
+        begin
+          try
+            let bc_et = self#find_task_by_name (model#get ~row ~column:col_opt_et_name) in
+            (*match self#find_task_by_name (model#get ~row ~column:col_opt_et_name) with
+              | Some bc_et ->*)
+            let bsa_type = type_of_string (model#get ~row ~column:col_opt_type |> Convert.to_utf8) in
+            let bsa_default =
+              match bsa_type with
+              | Flag -> `flag (model#get ~row ~column:col_opt_def_flag)
+              | Bool -> `bool (bool_of_string (model#get ~row ~column:col_opt_def_value))
+              | String -> `string (model#get ~row ~column:col_opt_def_value |> Convert.to_utf8)
+            in
+            let bsa_mode =
+              let arg = model#get ~row ~column:col_opt_arg |> Convert.to_utf8 in
+              if arg = string_of_add then `add else (`replace arg)
+            in
+            arguments            := {
+              bsa_id               = !count;
+              bsa_type             = bsa_type;
+              bsa_key              =
+                model#get ~row ~column:col_opt_key
+                |> Convert.to_utf8;
+              bsa_doc              =
+                model#get ~row ~column:col_opt_doc
+                |> Convert.to_utf8;
+              bsa_default_override = model#get ~row ~column:col_opt_def_ovr;
+              bsa_default          = bsa_default;
+              bsa_task             = bc_et;
+              bsa_mode             = bsa_mode;
+              bsa_pass             =
+                model#get ~row ~column:col_opt_pass
+                |> Convert.to_utf8
+                |> pass_of_string;
+              bsa_cmd              =
+                model#get ~row ~column:col_opt_cmd
+                |> Convert.to_utf8
+                |> Build_script_command.command_of_string
+            } :: !arguments;
+            (*| _-> false*)
+          with ex ->
+            Printf.eprintf "File \"build_script_args_widget.ml\": %s\n%s\n%!"
+              (Printexc.to_string ex) (Printexc.get_backtrace());
+        end;
         incr count;
         false
-        (*| _-> false*)
       end;
       List.rev !arguments
   end
