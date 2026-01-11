@@ -63,12 +63,13 @@ let install_fonts () =
   font_names
   |> List.iter begin fun name ->
     let filename = font_dir / name in
-    if Sys.file_exists filename then begin
+    let should_copy =
+      not (Sys.file_exists filename) ||
       let stat_old = Unix.stat filename in
       let stat_new = Unix.stat (App_config.application_fonts / name) in
-      if stat_new.Unix.st_mtime > stat_old.Unix.st_mtime then copy_font name
-    end else copy_font name
-  end
+      stat_new.Unix.st_mtime > stat_old.Unix.st_mtime
+    in
+    if should_copy then copy_font name  end
 
 (** main *)
 let main () = begin

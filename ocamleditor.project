@@ -72,7 +72,7 @@
         </task>
       </external_tasks>
       <restrictions></restrictions>
-      <dependencies></dependencies>
+      <dependencies>4</dependencies>
     </target>
     <target name="oebuildlib" default="false" id="7" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
       <descr></descr>

@@ -23,7 +23,10 @@
 
 open Printf
 
+(** Alias for [Filename.concat] *)
 let (//) = Filename.concat
+
+(** Alias for [Filename.dirname] *)
 let (!!) = Filename.dirname
 
 let split sep str =
@@ -90,15 +93,11 @@ let ensure_ocamleditor_user_home () =
 let launcher_filename = ocamleditor_user_home // "launcher.list"
 
 let get_application_dir name =
-  let is_app_in_cwd = !! Sys.executable_name = "." in
-  let prefix =
-    if is_app_in_cwd then Filename.dirname (Sys.getcwd()) else !! (!! Sys.executable_name)
-  in
+  let exe_dir = !! Sys.executable_name in
+  let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
   let path = prefix // name in
-  if Sys.file_exists path && (Sys.is_directory path) then path
-  else
-    let install_path = prefix // "share" // "ocamleditor" // name in
-    install_path
+  if Sys.file_exists path && Sys.is_directory path then path
+  else prefix // "share" // "ocamleditor" // name
 
 let application_icons = get_application_dir "icons"
 

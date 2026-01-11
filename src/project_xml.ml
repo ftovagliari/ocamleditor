@@ -121,6 +121,7 @@ let write proj =
                      end proj.build_script.Build_script.bs_targets
                    in
                    let args =
+                     proj.build_script.Build_script.bs_args |>
                      List.map begin fun arg ->
                        Xml.Element ("arg", [
                            "id", (string_of_int arg.Build_script_args.bsa_id);
@@ -143,7 +144,7 @@ let write proj =
                                               (match arg.Build_script_args.bsa_default with `flag x -> string_of_bool x | `bool x -> string_of_bool x | `string x -> x)]);
                                       Xml.Element ("doc", [], [Xml.PCData arg.Build_script_args.bsa_doc]);
                                     ])
-                     end proj.build_script.Build_script.bs_args
+                     end
                    in
                    let commands =
                      List.map begin fun cmd ->
