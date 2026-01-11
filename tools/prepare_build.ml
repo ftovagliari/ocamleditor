@@ -26,7 +26,7 @@
 
 open Printf
 
-let required_ocaml_version = "4.01.0"
+let required_ocaml_version = "5.3.0"
 let use_modified_gtkThread = ref false
 let record_backtrace = ref true
 
