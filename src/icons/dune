@@ -1,0 +1,23 @@
+(rule
+  (targets icons.ml)
+  (deps
+    ../../tools/mkicons.ml
+    ../../tools/scripting.ml
+    ../common/shell.ml
+    ../common/utils.ml
+    (source_tree light)
+    (source_tree dark)
+    (source_tree svg))
+  (action
+    (progn
+      (run echo "-------------- BEGIN icons.ml ---------------")
+      (chdir ../../tools (run ocaml mkicons.ml))    
+      (run echo "-------------- END icons.ml ---------------")
+    )))
+    
+(library
+ (name icons)
+ (modules icons)
+ (libraries common lablgtk2))
+
+

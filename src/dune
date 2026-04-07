@@ -1,14 +1,26 @@
 (rule
- (targets err_lexer.ml)
- (deps err_lexer.mll)
- (action
-  (run ocamllex %{deps})))
+  (targets err_lexer.ml)
+  (deps err_lexer.mll)
+  (action 
+    (progn
+      (run echo "-------------- BEGIN err_lexer.ml ---------------")
+      (run ocamllex %{deps})
+      (run echo "-------------- END err_lexer.ml ---------------")
+    )
+  )
+)
 
 (rule
- (targets err_parser.ml)
- (deps err_parser.mly)
- (action
-  (run ocamlyacc %{deps})))
+  (targets err_parser.ml err_parser.mli)
+  (deps err_parser.mly)
+  (action
+    (progn
+      (run echo "-------------- BEGIN err_parser.ml ---------------")
+      (run ocamlyacc %{deps})
+      (run echo "-------------- END err_parser.ml ---------------")
+    )
+  )
+)
 
 (rule
  (targets settings_t.ml settings_t.mli)
@@ -35,16 +47,47 @@
   (run atdgen -j %{deps})))
 
 (rule
- (target oebuild_script.ml)
- (deps generate_oebuild_script.ml)
- (action
-  (run ocaml -I common/.common.objs/byte -I +unix -I +str str.cma unix.cma common/.common.objs/byte/utils.cmo common/.common.objs/byte/file_util.cmo %{deps})))
+  (target oebuild_script.ml)
+  (deps generate_oebuild_script.ml)
+  (action
+    (progn
+      (run echo "-------------- BEGIN generate_oebuild_script.ml ---------------")
+      (run ocaml -I common/.common.objs/byte -I +unix -I +str str.cma unix.cma common/.common.objs/byte/utils.cmo common/.common.objs/byte/file_util.cmo %{deps})
+      (run echo "-------------- END generate_oebuild_script.ml ---------------")
+    )
+  ))
 
-(executable
- (name ocamleditor)
- (libraries 
-  common icons oebuildlib gmisclib otherwidgets atdgen-runtime curl dynlink lablgtk2 ocamldiff ocp-indent.lib str unix xml-light yojson compiler-libs ocamldoc inotify))
+(library
+  (name ocamleditor_lib)
+  (libraries 
+    common 
+    icons 
+    oebuildlib 
+    gmisclib 
+    otherwidgets 
+    atdgen-runtime 
+    curl 
+    dynlink 
+    lablgtk2 
+    ocamldiff 
+    ocp-indent.lib 
+    str 
+    unix 
+    xml-light 
+    yojson 
+    compiler-libs.common 
+    ocamldoc 
+    inotify
+  )
+)
+
+;; (executable
+;;   (name ocamleditor)
+;;   (public_name ocamleditor)
+;;   (modules ocamleditor)
+;;   (promote (until-clean))
+;;   (libraries ocamleditor_lib)
+;; )
 
 (env (dev (flags (:standard -warn-error -A))))
-
 

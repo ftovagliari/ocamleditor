@@ -95,7 +95,7 @@ let code_of_script () =
 
 let _ =
   pushd "../../../src";
-  Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) filename;
+  Printf.printf "==============================>%s - %s\n%!" (Sys.getcwd()) filename;
   Util.header := Buffer.contents (File_util.read (".."//"header"));
   create_script ();
   code_of_script();
