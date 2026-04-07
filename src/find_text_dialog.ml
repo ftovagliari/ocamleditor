@@ -212,7 +212,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     button_repl#misc#set_sensitive not_empty;
     button_find_all#misc#set_sensitive not_empty;
   in
-  entry_find#entry#connect#changed ~callback;
+  entry_find#entry#connect#changed ~callback |> ignore;
   ignore (entry_find#entry#event#connect#key_press ~callback:begin fun ev ->
       if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then (entry_repl#entry#misc#grab_focus(); true)
       else false
@@ -249,23 +249,23 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     dialog#misc#hide();
     ignore (Thread.create (fun () -> widget#find ?all ()) ());
   in
-  button_find_all#connect#clicked ~callback:(fun () -> callback ~all:true ());
+  button_find_all#connect#clicked ~callback:(fun () -> callback ~all:true ()) |> ignore;
   button_find#connect#clicked ~callback:begin fun () ->
     match buffer with
     | None -> button_find_all#clicked()
     | _ ->
         callback ~all:false ();
         dialog#destroy();
-  end;
+  end |> ignore;
   button_repl#connect#clicked ~callback:begin fun () ->
     set_options();
     dialog#misc#hide();
     widget#find();
     widget#replace();
-  end;
+  end |> ignore;
   button_cancel#connect#clicked ~callback:begin fun () ->
     if widget#misc#parent <> None then (dialog#misc#hide ()) else (dialog#destroy ());
-  end;
+  end |> ignore;
   dialog#event#connect#key_press ~callback:begin fun ev ->
     if GdkEvent.Key.keyval ev = GdkKeysyms._Escape then begin
       button_cancel#clicked();
@@ -281,7 +281,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
         true;
       end else false;
     end else false;
-  end;
+  end |> ignore;
   if find_all then (button_find_all#clicked());
   (*  let callback () =
       button_find#misc#set_sensitive (not radio_specified_path#active || String.length entry_specified_path#entry#text > 0)

@@ -46,9 +46,9 @@ let file_select ~editor () =
   let sw = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
       ~packing:vbox#add () in
   let view = GTree.view ~model:model ~headers_visible:false ~reorderable:true ~width:130 ~packing:sw#add () in
-  view#append_column vc_icon;
-  view#append_column vc_name;
-  view#append_column vc_path;
+  view#append_column vc_icon |> ignore;
+  view#append_column vc_name |> ignore;
+  view#append_column vc_path |> ignore;
   view#selection#set_mode `MULTIPLE;
   view#set_search_column 1;
   List.iter begin fun p ->
@@ -67,7 +67,7 @@ let file_select ~editor () =
       ~packing:(vbox#pack ~expand:false) () in
   let button_close = GButton.button ~label:"Close files" ~packing:bbox#add () in
   let button_cancel = GButton.button ~label:"Done" ~packing:bbox#add () in
-  button_cancel#connect#clicked ~callback:window#destroy;
+  button_cancel#connect#clicked ~callback:window#destroy |> ignore;
   let activate () =
     List.iter begin fun path ->
       let row = model#get_iter path in
@@ -175,7 +175,7 @@ let file_open ~editor () =
   end filters;
   dialog#add_select_button_stock `OK `OK;
   dialog#add_button_stock `CANCEL `CANCEL;
-  dialog#set_current_folder path;
+  dialog#set_current_folder path |> ignore;
   dialog#set_select_multiple true;
   match dialog#run () with
   | `OK ->

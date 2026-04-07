@@ -297,7 +297,7 @@ class widget ~page ?packing () =
       model#clear();
       (* Buffer *)
       GtkThread.sync begin fun () ->
-        page#buffer#save_buffer ?filename:None ();
+        page#buffer#save_buffer ?filename:None () |> ignore;
         let date = print_time (Unix.localtime (Unix.stat page#buffer#tmp_filename).Unix.st_mtime) in
         let row = model#append () in
         model#set ~row ~column:col_rev "Buffer";

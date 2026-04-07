@@ -107,17 +107,17 @@ let create ~editor ~page () =
   (*  *)
   let callback ev =
     let clip = GData.clipboard Gdk.Atom.clipboard in
-    cut#connect#activate ~callback:(fun () -> page#buffer#cut_clipboard ?default_editable:None clip);
+    cut#connect#activate ~callback:(fun () -> page#buffer#cut_clipboard ?default_editable:None clip) |> ignore;
     cut#misc#set_sensitive page#buffer#has_selection;
-    copy#connect#activate ~callback:(fun () -> page#buffer#copy_clipboard clip);
+    copy#connect#activate ~callback:(fun () -> page#buffer#copy_clipboard clip) |> ignore;
     copy#misc#set_sensitive page#buffer#has_selection;
     paste#connect#activate ~callback:(fun () ->
-        page#buffer#paste_clipboard ?iter:None ?default_editable:None clip);
+        page#buffer#paste_clipboard ?iter:None ?default_editable:None clip) |> ignore;
     paste#misc#set_sensitive (clip#text <> None);
     delete#connect#activate ~callback:(fun () ->
-        ignore (page#buffer#delete_selection ?interactive:None ?default_editable:None ()));
+        ignore (page#buffer#delete_selection ?interactive:None ?default_editable:None ())) |> ignore;
     delete#misc#set_sensitive page#buffer#has_selection;
-    select_all#connect#activate ~callback:page#buffer#select_all;
+    select_all#connect#activate ~callback:page#buffer#select_all |> ignore;
 
     Menu_search.update_items_visibility
       (*~label_find_used_components

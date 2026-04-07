@@ -63,10 +63,10 @@
           <readonly>false</readonly>
           <visible>true</visible>
           <env replace="false"/>
-          <dir>..</dir>
+          <dir>../tools</dir>
           <cmd>ocaml</cmd>
           <args>
-            <arg enabled="true">tools/mkicons.ml</arg>
+            <arg enabled="true">mkicons.ml</arg>
           </args>
           <phase>Before_compile</phase>
         </task>

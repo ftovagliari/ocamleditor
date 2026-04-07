@@ -467,7 +467,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       | Some text ->
           if view#editable then begin
             GtkSignal.stop_emit();
-            ignore (buffer#delete_interactive ~start:(buffer#get_iter `INSERT) ~stop:(buffer#get_iter `SEL_BOUND) ());
+            buffer#delete_interactive ~start:(buffer#get_iter `INSERT) ~stop:(buffer#get_iter `SEL_BOUND) () |> ignore;
             buffer#insert text;
             let iter = buffer#get_iter `INSERT in
             if buffer#lexical_enabled then begin

@@ -21,13 +21,14 @@
 *)
 
 
-#cd "src"
-    #use "../tools/scripting.ml"
+#use "./scripting.ml";;
 
 open Printf
 
+let icons_dir = ".."//"src"//"icons"
+
 let generate ochan path =
-  let icons = ".."//"src"//"icons"// path in
+  let icons = icons_dir // path in
   let files =
     icons
     |> Sys.readdir
@@ -55,8 +56,7 @@ let generate ochan path =
     [];;
 
 let mkicons () =
-  if not (Sys.file_exists "icons") then (mkdir "icons");
-  let filename = "icons/icons.ml" in
+  let filename = icons_dir // "icons.ml" in
   let ochan = open_out_gen [Open_creat; Open_trunc; Open_append; Open_binary] 0o644 filename in
   try
     fprintf ochan "type themed_icon = { light : GdkPixbuf.pixbuf; dark : GdkPixbuf.pixbuf }\n\n";

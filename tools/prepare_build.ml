@@ -40,7 +40,6 @@ let prepare_build () =
     eprintf "You are using OCaml-%s but version %s is required." Sys.ocaml_version required_ocaml_version;
   end else begin
     cp ~echo:true (if !use_modified_gtkThread then "gtkThreadModified.ml" else "gtkThreadOriginal.ml") "gtkThread2.ml";
-    (* if not (Sys.file_exists "../plugins") then (mkdir "../plugins"); *)
     run "ocamllex err_lexer.mll";
     run "ocamlyacc err_parser.mly";
     run "atdgen -t settings.atd";
