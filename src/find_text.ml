@@ -23,6 +23,7 @@
 
 open Printf
 open Utils
+open Convert
 
 exception Buffer_changed of int * string * string
 exception Skip_file
@@ -123,6 +124,7 @@ let write_status () =
     List.iter (fun h -> model#set ~row:(model#append()) ~column h) hist;
     hist
   in
+  let ensure_utf8 s = to_utf8 s in
   let xml =
     Xml.Element ("find_text", [
         "check_regexp", (string_of_bool status.use_regexp);
@@ -134,15 +136,15 @@ let write_status () =
         "radio_src", (string_of_bool (status.path = Project_source));
         "radio_only_open_files", (string_of_bool (status.path = Only_open_files));
       ], [
-                   Xml.Element ("history_find", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData x]))
+                   Xml.Element ("history_find", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
                                   (get_history status.text_find#get status.h_find.model status.h_find.column));
-                   Xml.Element ("history_repl", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData x]))
+                   Xml.Element ("history_repl", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
                                   (get_history status.text_repl status.h_repl.model status.h_repl.column));
-                   Xml.Element ("history_path", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData x]))
+                   Xml.Element ("history_path", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
                                   (get_history
                                      (match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "")
                                      status.h_path.model status.h_path.column));
-                   Xml.Element ("history_pattern", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData x]))
+                   Xml.Element ("history_pattern", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
                                   (get_history
                                      (match status.pattern with None -> "" | Some x -> x)
                                      status.h_pattern.model status.h_pattern.column));
@@ -171,7 +173,7 @@ let read_status () =
     let value xml =
       match Xml.children xml with
       | [] -> ""
-      | x :: [] -> Xml.pcdata x
+      | x :: [] -> to_utf8 (Xml.pcdata x)
       | _ -> assert false
     in
     Xml.iter begin fun node ->
