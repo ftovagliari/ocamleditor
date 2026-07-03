@@ -51,3 +51,4 @@ src/settings_?.ml*
 *.ocaml-index
 _build
 src/icons/icons.ml
+.github/
