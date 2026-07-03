@@ -49,10 +49,10 @@ message:
       er_location = loc;
       er_message = (
       (
-        match $2 with 
+        match $2 with
         | Error -> "Error: "
         | Warning (num, None) -> sprintf "Warning %d: " num (* before 4.12 *)
-        | Warning (num, Some name) -> sprintf "Warning [%s] %d: " name num
+        | Warning (num, Some name) -> sprintf "Warning %d [%s]: " num name
         | Alert s -> "Alert " ^ s ^ ": "
       ) ^ message_text);
     }

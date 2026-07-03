@@ -86,9 +86,9 @@ let search_again editor =
 let set_has_definition editor item =
   editor#with_current_page begin fun page ->
     let def =
-      Definition.find
+      Definition.locate
         ~filename:page#get_filename
-        ~buffer:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
+        ~text:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
         ~iter: (page#buffer#get_iter `INSERT)
     in
     match def with
@@ -100,21 +100,15 @@ let set_has_definition editor item =
 (** set_has_references *)
 let set_has_references editor item =
   editor#with_current_page begin fun page ->
-    let project = editor#project in
-    let filename = page#get_filename in
-    let offset = (page#buffer#get_iter `INSERT)#offset in
-    let has =
-      match
-        Binannot_ident.find_definition_and_references
-          ~project
-          ~filename
-          ~offset
-          ~compile_buffer:(fun () -> page#compile_buffer ?join:(Some true))  ()
-      with
-      | Some res -> res.Binannot_ident.bai_refs <> []
-      | _ -> false
-    in
-    item#misc#set_sensitive has
+    let filename : string = page#get_filename in
+    let buffer : Ocaml_text.buffer = page#buffer in
+    let text = buffer#get_text () in
+    let iter = buffer#get_iter `INSERT in
+    let line = iter#line + 1 in
+    let col = iter#line_offset in
+    Definition.references ~filename ~text ~iter
+    |> Async.start_with_continuation
+      (fun ranges -> item#misc#set_sensitive (ranges <> []))
   end
 
 (** create_search_results_pane *)
@@ -126,69 +120,71 @@ let create_search_results_pane ~pixbuf ~editor ~page =
   let label = GMisc.label ~packing:hbox#pack () in
   let iter = page#buffer#get_iter `INSERT in
   let mark = page#buffer#create_mark ?name:None ?left_gravity:None iter in
-  ignore (widget#misc#connect#destroy ~callback:(fun () -> page#buffer#delete_mark (`MARK mark)));
-  ignore (widget#connect#after#search_started ~callback:begin fun () ->
-      if widget#misc#parent = None then
-        (ignore (Messages.vmessages#append_page ~label_widget:hbox#coerce widget#as_page));
-      widget#present ();
-    end);
+  widget#misc#connect#destroy ~callback:(fun () -> page#buffer#delete_mark (`MARK mark)) |> ignore;
+  widget#connect#after#search_started ~callback:begin fun () ->
+    if widget#misc#parent = None then
+      Messages.vmessages#append_page ~label_widget:hbox#coerce widget#as_page |> ignore;
+    widget#present ();
+  end |> ignore;
   widget, mark, label
 
 (** find_definition_references *)
 let find_definition_references editor =
   editor#with_current_page begin fun page ->
     let widget, mark, label = create_search_results_pane ~pixbuf:(??? Icons.references) ~editor ~page in
+    widget#set_title "TITLE";
     widget#connect#search_started ~callback:begin fun () ->
-      let project = page#project in
-      let filename = page#get_filename in
-      let results =
-        Binannot_ident.find_definition_and_references
-          ~project
-          ~filename
-          ~offset:(page#buffer#get_iter (`MARK mark))#offset
-          ~compile_buffer:(fun () -> page#compile_buffer ?join:(Some true))  ()
+      let filename : string = page#get_filename in
+      let buffer : Ocaml_text.buffer = page#buffer in
+      let iter = buffer#get_iter `INSERT in
+      let text = buffer#get_text () in
+      let wstart, wstop = buffer#select_word ~pat:Ocaml_word_bound.regexp ~select:false () in
+      let ident = buffer#get_text ~start:wstart ~stop:wstop () in
+      let open Merlin_j in
+      let def_range =
+        match Definition.locate ~filename ~text ~iter with
+        | Merlin.Ok (Some range) ->
+            Some
+              (Some (??? Icons.edit),
+               { range with
+                 start = { range.start with line = range.start.line + 1};
+                 stop = { range.stop with line = range.stop.line + 1 } })
+        | Merlin.Ok None
+        | Merlin.Failure _
+        | Merlin.Error _ -> None
       in
-      let def_name = ref "" in
-      let results =
-        let open Binannot_ident in
-        let open Search_results in
-        let open Location in
-        match results with
-        | None -> []
-        | Some {bai_def; bai_refs} ->
-            def_name := (match bai_refs with ident :: _ -> ident.ident_loc.txt | [] -> "");
-            let results = (match bai_def with | Some x -> [x] | _ -> []) @ bai_refs in
-            let results = List.map (fun ident -> ident.ident_fname, ident) results in
-            let results = List.rev (Utils.ListExt.group_assoc results) in
-            List.map begin fun (filename, idents) ->
-              let real_filenames = ref [] in
-              let locations =
-                List.map begin fun ident ->
-                  let pixbuf =
-                    match ident.ident_kind with
-                    | Def _ | Def_constr _ | Def_module _ ->
-                        Some (??? Icons.edit)
-                    (*Some (widget#misc#render_icon ~size:`MENU `EDIT)*)
-                    | Int_ref _ | Ext_ref | Open _ -> None
-                  in
-                  let fn = ident.ident_loc.loc.loc_start.Lexing.pos_fname in
-                  if not (List.mem fn !real_filenames) then (real_filenames := fn :: !real_filenames);
-                  (pixbuf, ident.ident_loc)
-                end (List.rev idents)
-              in
-              let real_filename = match !real_filenames with fn :: [] -> fn | _ -> assert false in
-              let timestamp = (Unix.stat real_filename).Unix.st_mtime in
-              {filename; real_filename; locations = Offset locations; timestamp}
-            end results
-      in
-      widget#set_results results;
-      label#set_text !def_name;
-      widget#set_title !def_name;
-      if widget#icon = None then widget#set_icon (Some (??? Icons.references));
-      kprintf widget#label_message#set_label "References to identifier <tt>%s</tt>" (Glib.Markup.escape_text !def_name);
+      Definition.references ~filename ~text ~iter
+      |> Async.start_with_continuation begin fun ranges ->
+        let ranges = ranges |> List.map (fun r -> (None : GdkPixbuf.pixbuf option), r) in
+        let ranges =
+          match def_range with
+          | Some (_, dr) ->
+              let is_def_range (_, r) = r.start.line = dr.start.line && r.start.col = dr.start.col && r.stop.line = dr.stop.line in
+              ranges |> List.map (fun ((_, r) as r') -> if is_def_range r' then Some (??? Icons.edit), r else r')
+          | _ -> (* Already at definition point: definition range is returned but we don't know what it is *)
+              ranges
+        in
+        ranges
+        |> Utils.ListExt.group_by (fun (_, r) -> r.file)
+        |> List.map begin fun (file, ranges) ->
+          let filename = match file with Some x -> x | _ -> filename in
+          let timestamp = (Unix.stat filename).Unix.st_mtime in
+          { Search_results.filename;
+            real_filename = filename;
+            locations = Search_results.Offset ranges;
+            timestamp };
+        end
+        |> List.sort compare
+        |> widget#set_results;
+        if widget#icon = None then widget#set_icon (Some (??? Icons.references));
+        label#set_text ident;
+        ksprintf widget#label_message#set_label
+          "References to <tt>%s</tt>" (Glib.Markup.escape_text ident);
+        widget#next_file()
+      end
     end |> ignore;
     widget#start_search();
-  end
+  end;;
 
 (** update_items_visibility *)
 let update_items_visibility

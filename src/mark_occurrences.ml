@@ -113,6 +113,9 @@ class manager ~view =
                 self#clear_refs() |> ignore;
                 ranges
                 |> List.fold_left begin fun acc range ->
+                  (*Printf.printf "----> %s %b (%s)\n%!"
+                    (match range.file with Some f -> f | _ -> "<No-file>")
+                    (range.file = Some filename) filename;*)
                   let last_line = buffer#end_iter#line + 1 in
                   if 0 < range.start.line && range.start.line <= last_line &&
                      0 < range.stop.line && range.stop.line <= buffer#end_iter#line + 1

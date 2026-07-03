@@ -118,7 +118,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
   let label_title = GMisc.label ~markup:"" ~xalign:0.0 ~packing:vbox#pack () in
   let target_page = new Target_page.view ~target_list ~project ~packing:vbox#add () in
   let etask_page = new Etask_page.view ~packing:vbox#add () in
-  let set_title x = kprintf label_title#set_label "<b><big>%s</big></b>" x in
+  let set_title x = ksprintf label_title#set_label "<b><big>%s</big></b>" x in
   let hide_all () =
     target_page#misc#hide ();
     etask_page#misc#hide ();

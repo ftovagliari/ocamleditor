@@ -62,12 +62,8 @@ let mk_dot_cmd ~outlang ~outfile ?(label="") ?(rotate=0.) filename =
 ;;
 
 (** draw *)
-let draw ~project ~filename ?dot_include_all ?dot_types ?packing ?on_ready_cb () =
-  let module Device =
-    (val match Oe_config.dot_viewer with
-       | `DEFAULT -> !Dot_viewer_plugin.device
-       | `PDF -> (module Dot_viewer_pdf.PDF))
-  in
+let draw ~project ~filename ?dot_include_all ?dot_types () =
+  let module Device = (val (module Dot_viewer_pdf.PDF) : Dot_viewer_types.DEVICE) in
   let outlang       = Device.lang in
   let basename      = Filename.basename filename in
   let label         = sprintf "Dependency graph for \xC2\xAB%s\xC2\xBB" basename in
@@ -87,12 +83,11 @@ let draw ~project ~filename ?dot_include_all ?dot_types ?packing ?on_ready_cb ()
   (*  *)
   let ocamldoc_cmd, oargs  = mk_ocamldoc_cmd ?dot_include_all ?dot_types ~project ~outfile:dotfile sourcefiles in
   let dot_cmd, dargs       = mk_dot_cmd ~outlang ~outfile ~label dotfile in
-  let viewer        = Device.create ?packing () in
   let activity_name = "Generating module dependency graph, please wait..." in
   Activity.add Activity.Other activity_name;
-  Spawn.async ~at_exit:begin fun _ ->
+  Spawn.async ~continue_with:begin fun _ ->
     let modname = Utils.modname_of_path filename in
-    let re = kprintf Str.regexp "\"%s\" \\[.*color=\\(.+\\).*\\]" modname in
+    let re = ksprintf Str.regexp "\"%s\" \\[.*color=\\(.+\\).*\\]" modname in
     (*let re1 = Str.regexp "\\(\".*\"\\) \\[style=filled, color=darkturquoise\\];$" in*)
     map_file_lines dotfile begin fun ~lnum ~line ->
       (*if Str.string_match re line 0 then (sprintf "\"%s\" [style=filled, color=black, fontcolor=white];\n" modname)*)
@@ -100,11 +95,9 @@ let draw ~project ~filename ?dot_include_all ?dot_types ?packing ?on_ready_cb ()
       (*else if Str.string_match re1 line 0 then (sprintf "%s;\n" (Str.matched_group 1 line))*)
       else line
     end;
-    Spawn.async ~at_exit:begin fun _ ->
+    Spawn.async ~continue_with:begin fun _ ->
       if Sys.file_exists dotfile then (Sys.remove dotfile);
-      Device.draw ~filename:outfile viewer;
+      Device.draw ~filename:outfile;
       Activity.remove activity_name;
-      Gaux.may on_ready_cb ~f:(fun cb -> cb viewer);
     end dot_cmd dargs |> ignore;
-  end ocamldoc_cmd oargs |> ignore;
-  viewer;;
+  end ocamldoc_cmd oargs |> ignore

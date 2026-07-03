@@ -54,7 +54,7 @@ let draw_indent_lines view (drawable : GDraw.drawable) start stop y0 =
   let prev = ref 0 in
   let lines = ref [] in
   let add_segment ll x y1 y2 =
-    match List_opt.assoc x !ll with
+    match List.assoc_opt x !ll with
     | Some segs ->
         begin
           match !segs with

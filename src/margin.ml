@@ -55,20 +55,20 @@ class line_numbers (view : GText.view) =
 
     method draw ~view ~top ~left ~height ~start ~stop =
       Line_num_labl.reset labels;
-      let iter = ref start#backward_line in
+      let iter = start#backward_line in
       let stop = stop#forward_line in
       let y = ref 0 in
       let h = ref 0 in
       let num = ref 0 in
-      while not (!iter#equal stop) do
-        num := !iter#line + 1;
-        let yl, hl = view#get_line_yrange !iter in
+      while not (iter#equal stop) do
+        num := iter#line + 1;
+        let yl, hl = view#get_line_yrange iter in
         y := yl - top + view#pixels_above_lines;
         h := hl;
         self#print_numbers ~view ~num:!num ~left ~top:!y labels;
-        iter := !iter#forward_line;
+        iter#nocopy#forward_line |> ignore (* TODO Crashed here *)
       done;
-      let y = !y  + !h in
+      let y = !y + !h in
       incr num;
       self#print_numbers ~view ~num:!num ~left ~top:y labels
 

@@ -36,36 +36,35 @@ let print_targets ochan targets external_tasks =
   List.iter begin fun {bst_target=tg; bst_show(*; _*)} ->
     if bst_show then (incr i);
     let num = if bst_show then !i else 0 in
-    kprintf print "\n  (\x2A %d \x2A)" !i;
-    kprintf print "%S, {" tg.name;
-    kprintf print "  descr                = %S;" tg.descr;
-    kprintf print "  num                  = %d;" num;
-    kprintf print "  id                   = %d;" tg.id;
-    kprintf print "  output_name          = %S;" tg.outname;
-    kprintf print "  target_type          = %s;" (string_of_target_type tg.target_type);
-    kprintf print "  compilation_bytecode = %b;" tg.byt;
-    kprintf print "  compilation_native   = %b;" tg.opt;
-    kprintf print "  toplevel_modules     = %S;" tg.files;
-    kprintf print "  package              = %S;" tg.package;
-    kprintf print "  search_path          = %S; (\x2A -I \x2A)" tg.includes;
-    kprintf print "  required_libraries   = %S;" tg.libs;
-    kprintf print "  compiler_flags       = %S;" tg.cflags;
-    kprintf print "  linker_flags         = %S;" tg.lflags;
-    kprintf print "  thread               = %b;" tg.thread;
-    kprintf print "  vmthread             = %b;" tg.vmthread;
-    kprintf print "  pp                   = %S;" tg.pp;
-    kprintf print "  inline               = %s;" (match tg.inline with Some x -> sprintf "Some %d" x | _ -> "None");
-    kprintf print "  nodep                = %b;" tg.nodep;
-    kprintf print "  dontlinkdep          = %b;" tg.dontlinkdep;
-    kprintf print "  dontaddopt           = %b;" tg.dontaddopt;
-    kprintf print "  library_install_dir  = %S; (\x2A Relative to the Standard Library Directory \x2A)" tg.lib_install_path;
-    kprintf print "  other_objects        = %S;" tg.other_objects;
-    kprintf print "  external_tasks       = [%s];" (String.concat "; " (List.map (fun (n(*, _*)) -> string_of_int n) (List.assoc tg external_tasks)));
-    kprintf print "  restrictions         = [%s];" (String.concat "; " (List.map (sprintf "%S") tg.restrictions));
-    kprintf print "  dependencies         = [%s];" (String.concat "; " (List.map (sprintf "%d") tg.dependencies));
-    kprintf print "  show                 = %b;" bst_show;
-    kprintf print "  rc_filename          = %s;" (match tg.resource_file with None -> "None" | Some rc -> "Some \"" ^ (String.escaped rc.Resource_file.rc_filename) ^ "\"");
-    kprintf print "};";
+    ksprintf print "\n  (\x2A %d \x2A)" !i;
+    ksprintf print "%S, {" tg.name;
+    ksprintf print "  descr                = %S;" tg.descr;
+    ksprintf print "  num                  = %d;" num;
+    ksprintf print "  id                   = %d;" tg.id;
+    ksprintf print "  output_name          = %S;" tg.outname;
+    ksprintf print "  target_type          = %s;" (string_of_target_type tg.target_type);
+    ksprintf print "  compilation_bytecode = %b;" tg.byt;
+    ksprintf print "  compilation_native   = %b;" tg.opt;
+    ksprintf print "  toplevel_modules     = %S;" tg.files;
+    ksprintf print "  package              = %S;" tg.package;
+    ksprintf print "  search_path          = %S; (\x2A -I \x2A)" tg.includes;
+    ksprintf print "  required_libraries   = %S;" tg.libs;
+    ksprintf print "  compiler_flags       = %S;" tg.cflags;
+    ksprintf print "  linker_flags         = %S;" tg.lflags;
+    ksprintf print "  thread               = %b;" tg.thread;
+    ksprintf print "  vmthread             = %b;" tg.vmthread;
+    ksprintf print "  pp                   = %S;" tg.pp;
+    ksprintf print "  inline               = %s;" (match tg.inline with Some x -> sprintf "Some %d" x | _ -> "None");
+    ksprintf print "  nodep                = %b;" tg.nodep;
+    ksprintf print "  dontlinkdep          = %b;" tg.dontlinkdep;
+    ksprintf print "  dontaddopt           = %b;" tg.dontaddopt;
+    ksprintf print "  library_install_dir  = %S; (\x2A Relative to the Standard Library Directory \x2A)" tg.lib_install_path;
+    ksprintf print "  other_objects        = %S;" tg.other_objects;
+    ksprintf print "  external_tasks       = [%s];" (String.concat "; " (List.map (fun (n(*, _*)) -> string_of_int n) (List.assoc tg external_tasks)));
+    ksprintf print "  restrictions         = [%s];" (String.concat "; " (List.map (sprintf "%S") tg.restrictions));
+    ksprintf print "  dependencies         = [%s];" (String.concat "; " (List.map (sprintf "%d") tg.dependencies));
+    ksprintf print "  show                 = %b;" bst_show;
+    ksprintf print "};";
   end targets;
   output_string ochan "];;\n";;
 
@@ -130,21 +129,21 @@ let print_external_tasks ochan project =
           let custom_args = print_add_args tg et args in
           let args = base_args @ custom_args in
           let index = !i in
-          kprintf print "\n  %d, (fun command -> {" index;
-          kprintf print "  et_name                  = %S;" et.et_name;
-          kprintf print "  et_env                   = [%s];"
+          ksprintf print "\n  %d, (fun command -> {" index;
+          ksprintf print "  et_name                  = %S;" et.et_name;
+          ksprintf print "  et_env                   = [%s];"
             (String.concat ";" (List.map (sprintf "%S")
                                   (List.filter_map (fun (x, y) -> if x then Some y else None) et.et_env)));
-          kprintf print "  et_env_replace           = %b;" et.et_env_replace;
-          kprintf print "  et_dir                   = %S;" et.et_dir;
-          kprintf print "  et_cmd                   = %S;" et.et_cmd;
-          kprintf print "  et_args                  = [%s];" (String.concat "; " args);
-          kprintf print "  et_phase                 = %s;" (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
-          kprintf print "  et_always_run_in_project = %b;" et.et_always_run_in_project;
-          kprintf print "  et_always_run_in_script  = %b;" et.et_always_run_in_script;
-          kprintf print "  et_readonly              = %b;" et.et_readonly;
-          kprintf print "  et_visible               = %b;" et.et_visible;
-          kprintf print "});";
+          ksprintf print "  et_env_replace           = %b;" et.et_env_replace;
+          ksprintf print "  et_dir                   = %S;" et.et_dir;
+          ksprintf print "  et_cmd                   = %S;" et.et_cmd;
+          ksprintf print "  et_args                  = [%s];" (String.concat "; " args);
+          ksprintf print "  et_phase                 = %s;" (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
+          ksprintf print "  et_always_run_in_project = %b;" et.et_always_run_in_project;
+          ksprintf print "  et_always_run_in_script  = %b;" et.et_always_run_in_script;
+          ksprintf print "  et_readonly              = %b;" et.et_readonly;
+          ksprintf print "  et_visible               = %b;" et.et_visible;
+          ksprintf print "});";
           incr i;
           index
         end tg.external_tasks
@@ -160,16 +159,20 @@ let print_general_commands ochan external_tasks project =
   List.iter begin fun command ->
     let target = command.bsc_target in
     let task = command.bsc_task in
-    List_opt.may_find begin fun (tg, _) ->
-      tg.id = target.id && task.et_name = task.et_name
-    end external_tasks begin fun (tg, et_indexes) ->
-      let et = List.combine tg.external_tasks et_indexes in
-      match List_opt.find (fun (et, _) -> et.et_name = task.et_name) et with
-      | Some (_, index(*, _)*)) ->
-          fprintf ochan "  `%s, (%d, %S);\n"
-            (Build_script.string_of_command command.bsc_name) index command.bsc_descr;
-      | _ -> ()
-    end ();
+    external_tasks
+    |> List.find_map begin fun (tg, et_indexes) ->
+      if tg.id = target.id && task.et_name = task.et_name then
+        Some begin
+          let et = List.combine tg.external_tasks et_indexes in
+          match List.find_opt (fun (et, _) -> et.et_name = task.et_name) et with
+          | Some (_, index(*, _)*)) ->
+              fprintf ochan "  `%s, (%d, %S);\n"
+                (Build_script.string_of_command command.bsc_name) index command.bsc_descr;
+          | _ -> ()
+        end else None
+    end |> ignore;
+
+
   end commands;
   fprintf ochan "]\n";;
 

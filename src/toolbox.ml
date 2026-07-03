@@ -100,11 +100,11 @@ let specs ~browser =
     900,  `SEP,            I, N, "", ignore, None;
 
     1000, `VIEW_MESSAGES,  B, L ("\u{f10a9}", None), "View Messages",
-    (fun _ -> browser#set_vmessages_visible (not Messages.vmessages#visible)),
+    (fun _ -> Messages.vmessages#set_visible  (not Messages.vmessages#visible)),
     None;
 
     1100, `VIEW_HMESSAGES, B, L ("\u{f10ab}", None), "View Messages (Right Pane)",
-    (fun _ -> browser#set_hmessages_visible (not Messages.hmessages#visible)),
+    (fun _ -> Messages.hmessages#set_visible (not Messages.hmessages#visible)),
     None;
 
     1200, `SEP,            I, N, "", ignore, None;

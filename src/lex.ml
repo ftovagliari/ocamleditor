@@ -29,12 +29,23 @@ type result = {
   length: int
 }
 
+let comments text =
+  Lexer.init();
+  let lexbuf = Lexing.from_string text in
+  begin
+    try
+      while true do
+        if Lexer.token lexbuf = EOF then raise End_of_file
+      done
+    with
+    | End_of_file -> ()
+    | Lexer.Error (err, loc) -> ()
+  end;
+  Lexer.comments ()
+
 (** Funzione generale di analisi lessicale.*)
-let analyse ?(utf8=true) ?pend ?(error=ignore) text f =
+let analyse ?pend ?(error=ignore) text f =
   let pend = ref pend in
-  let text = if utf8 then Glib.Convert.convert_with_fallback ~fallback:"?"
-        ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset text
-    else text in
   let lexbuf = Lexing.from_string text in
   try
     while true do
@@ -55,9 +66,6 @@ let analyse ?(utf8=true) ?pend ?(error=ignore) text f =
 
 (** scan *)
 let scan ?(utf8=true) ?(ignore_lexer_error=true) text f =
-  let text = if utf8 then Glib.Convert.convert_with_fallback ~fallback:"?"
-        ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset text
-    else text in
   let lexbuf = Lexing.from_string text in
   try
     while true do
@@ -105,9 +113,9 @@ let strings text =
   (*List.rev*) !strings
 
 (** in_string *)
-let in_string ?(utf8=true) text =
+let in_string text =
   let strings = ref [] in
-  analyse ~utf8 text begin fun ~token ~lexeme:_ ~start ~stop ~lexbuf:_ ->
+  analyse text begin fun ~token ~lexeme:_ ~start ~stop ~lexbuf:_ ->
     match [@warning "-4"] token with
     | STRING _ ->
         strings := (start, stop) :: !strings;

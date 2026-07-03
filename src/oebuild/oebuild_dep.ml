@@ -236,7 +236,7 @@ let find_dep ?pp ?(ignore_stderr=false) ?(echo=true) target =
       end
     with Not_found ->
       (* This exception can be caused by syntax errors in the source files. *)
-      (kprintf failwith "Dep: %s" target)
+      (ksprintf failwith "Dep: %s" target)
   in
   find_chain target;
   List.rev ((*List.map replace_extension_to_ml*) !result)

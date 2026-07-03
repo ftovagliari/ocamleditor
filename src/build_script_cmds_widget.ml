@@ -78,18 +78,22 @@ class widget kind ~label ~project ?packing () =
         (String.concat " " (List.map (fun (active, arg) -> if active then arg else "") task.et_args))
 
     method set project =
-      let commands = project.Prj.build_script.bs_commands in
-      List_opt.may_find (fun cmd -> cmd.bsc_name = kind) commands begin fun command ->
-        model#foreach begin fun _ row ->
-          match model#get ~row ~column:col_task with
-          | Some (target_id, task_name) ->
-              if target_id = command.bsc_target.id && task_name = command.bsc_task.et_name then begin
-                combo#set_active_iter (Some row);
-                true
-              end else false
-          | _ -> false
-        end;
-      end ();
+      project.Prj.build_script.bs_commands
+      |> List.find_map begin fun command ->
+        if command.bsc_name = kind then
+          Some begin
+            model#foreach begin fun _ row ->
+              match model#get ~row ~column:col_task with
+              | Some (target_id, task_name) ->
+                  if target_id = command.bsc_target.id && task_name = command.bsc_task.et_name then begin
+                    combo#set_active_iter (Some row);
+                    true
+                  end else false
+              | _ -> false
+            end
+          end
+        else None
+      end |> ignore;
       match combo#active_iter with None -> combo#set_active 0 | _ -> ()
 
     method get : unit -> Build_script.command option = fun () ->

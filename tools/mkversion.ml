@@ -22,6 +22,7 @@
 
 
 #use "scripting.ml"
+#directory "+unix"
 #load "unix.cma"
 #directory "../src/common"
 #use "utils.ml"

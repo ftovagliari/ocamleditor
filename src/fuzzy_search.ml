@@ -225,7 +225,7 @@ struct
     paths |> Array.to_list |> List.filter ((<>) [])
   ;;
 
-  let compare ?(simplify=true) algorithm pat str =
+  let compare ?(simplify=true) ?(min_score=0.62) algorithm pat str =
     let pat = Elt.deserialize pat in
     let str = Elt.deserialize str in
     let len_pat, len_str = Array.length pat, Array.length str in
@@ -258,7 +258,7 @@ struct
         score_perc (int_of_float amount) compactness s_relevance p_relevance len_pat len_str (List.length paths);
     let score =
       if !Sys.interactive then score_perc
-      else if score_perc >= 0.62 then score_perc
+      else if score_perc >= min_score then score_perc
       else 0.
     in
     score, (paths : path list)

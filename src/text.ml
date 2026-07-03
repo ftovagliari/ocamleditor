@@ -185,13 +185,8 @@ class buffer =
         self#select_range (stop#backward_chars (Glib.Utf8.length text)) stop;
         undo#end_block ();
 
-
       method save_buffer ?(filename=tmp_filename) () =
         let text = buffer#get_text () in
-        let text = match project with Some project -> Project.convert_from_utf8 project text | _ -> text in
-        (*Glib.Convert.convert_with_fallback ~fallback:"?"
-          ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset text
-          in*)
         Utils.mkdir_p (Filename.dirname filename);
         let chan = open_out_bin filename in
         begin
@@ -227,13 +222,14 @@ and view ?project ?buffer () =
     val mutable approx_char_width = 0
     val visible_height = new GUtil.variable 0
     val mutable signal_expose : GtkSignal.id option = None
-    val mutable gutter_icons = []
     val hyperlink = Gmisclib.Text.hyperlink ~view ()
     val mutable signal_id_highlight_current_line = None
     val mutable mark_occurrences_manager = None
     val mutable current_line_border_x1 = 0
-    method set_current_line_border_x1 x = current_line_border_x1 <- x
     val mutable current_line_border_x2 = 0
+
+    method set_current_line_border_x1 x = current_line_border_x1 <- x
+
     method set_current_line_border_x2 x = current_line_border_x2 <- x
 
     method project = project
@@ -279,8 +275,19 @@ and view ?project ?buffer () =
 
     method scroll_lazy iter =
       Gmisclib.Idle.add ~prio:300 begin fun () ->
+        (* TODO Crashed here
+           Gtk-CRITICAL **: 10:34:26.095: IA__gtk_text_buffer_remove_tag: assertion 'gtk_text_iter_get_buffer (start) == buffer' failed
+           #5  0x00007f78ae7f4721 in gtk_text_view_scroll_to_iter () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+           #6  0x00005650c6c5fe1e in ml_gtk_text_view_scroll_to_iter ()
+           #7  0x00005650c6ca6d1b in <signal handler called> ()
+           #8  0x00005650c6b6866c in camlGText.fun_inner_5511 ()
+           #9  0x00005650c665e811 in camlText.fun_4581 () at text.ml:278 (self#scroll_to_iter)
+        *)
         self#scroll_to_iter ~use_align:(self#scroll_to_iter iter) ~xalign:1.0 ~yalign:0.38 iter |> ignore;
-        Gmisclib.Idle.add ~prio:300 (fun () -> GtkBase.Widget.queue_draw self#as_widget)
+        Gmisclib.Idle.add ~prio:200 begin fun () ->
+          self#draw_gutter();
+          GtkBase.Widget.queue_draw self#as_widget;
+        end
       end;
 
     method scroll_iter_onscreen iter =
@@ -352,10 +359,8 @@ and view ?project ?buffer () =
       let pos = self#buffer#get_iter `INSERT in
       let start = pos#backward_chars 5 in
       let stop = pos#forward_chars 5 in
-      let text55 = Glib.Convert.convert_with_fallback ~fallback:"?"
-          ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset (self#buffer#get_text ~start ~stop ()) in
-      let text = Glib.Convert.convert_with_fallback ~fallback:"?"
-          ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset (self#buffer#get_text ()) in
+      let text55 = self#buffer#get_text ~start ~stop () in
+      let text = self#buffer#get_text () in
       if Delimiters.is_delimiter ~utf8:false text55 (pos#offset - start#offset) then begin
         ignore (self#matching_delim_apply_tag text pos#offset)
       end else begin
@@ -453,14 +458,6 @@ and view ?project ?buffer () =
       let x = x0 + x in
       let y = y0 + y in
       x, y
-
-    method get_location_top_right () =
-      let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
-      let win = (match self#get_window `WIDGET
-                 with None -> failwith "Text.text#get_location_top_right `WIDGET = None" | Some w -> w) in
-      let px, py = Gdk.Window.get_pointer_location win in
-      (pX - px + self#misc#allocation.Gtk.width),
-      (pY - py)
 
     method get_scroll_top () =
       let vrect = self#visible_rect in

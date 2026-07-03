@@ -79,37 +79,10 @@ let window ~editor ~page () =
           let buffer : GText.buffer = page#buffer#as_text_buffer#as_gtext_buffer in
           if Sys.file_exists filename then begin
             let overwrite () =
-              if Sys.os_type = "Win32" then begin
-                (* Because of Win32 case insensitiveness of filenames
-                   we delete both old file and new file, we close the editor
-                   page of the existing file and we create a new file with the
-                   given new filename. *)
-                let text = buffer#get_text () in
-                (* Close the editor page to avoid problems with the filename case insensitiveness *)
-                let lc_filename = String.lowercase_ascii filename in
-                List_opt.may_find (fun p -> String.lowercase_ascii p#get_filename = lc_filename)
-                  editor#pages editor#close ();
-                (* Remove target file *)
-                Sys.remove filename;
-                (* Remove source file, which can be the target itself *)
-                if Sys.file_exists page#get_filename then (Sys.remove page#get_filename);
-                (* Create a new file with the given filename *)
-                close_out_noerr (open_out_gen [Open_creat; Open_trunc] 0o664 filename);
-                File_util.write filename text;
-                sync_page ~editor ~page ~filename ();
-                (* Reopen the page in the editor *)
-                match editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None filename with
-                | Some page ->
-                    editor#load_page ?scroll:None page;
-                    editor#goto_view page#view;
-                    window#destroy()
-                | _ ->
-                    Dialog.info ~title:"Error" ~message_type:`ERROR
-                      ~message:(sprintf "Cannot open file %s" filename) window;
-              end else begin
-                List_opt.may_find (fun p -> p#get_filename = filename) editor#pages editor#close ();
-                rename ~editor ~page ~filename ();
-              end
+              editor#pages
+              |> List.find_map (fun p -> if p#get_filename = filename then Some (editor#close p) else None)
+              |> ignore;
+              rename ~editor ~page ~filename ();
             in
             ask_overwrite ~run ~overwrite ~filename window
           end else (rename ~editor ~page ~filename (); window#destroy());

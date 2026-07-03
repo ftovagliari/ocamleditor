@@ -82,13 +82,6 @@ class editor () =
       List.iter (fun (_, p) -> p#destroy()) pages_cache;
       pages_cache <- []
 
-    method pack_outline widget =
-      if show_outline then begin
-        (try hpaned#remove hpaned#child1 with Gpointer.Null -> ());
-        hpaned#pack1 ~resize:false ~shrink:true widget;
-        outline_visibility_changed#call true;
-      end
-
     method set_history_switch_page_locked x =
       history_switch_page_locked <- x;
       Gaux.may (self#get_page `ACTIVE) ~f:begin fun page ->
@@ -96,20 +89,13 @@ class editor () =
       end
 
     method show_outline = show_outline
+
     method set_show_outline show =
+      if show then
+        pages |> List.iter (fun page -> page#show_outline())
+      else
+        pages |> List.iter (fun page -> page#hide_outline());
       show_outline <- show;
-      try
-        self#with_current_page begin fun page ->
-          match page#outline with
-          | Some ol when show -> self#pack_outline ol#coerce;
-          | Some ol ->
-              ol#destroy();
-              page#set_outline None;
-          | _ ->
-              (try hpaned#remove hpaned#child1 with Gpointer.Null -> ());
-              if show then (page#compile_buffer ?join:None());
-        end;
-      with Gpointer.Null -> ()
 
     method show_whitespace_chars = show_whitespace_chars
     method set_show_whitespace_chars x =
@@ -165,15 +151,15 @@ class editor () =
       [`ACTIVE | `FILENAME of string | `NUM of int | `VIEW of Text.view] -> Editor_page.page option =
       function
       | `ACTIVE ->
-          List_opt.find (fun p ->
+          List.find_opt (fun p ->
               p#get_oid = (notebook#get_nth_page notebook#current_page)#get_oid) pages
       | `FILENAME filename ->
-          let uncapitalize = if Sys.os_type = "Win32" then String.uncapitalize_ascii else (fun x -> x) in
+          let uncapitalize = Fun.id in
           let filename = uncapitalize filename in
-          List_opt.find (fun p ->
+          List.find_opt (fun p ->
               match p#file with None -> false | Some f -> uncapitalize f#filename = filename) pages
-      | `NUM n -> List_opt.find (fun p -> p#get_oid = (notebook#get_nth_page n)#get_oid) pages
-      | `VIEW v -> List_opt.find (fun p -> p#view#get_oid = v#get_oid) pages
+      | `NUM n -> List.find_opt (fun p -> p#get_oid = (notebook#get_nth_page n)#get_oid) pages
+      | `VIEW v -> List.find_opt (fun p -> p#view#get_oid = v#get_oid) pages
 
     method dialog_file_open () = Editor_dialog.file_open ~editor:self ()
 
@@ -301,9 +287,9 @@ class editor () =
     method scroll_to_definition ~page ~iter =
       match self#get_page `ACTIVE with
       | Some page ->
-          Definition.find
+          Definition.locate
             ~filename:page#get_filename
-            ~buffer:(page#buffer#get_text ())
+            ~text:(page#buffer#get_text ())
             ~iter
           |> begin function
           | Merlin.Ok (Some range) ->
@@ -501,10 +487,9 @@ class editor () =
       let item = GMenu.menu_item ~label:"Open Containing Folder" ~packing:menu#add () in
       ignore (item#connect#activate ~callback:begin fun () ->
           let cmd =
-            match Sys.os_type with
-            | "Win32" | "Win64" -> Some (sprintf "explorer /select,\"%s\"" filename)
-            | _ when Oe_config.xdg_open_version <> None -> Some (sprintf "xdg-open %s" (Filename.quote (Filename.dirname filename)))
-            | _ -> None
+            if Oe_config.xdg_open_version <> None
+            then Some (sprintf "xdg-open %s" (Filename.quote (Filename.dirname filename)))
+            else None
           in
           Option.iter (fun cmd -> ignore (Thread.create (fun () -> ignore (Sys.command cmd)) ())) cmd
         end);
@@ -513,8 +498,7 @@ class editor () =
       ignore (item#connect#activate ~callback:(fun () -> self#switch_mli_ml page));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       self#with_current_page begin fun page ->
-        let label = Menu_view.get_switch_viewer_label (Some page) in
-        let switch_viewer = GMenu.menu_item ~label ~packing:menu#add () in
+        let switch_viewer = GMenu.menu_item ~label:"Dependency Graph" ~packing:menu#add () in
         ignore (switch_viewer#connect#activate ~callback:page#button_dep_graph#clicked);
         switch_viewer#misc#set_sensitive (Menu_view.get_switch_view_sensitive self#project page)
       end;
@@ -575,6 +559,8 @@ class editor () =
                     let file = Editor_file.create ?remote filename in
                     let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
                     ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
+                    (* Outline *)
+                    page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
                     (* Tab Label with close button *)
                     let button_close = GButton.button ~relief:`NONE () in
                     let image = Icons.create (??? Icons.button_close) in
@@ -665,23 +651,13 @@ class editor () =
     method dialog_save_as page =
       match page#file with
       | Some file when file#remote <> None ->
-          Option.iter
-            begin fun (plugin : (module Plugins.REMOTE)) ->
-              let module Remote = (val plugin) in
-              Remote.dialog_save_as ~editor:self ~page ()
-            end
-            !Plugins.remote
+          Remote.dialog_save_as ~editor:self ~page ()
       | _ -> Dialog_save_as.window ~editor:self ~page ()
 
     method dialog_rename page =
       match page#file with
       | Some file when file#remote <> None ->
-          Option.iter
-            begin fun (plugin : (module Plugins.REMOTE)) ->
-              let module Remote = (val plugin) in
-              Remote.dialog_rename ~editor:self ~page ()
-            end
-            !Plugins.remote
+          Remote.dialog_rename ~editor:self ~page ()
       | _ -> Dialog_rename.window ~editor:self ~page ()
 
     method save (page : Editor_page.page) =
@@ -863,7 +839,6 @@ class editor () =
       self#misc#connect#map ~callback:begin fun _ ->
         Gaux.may (GWindow.toplevel self#coerce) ~f:begin fun (w : GWindow.window) ->
           w#event#connect#focus_in ~callback:begin fun _ ->
-            Plugin.load "plugin_diff.cma" |> ignore;
             create_timeout_autocomp();
             create_timeout_autosave();
             create_timeout_delim();
@@ -881,14 +856,7 @@ class editor () =
         end;
       end |> ignore;
 
-    method show_doc_at_cursor () =
-      self#with_current_page begin fun page ->
-        let search_string =
-          let _ = page#buffer#select_ocaml_word ?pat:(Some Ocaml_word_bound.longid_sharp) () in
-          Some (page#buffer#selection_text());
-        in
-        Mbrowser_tool.append_to_messages ~page ?search_string ~project:page#project
-      end
+    method show_doc_at_cursor () = ()
 
     initializer
       File_history.read file_history;
@@ -918,15 +886,12 @@ class editor () =
         end);
       ignore (self#connect#switch_page ~callback:begin fun _ ->
           self#with_current_page begin fun page ->
-            match page#outline with
-            | Some outline when self#show_outline (*&& outline#get_oid <> hpaned#child1#get_oid*) ->
-                self#pack_outline outline#coerce
-            | _ -> self#pack_outline (Cmt_view.empty())
+            ()
           end
         end);
       (* Record last active page *)
       let rec get_history project =
-        match List_opt.assoc project.Prj.name history_switch_page with
+        match List.assoc_opt project.Prj.name history_switch_page with
         | Some x -> x
         | _ ->
             history_switch_page <- (project.Prj.name, []) :: history_switch_page;
@@ -954,7 +919,7 @@ class editor () =
                     begin
                       let finally () = replace_history project tl in
                       begin
-                        match List_opt.find (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
+                        match List.find_opt (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
                         | None -> finally(); find_page()
                         | _ ->
                             notebook#goto_page (notebook#page_num last);

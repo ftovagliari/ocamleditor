@@ -54,20 +54,20 @@ let state_changed_callback
     ~flags
     editor browser =
   browser#with_default_target begin fun target ->
-    kprintf (set_label project_clean_default_target) "Clean \xC2\xAB%s\xC2\xBB" target.Target.name;
-    kprintf (set_label project_compile_only) "Compile \xC2\xAB%s\xC2\xBB" target.Target.name;
-    kprintf (set_label project_build) "Build \xC2\xAB%s\xC2\xBB" target.Target.name;
+    ksprintf (set_label project_clean_default_target) "Clean \xC2\xAB%s\xC2\xBB" target.Target.name;
+    ksprintf (set_label project_compile_only) "Compile \xC2\xAB%s\xC2\xBB" target.Target.name;
+    ksprintf (set_label project_build) "Build \xC2\xAB%s\xC2\xBB" target.Target.name;
   end;
   browser#with_default_runtime_config ~open_dialog:false begin fun rc ->
-    kprintf (set_label project_run) "Run \xC2\xAB%s\xC2\xBB" rc.Rconf.name;
+    ksprintf (set_label project_run) "Run \xC2\xAB%s\xC2\xBB" rc.Rconf.name;
   end;
   editor#with_current_page begin fun page ->
     let name = Filename.basename page#get_filename in
     if name ^^^ ".ml" || name ^^^ ".mli" then begin
-      kprintf (set_label project_comp_file) "Compile \xC2\xAB%s\xC2\xBB" name;
+      ksprintf (set_label project_comp_file) "Compile \xC2\xAB%s\xC2\xBB" name;
       project_comp_file#misc#set_sensitive true
     end else begin
-      kprintf (set_label project_comp_file) "Compile";
+      ksprintf (set_label project_comp_file) "Compile";
       project_comp_file#misc#set_sensitive false
     end;
   end;

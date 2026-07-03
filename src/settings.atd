@@ -28,12 +28,14 @@ type settings = {
   ~max_view_1_tabbar               <ocaml default="false" mutable> : bool;
   ~max_view_1_messages             <ocaml default="false" mutable> : bool;
   ~max_view_1_fullscreen           <ocaml default="false" mutable> : bool;
+  ~max_view_1_decorated            <ocaml default="false" mutable> : bool;
 
   ~max_view_2_menubar              <ocaml default="true" mutable> : bool;
   ~max_view_2_toolbar              <ocaml default="true" mutable> : bool;
   ~max_view_2_tabbar               <ocaml default="true" mutable> : bool;
   ~max_view_2_messages             <ocaml default="true" mutable> : bool;
   ~max_view_2_fullscreen           <ocaml default="true" mutable> : bool;
+  ~max_view_2_decorated            <ocaml default="false" mutable> : bool;
 
   ~max_view_prefer_fullscreen      <ocaml default="true" mutable> : bool;
   ~menubar_buttons                 <ocaml default="[]" mutable> : int list;
@@ -46,8 +48,8 @@ type settings = {
   ~outline_color_nor_fg            <ocaml default="{light=\"#000000\"; dark=\"#E1E1E1\"}" mutable> : string color;
   ~outline_color_sel_bg            <ocaml default="{light=\"#1F80ED\"; dark=\"#4B81AD\"}" mutable> : string color;
   ~outline_color_sel_fg            <ocaml default="{light=\"#FFFFFF\"; dark=\"#FFFFFF\"}" mutable> : string color;
-  ~outline_color_act_bg            <ocaml default="{light=\"#B1C3D8\"; dark=\"#B1C3D8\"}" mutable> : string color;
-  ~outline_color_act_fg            <ocaml default="{light=\"#000000\"; dark=\"#1E1E1E\"}" mutable> : string color;
+  ~outline_color_act_bg            <ocaml default="{light=\"#B1C3D8\"; dark=\"#39424D\"}" mutable> : string color;
+  ~outline_color_act_fg            <ocaml default="{light=\"#000000\"; dark=\"#A4A4A4\"}" mutable> : string color;
   ~outline_color_alt_rows          <ocaml default="None" mutable> : float option;
 
   ~output_font                     <ocaml default="\"monospace 8\"" mutable> : string;
@@ -75,7 +77,7 @@ type settings = {
 
   ~editor_bak                          <ocaml default="true" mutable> : bool;
   ~editor_base_font                    <ocaml default="\"monospace 9\"" mutable> : string;
-  ~editor_bg_color_popup               <ocaml default="{light=\"#e5e5e5\"; dark=\"#252525\"}" mutable> : string color;
+  ~editor_bg_color_popup               <ocaml default="{light=\"#e5e5e5\"; dark=\"#353535\"}" mutable> : string color;
   ~editor_bg_color_theme               <ocaml default="false" mutable> : bool;
   ~editor_bg_color_user                <ocaml default="{ light = \"#FFFFFF\"; dark = \"#101010\"}" mutable> : string color;
   ~editor_code_folding_enabled         <ocaml default="false" mutable> : bool;

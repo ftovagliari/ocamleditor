@@ -27,6 +27,16 @@ let (//) = Filename.concat
 let (!!) = Filename.dirname
 let (!$) = Filename.quote
 let (^^^) = Filename.check_suffix
+
+(** Function application operator with different precedence/associativity than [@@].
+
+    [f |=> x] is equivalent to [f x].
+
+    Unlike [@@] (very low precedence, right-associative), [|=>] has default
+    precedence, useful for applying handlers after [@@]:
+
+    [f @@ g |=> function Ok x -> ... | Error e -> ...]
+*)
 let (|=>) f x = f x
 
 (** try ... finally ... *)
@@ -372,7 +382,6 @@ let mkdir_p =
     loop d
 
 (** filename_split *)
-(*let filename_split = Str.split (match Sys.os_type with "Win32" -> Str.regexp "[\\/]" | _ -> Str.regexp "/");;*)
 let filename_split filename =
   let rec loop filename =
     let dirname = Filename.dirname filename in
@@ -418,9 +427,9 @@ let modname_of_path path =
 
 (** open_url *)
 let open_url url =
-  let cmd = if Sys.os_type = "Win32" then "start " ^ url else "xdg-open " ^ url in
+  let cmd = "xdg-open " ^ url in
   let exit_code = Sys.command cmd in
-  if exit_code > 0 then kprintf failwith "Cannot execute %s" cmd
+  if exit_code > 0 then ksprintf failwith "Cannot execute %s" cmd
 
 
 

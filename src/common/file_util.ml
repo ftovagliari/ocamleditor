@@ -41,10 +41,7 @@ struct
   let (~!) = Utils.Memo.create Str.regexp;;
 
   (* Convert Windows-style directory separator '\' to caml-style '/' *)
-  let caml_dir path =
-    if Sys.os_type = "Win32" then
-      global_replace ~!"\\\\" "/" path
-    else path
+  let caml_dir path = path
 
   let rec fixpoint ~f v =
     let v' = f v in

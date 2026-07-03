@@ -22,10 +22,8 @@
 
 open GUtil
 open Utils
-open Location
-open Lexing
 module ColorOps = Color
-open Preferences
+open Merlin_j
 
 type t = {
   filename          : string;
@@ -35,7 +33,7 @@ type t = {
 }
 
 and locations =
-  | Offset of (GdkPixbuf.pixbuf option * string Location.loc) list
+  | Offset of (GdkPixbuf.pixbuf option * Merlin_j.range) list
   | Mark of (GdkPixbuf.pixbuf option * GText.buffer * Gtk.text_mark * Gtk.text_mark) list
 
 let count_locations {locations; _} =
@@ -44,7 +42,7 @@ let count_locations {locations; _} =
   | Mark locs -> List.length locs
 
 let ranges_of_locations = function
-  | Offset locs -> List.map (fun (_, { txt = _; loc; }  ) -> Lexical_markup.Range.range_of_loc loc) locs
+  | Offset locs -> List.map (fun (_, range) -> range.start.col, range.stop.col) locs
   | Mark marks -> List.map begin fun (_, buffer, m1, m2) ->
       let start = (buffer#get_iter (`MARK m1))#line_index in
       let stop = (buffer#get_iter (`MARK m2))#line_index in
@@ -289,7 +287,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
         let lines =
           match locations with
           | Offset locs ->
-              let line_nums = List.map (fun (_, { txt; loc }) -> loc.loc_start.pos_lnum) locs in
+              let line_nums = List.map (fun (_, range) -> range.start.line) locs in
               Utils.get_lines_from_file ~filename:real_filename line_nums
           | Mark locs ->
               List.sort (fun (n1, _) (n2, _) -> compare n1 n2)
@@ -306,7 +304,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
         List.map begin fun (lnum, line) ->
           let line_locs =
             match locations with
-            | Offset locs -> Offset (List.filter (fun (_, { txt; loc }) -> lnum = loc.loc_start.pos_lnum) locs)
+            | Offset locs -> Offset (List.filter (fun (_, range) -> lnum = range.start.line) locs)
             | Mark locs -> Mark (List.filter begin fun (_, buffer, mark_start, _) ->
                 let iter = buffer#get_iter (`MARK mark_start) in
                 lnum = iter#line + 1
@@ -315,11 +313,10 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
           (lnum, line, line_locs)
         end lines
       in
-      let open Lexical_markup in
-      let parse = parse Preferences.preferences#get in
+      let parse = Lexical_markup.parse Preferences.preferences#get in
       List.iter begin fun (lnum, line, line_locs) ->
+        (*Printf.printf "%d: %s\n%!" lnum line;*)
         let ranges = ranges_of_locations line_locs in
-        let line = (*String.trim*) line in
         let markup = parse ~highlights:ranges line in
         let markup = Convert.to_utf8 markup in
         let pixbuf =
@@ -385,10 +382,12 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
       | (Mark _) as x -> x
       | Offset locs ->
           Mark begin
-            List.map begin fun (pixbuf, { txt = _; loc }) ->
-              if loc <> Location.none && loc.loc_start.pos_cnum >= 0 && loc.loc_end.pos_cnum >= 0 then begin
-                let start = buffer#get_iter (`OFFSET loc.loc_start.pos_cnum) in
-                let stop = buffer#get_iter (`OFFSET loc.loc_end.pos_cnum) in
+            List.map begin fun (pixbuf, range) ->
+              if range.start.col >= 0 && range.stop.col >= 0 then begin
+                let start = buffer#get_iter (`LINECHAR (range.start.line - 1, range.start.col)) in
+                let start = buffer#get_iter (`OFFSET start#offset) in
+                let stop = buffer#get_iter (`LINECHAR (range.stop.line - 1, range.stop.col)) in
+                let stop = buffer#get_iter (`OFFSET stop#offset) in
                 let mark_start = buffer#create_mark start in
                 let mark_stop = buffer#create_mark stop in
                 pixbuf, buffer, mark_start, mark_stop

@@ -23,7 +23,7 @@
 let glib_is_utf8, glib_charset = Glib.Convert.get_charset()
 
 let locale_is_utf8, locale_charset =
-  if true || Sys.os_type = "Win32" then glib_is_utf8, glib_charset else begin
+  if true then glib_is_utf8, glib_charset else begin
     let charset =
       match Shell.get_command_output "locale -c LC_CTYPE | head -6 | tail -1" with
       | line :: _ -> line
@@ -34,7 +34,10 @@ let locale_is_utf8, locale_charset =
 
 let is_utf8, default_charset = locale_is_utf8, locale_charset
 
-let to_utf8 = Glib.Convert.convert ~from_codeset:default_charset ~to_codeset:"UTF-8"
+let to_utf8 str =
+  if Glib.Utf8.validate str then str else
+    Glib.Convert.convert ~from_codeset:default_charset ~to_codeset:"UTF-8" str
+
 let from_utf8 = Glib.Convert.convert ~from_codeset:"UTF-8" ~to_codeset:default_charset
 
 let offset_from_pos text ~pos =

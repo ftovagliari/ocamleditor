@@ -1,14 +1,3 @@
-open Utils
-
-let idleize ?prio f c () =
-  Gmisclib.Idle.add ?prio (f (); c);;
-
-let cascade_rev ff =
-  List.fold_left (fun acc f -> f acc) ignore ff;;
-
-let idleize_cascade ?prio x =
-  x |> List.map (idleize ?prio) |> cascade_rev;;
-
 let colorize_buffer (view : Ocaml_text.view) =
   let buffer = view#obuffer in
   if buffer#lexical_enabled then begin
@@ -37,6 +26,6 @@ let colorize_buffer (view : Ocaml_text.view) =
     in
     make_steps buffer#start_iter vstart;
     make_steps vstop buffer#end_iter;
-    idleize_cascade ~prio:300 !steps ()
+    Gmisclib.Idle.idleize_cascade ~prio:300 !steps ()
   end;
 

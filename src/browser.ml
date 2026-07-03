@@ -31,12 +31,6 @@ class browser window =
   (* signals *)
   let startup                            = new startup () in
   let switch_project                     = new switch_project () in
-  let menubar_visibility_changed         = new menubar_visibility_changed () in
-  let toolbar_visibility_changed         = new toolbar_visibility_changed () in
-  let tabbar_visibility_changed          = new tabbar_visibility_changed () in
-  let outline_visibility_changed         = new outline_visibility_changed () in
-  let vmessages_visibility_changed       = new vmessages_visibility_changed () in
-  let hvmessages_visibility_changed      = new hvmessages_visibility_changed () in
   let project_history_changed            = new project_history_changed () in
   (*  *)
   let get_menu_item_nav_history_backward = ref (fun () -> failwith "get_menu_item_nav_history_backward") in
@@ -92,7 +86,7 @@ class browser window =
         statusbar#spinner#misc#set_tooltip_text (String.concat "\n" (List.rev msgs));
   in
   let _ =
-    Activity.table#connect#changed ~callback:activate_spinner;
+    Activity.table#connect#changed ~callback:activate_spinner |> ignore;
     activate_spinner Activity.table#get;
   in
   (*  *)
@@ -120,10 +114,10 @@ class browser window =
     val mutable finalize = fun _ -> ()
     val mutable projects = []
     val mutable current_project = new GUtil.variable None
-    val mutable menubar_visible = true;
-    val mutable toolbar_visible = true;
-    val mutable tabbar_visible = true;
-    val mutable outline_visible = true;
+    val menubar_visible = new GUtil.variable true;
+    val toolbar_visible = new GUtil.variable true;
+    val tabbar_visible = new GUtil.variable true;
+    val outline_visible = new GUtil.variable true;
     val mutable maximized_view_action = `NONE
     val mutable geometry = "";
     val mutable project_history =
@@ -136,6 +130,7 @@ class browser window =
     val mutable max_height_prev_h = -1
     val mutable max_height_prev_y = -1
     val mutable is_fullscreen = false
+    val mutable is_decorated = true
     val mutable maximized_view_actions = [
       `NONE, (fun () -> {
             mva_menubar    = true; (* dummies *)
@@ -143,20 +138,23 @@ class browser window =
             mva_tabbar     = true;
             mva_messages   = false;
             mva_fullscreen = false;
+            mva_decorated  = false;
           });
       `FIRST, (fun () -> {
             mva_menubar    = true(*Preferences.preferences#get.Preferences.pref_max_view_1_menubar*);
             mva_toolbar    = Preferences.preferences#get.max_view_1_toolbar;
             mva_tabbar     = Preferences.preferences#get.max_view_1_tabbar;
             mva_messages   = Preferences.preferences#get.max_view_1_messages;
-            mva_fullscreen = Preferences.preferences#get.max_view_1_fullscreen;
+            mva_fullscreen = false;
+            mva_decorated  = false;
           });
       `SECOND, (fun () -> {
             mva_menubar    = true(*Preferences.preferences#get.Preferences.pref_max_view_2_menubar*);
             mva_toolbar    = Preferences.preferences#get.max_view_2_toolbar;
             mva_tabbar     = Preferences.preferences#get.max_view_2_tabbar;
             mva_messages   = Preferences.preferences#get.max_view_2_messages;
-            mva_fullscreen = Preferences.preferences#get.max_view_2_fullscreen;
+            mva_fullscreen = true;
+            mva_decorated  = true; (* not used if fullscreen *)
           })
     ];
 
@@ -176,7 +174,6 @@ class browser window =
     method refresh () = self#with_current_project Project.refresh
     method clear_cache () = self#with_current_project begin fun project ->
         Project.clear_cache project |> ignore;
-        Symbols.Cache.reset ~project
       end
 
     method project_clean () =
@@ -197,9 +194,8 @@ class browser window =
       self#with_current_project begin fun project ->
         Project.save ~editor project;
         self#project_write_history();
-        Symbols.Cache.save ~project;
         Names.Cache.save ~project;
-        Project.unload_path project;
+        Project.unload project;
         List.iter (fun p -> Autosave.delete ~filename:p#get_filename ()) editor#pages;
       end
 
@@ -210,14 +206,11 @@ class browser window =
       Project.load_path proj;
       editor#set_history_switch_page_locked true;
       (*crono ~label:"close_all" *)editor#close_all ();
-      editor#pack_outline (Cmt_view.empty());
       editor#set_project proj;
       Sys.chdir (proj.root // Prj.default_dir_src);
       Gmisclib.Idle.add ~prio:300 self#set_title;
       (File_history.add project_history) filename;
-      Symbols.Cache.load ~project:proj;
       Names.Cache.load ~project:proj;
-      Annotation.preload ~project:proj;
       Autosave.recover ();
       Gmisclib.Idle.add ~prio:300(*crono ~label:"dialog_project_properties" (fun () -> *)(self#dialog_project_properties ~show:false);
       begin
@@ -372,41 +365,18 @@ class browser window =
       end
 
     method menubar_visible = menubar_visible
-    method set_menubar_visible x =
-      if not x then menubarbox#misc#hide() else (menubarbox#misc#show());
-      menubar_visible <- x;
-      menubar_visibility_changed#call x;
 
     method toolbar_visible = toolbar_visible
-    method set_toolbar_visible x =
-      if not x then toolbar#misc#hide() else (toolbar#misc#show_all());
-      toolbar_visible <- x;
-      toolbar_visibility_changed#call toolbar_visible;
+
+    method tabbar_visible = tabbar_visible
 
     method outline_visible = outline_visible
-    method set_outline_visible x =
-      editor#set_show_outline x;
-      outline_visible <- x;
-      outline_visibility_changed#call x;
-
-    method set_tabbar_visible x =
-      editor#set_show_tabs x;
-      tabbar_visible <- x;
-      tabbar_visibility_changed#call x;
-
-    method set_vmessages_visible x =
-      Messages.vmessages#set_visible x;
-      vmessages_visibility_changed#call x;
-
-    method set_hmessages_visible x =
-      Messages.hmessages#set_visible x;
-      hvmessages_visibility_changed#call x;
 
     method private set_geometry () =
       let alloc = window#misc#allocation in
       geometry <- sprintf "%d\n%d\n%d\n%d\n%b\n%b\n%b\n%b\n"
           (alloc.Gtk.width) (alloc.Gtk.height) (alloc.Gtk.x) (alloc.Gtk.y)
-          menubar_visible editor#show_tabs toolbar_visible outline_visible;
+          menubar_visible#get editor#show_tabs toolbar_visible#get outline_visible#get;
 
     method update_git_status () =
       Timeout.set tout_low_prio 0 begin fun () ->
@@ -416,7 +386,7 @@ class browser window =
           | _ -> ()
         in
         with_project begin fun proj ->
-          kprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
+          ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
           label_project_name#misc#set_tooltip_text (Project.filename proj);
         end;
         Git.toplevel begin function
@@ -461,11 +431,12 @@ class browser window =
     val mutable busy = false
 
     method set_maximized_view (view : [ `FIRST | `NONE | `SECOND ]) =
-      let mb = menubar_visible in
-      let tb = toolbar_visible in
-      let tab = tabbar_visible in
+      let mb = menubar_visible#get in
+      let tb = toolbar_visible#get in
+      let tab = tabbar_visible#get in
       let ms = Messages.vmessages#visible in
       let fs = is_fullscreen in
+      let dc = is_decorated in
       let save_default () =
         self#set_geometry();
         maximized_view_actions <- (`NONE, (fun () -> {
@@ -474,15 +445,18 @@ class browser window =
               mva_tabbar     = tab;
               mva_messages   = ms;
               mva_fullscreen = fs;
+              mva_decorated  = dc;
             })) :: (List.remove_assoc `NONE maximized_view_actions);
       in
       let reset_default () =
         let original = (List.assoc `NONE maximized_view_actions) () in
-        self#set_menubar_visible original.mva_menubar;
-        self#set_toolbar_visible original.mva_toolbar;
-        self#set_tabbar_visible original.mva_tabbar;
-        self#set_vmessages_visible original.mva_messages;
+        self#menubar_visible#set original.mva_menubar;
+        self#toolbar_visible#set original.mva_toolbar;
+        self#tabbar_visible#set original.mva_tabbar;
+        Messages.vmessages#set_visible original.mva_messages;
         self#set_fullscreen original.mva_fullscreen;
+        window#set_decorated original.mva_decorated;
+        toolbox#misc#hide();
         maximized_view_action <- `NONE
       in
       begin
@@ -490,29 +464,39 @@ class browser window =
         | `FIRST when maximized_view_action = `NONE ->
             save_default();
             let first = (List.assoc `FIRST maximized_view_actions) () in
-            self#set_menubar_visible first.mva_menubar;
-            self#set_toolbar_visible first.mva_toolbar;
-            self#set_tabbar_visible first.mva_tabbar;
-            if Messages.vmessages#visible then (self#set_vmessages_visible first.mva_messages);
-            self#set_fullscreen first.mva_fullscreen;
+            self#menubar_visible#set first.mva_menubar;
+            self#toolbar_visible#set first.mva_toolbar;
+            self#tabbar_visible#set first.mva_tabbar;
+            if Messages.vmessages#visible then (Messages.vmessages#set_visible first.mva_messages);
+            if first.mva_fullscreen then
+              self#set_fullscreen first.mva_fullscreen
+            else begin
+              window#set_decorated first.mva_decorated;
+              if not first.mva_decorated then toolbox#misc#show()
+            end;
             maximized_view_action <- `FIRST;
         | `SECOND when maximized_view_action = `NONE ->
             save_default();
             let second = (List.assoc `SECOND maximized_view_actions) () in
-            self#set_menubar_visible second.mva_menubar;
-            self#set_toolbar_visible second.mva_toolbar;
-            self#set_tabbar_visible second.mva_tabbar;
-            if Messages.vmessages#visible then (self#set_vmessages_visible second.mva_messages);
-            self#set_fullscreen second.mva_fullscreen;
+            self#menubar_visible#set second.mva_menubar;
+            self#toolbar_visible#set second.mva_toolbar;
+            self#tabbar_visible#set second.mva_tabbar;
+            if Messages.vmessages#visible then (Messages.vmessages#set_visible second.mva_messages);
+            if second.mva_fullscreen then
+              self#set_fullscreen second.mva_fullscreen
+            else
+              window#set_decorated second.mva_decorated;
             maximized_view_action <- `SECOND;
         | `FIRST when maximized_view_action = `SECOND ->
             reset_default();
             self#set_maximized_view view
-        | `SECOND when maximized_view_action = `FIRST ->
+        | `SECOND when maximized_view_action = `FIRST -> reset_default();
+        | `FIRST when maximized_view_action = `FIRST ->
             reset_default();
-            self#set_maximized_view view
-        | `FIRST when maximized_view_action = `FIRST -> reset_default()
-        | `SECOND when maximized_view_action = `SECOND -> reset_default()
+            self#set_maximized_view `SECOND;
+        | `SECOND when maximized_view_action = `SECOND ->
+            reset_default();
+            self#set_maximized_view `FIRST;
         | `NONE when maximized_view_action = `FIRST -> reset_default();
         | `NONE when maximized_view_action = `SECOND -> reset_default();
         | `NONE when maximized_view_action = `NONE -> ()
@@ -520,8 +504,8 @@ class browser window =
       end;
       editor#with_current_page (fun p -> p#view#misc#grab_focus())
 
-    method set_fullscreen x =
-      if x && (not is_fullscreen) then begin
+    method set_fullscreen want_fullscreen =
+      if want_fullscreen && (not is_fullscreen) then begin
         (* pref_max_view_fullscreen = "Prefer fullscreen over maximize window" *)
         let prefer_maximized_window = not Preferences.preferences#get.max_view_prefer_fullscreen in
         if prefer_maximized_window then window#maximize() else window#fullscreen();
@@ -531,7 +515,7 @@ class browser window =
         menubar#misc#set_name "oe_menubar";
         menubarbox#set_child_packing ~expand:false ~fill:false menubar#coerce;
         toolbox#misc#show();
-      end else if (not x) && is_fullscreen then begin
+      end else if (not want_fullscreen) && is_fullscreen then begin
         window_title_menu_icon#misc#hide();
         vbox_menu_buttons#misc#hide();
         menubar#misc#set_name "";
@@ -542,7 +526,7 @@ class browser window =
         window#set_decorated true;
       end;
       self#set_title ();
-      is_fullscreen <- x;
+      is_fullscreen <- want_fullscreen;
 
     method set_menu_item_nav_history_sensitive () =
       let back, forward, last = editor#location_history_is_empty () in
@@ -663,7 +647,7 @@ class browser window =
 
     method with_default_runtime_config ~open_dialog f =
       self#with_current_project begin fun project ->
-        match List_opt.find (fun x -> x.Rconf.default) project.Prj.executables with
+        match List.find_opt (fun x -> x.Rconf.default) project.Prj.executables with
         | Some rconf -> f rconf
         | None when open_dialog -> self#dialog_project_properties ~page_num:2 ()
         | _ -> ()
@@ -689,7 +673,6 @@ class browser window =
           begin
             try self#with_current_project begin fun project ->
                 Project.save ~editor project;
-                Symbols.Cache.save ~project;
                 Names.Cache.save ~project;
               end with Gpointer.Null -> ();
           end;
@@ -753,6 +736,7 @@ class browser window =
       (* Update Window menu with files added to the editor *)
       ignore (editor#connect#add_page ~callback:begin fun page ->
           begin
+            if outline_visible#get then page#show_outline();
             match page#file with None -> () | Some file ->
               let offset = page#initial_offset in
               let scroll_offset = page#view#get_scroll_top () in
@@ -796,15 +780,15 @@ class browser window =
       ignore (editor#connect#switch_page ~callback:begin fun page ->
           Gaux.may menu ~f:begin fun menu ->
             let basename = Filename.basename page#get_filename in
-            kprintf (Menu.set_label menu.file_rename) "Rename \xC2\xAB%s\xC2\xBB" basename;
+            ksprintf (Menu.set_label menu.file_rename) "Rename \xC2\xAB%s\xC2\xBB" basename;
             menu.file_switch#misc#set_sensitive
               ((basename ^^^ ".ml") || (basename ^^^ ".mli"));
-            kprintf (Menu.set_label menu.file_close) "Close \xC2\xAB%s\xC2\xBB" basename;
-            kprintf (Menu.set_label menu.file_close_all) "Close All Except \xC2\xAB%s\xC2\xBB" basename;
-            kprintf (Menu.set_label menu.file_revert) "Revert to Saved \xC2\xAB%s\xC2\xBB" basename;
-            kprintf (Menu.set_label menu.file_delete) "Delete \xC2\xAB%s\xC2\xBB" basename;
-            match List_opt.assoc page#misc#get_oid menu.window_pages with
-            | Some item ->kprintf (Menu.set_label item) "%s" basename
+            ksprintf (Menu.set_label menu.file_close) "Close \xC2\xAB%s\xC2\xBB" basename;
+            ksprintf (Menu.set_label menu.file_close_all) "Close All Except \xC2\xAB%s\xC2\xBB" basename;
+            ksprintf (Menu.set_label menu.file_revert) "Revert to Saved \xC2\xAB%s\xC2\xBB" basename;
+            ksprintf (Menu.set_label menu.file_delete) "Delete \xC2\xAB%s\xC2\xBB" basename;
+            match List.assoc_opt page#misc#get_oid menu.window_pages with
+            | Some item ->ksprintf (Menu.set_label item) "%s" basename
             | _ -> ()
           end;
         end);
@@ -848,28 +832,32 @@ class browser window =
 
       (*  *)
       self#set_menu_item_nav_history_sensitive();
-      self#connect#menubar_visibility_changed ~callback:begin fun visible ->
+      menubar_visible#connect#changed ~callback:begin fun visible ->
+        if visible then menubarbox#misc#show() else (menubarbox#misc#hide());
         List.iter begin fun (mi, sign) ->
           mi#misc#handler_block sign;
           mi#set_active visible;
           mi#misc#handler_unblock sign;
         end !menu_item_view_menubar
       end |> ignore;
-      self#connect#toolbar_visibility_changed ~callback:begin fun visible ->
+      toolbar_visible#connect#changed ~callback:begin fun visible ->
+        if visible then toolbar#misc#show_all() else (toolbar#misc#hide());
         List.iter begin fun (mi, sign) ->
           mi#misc#handler_block sign;
           mi#set_active visible;
           mi#misc#handler_unblock sign;
         end !menu_item_view_toolbar
       end |> ignore;
-      self#connect#tabbar_visibility_changed ~callback:begin fun visible ->
+      tabbar_visible#connect#changed ~callback:begin fun visible ->
+        editor#set_show_tabs visible;
         List.iter begin fun (mi, sign) ->
           mi#misc#handler_block sign;
           mi#set_active visible;
           mi#misc#handler_unblock sign;
         end !menu_item_view_tabbar
       end |> ignore;
-      self#connect#outline_visibility_changed ~callback:begin fun visible ->
+      outline_visible#connect#changed ~callback:begin fun visible ->
+        editor#set_show_outline visible;
         List.iter begin fun (mi, sign) ->
           mi#misc#handler_block sign;
           mi#set_active visible;
@@ -887,7 +875,6 @@ class browser window =
         end !menu_item_view_messages
       in
       Messages.vmessages#connect#visible_changed ~callback:update_view_vmessages_items |> ignore;
-      self#connect#vmessages_visibility_changed ~callback:update_view_vmessages_items |> ignore;
       let update_view_hmessages_items visible =
         List.iter begin fun (mi, sign) ->
           toolbar#tool_hmessages_handler_block ();
@@ -899,7 +886,6 @@ class browser window =
         end !menu_item_view_hmessages
       in
       Messages.hmessages#connect#visible_changed ~callback:update_view_hmessages_items |> ignore;
-      self#connect#hvmessages_visibility_changed ~callback:update_view_hmessages_items |> ignore;
 
       (* Editor *)
       paned#pack1 ~resize:true ~shrink:true editor#coerce;
@@ -998,10 +984,10 @@ class browser window =
           close_in chan;
         with _ -> ()
       end;
-      self#set_menubar_visible !is_menubar_visible;
-      self#set_toolbar_visible !is_toolbar_visible;
-      self#set_tabbar_visible !is_tabbar_visible;
-      self#set_outline_visible !is_outline_visible;
+      self#menubar_visible#set !is_menubar_visible;
+      self#toolbar_visible#set !is_toolbar_visible;
+      self#tabbar_visible#set !is_tabbar_visible;
+      outline_visible#set !is_outline_visible;
       window#resize ~width:!width ~height:!height;
       Gmisclib.Idle.add ~prio:300 begin fun () ->
         Messages.vmessages#set_position (Preferences.preferences#get.vmessages_height);
@@ -1086,6 +1072,9 @@ class browser window =
               end else if keyval = GdkKeysyms._j then begin
                 editor#with_current_page Margin_fold.expand_all;
                 true
+              end else if keyval = GdkKeysyms._Escape then begin
+                self#set_maximized_view `NONE;
+                true
               end else false
             in
             statusbar#flash_message ~delay:ms "";
@@ -1098,10 +1087,7 @@ class browser window =
       (*  *)
       check_launcher()
 
-    method connect = new signals ~startup ~switch_project ~menubar_visibility_changed ~toolbar_visibility_changed
-      ~tabbar_visibility_changed ~outline_visibility_changed
-      ~vmessages_visibility_changed ~hvmessages_visibility_changed
-      ~project_history_changed
+    method connect = new signals ~startup ~switch_project ~project_history_changed
 
     initializer
       self#connect#startup ~callback:self#init |> ignore;
@@ -1110,29 +1096,12 @@ class browser window =
 
 and startup () = object inherit [unit] signal () end
 and switch_project () = object inherit [unit] signal () end
-and menubar_visibility_changed () = object inherit [bool] signal () end
-and toolbar_visibility_changed () = object inherit [bool] signal () end
-and tabbar_visibility_changed () = object inherit [bool] signal () end
-and outline_visibility_changed () = object inherit [bool] signal () end
-and vmessages_visibility_changed () = object inherit [bool] signal () end
-and hvmessages_visibility_changed () = object inherit [bool] signal () end
 and project_history_changed () = object inherit [File_history.t] signal () end
-and signals ~startup ~switch_project ~menubar_visibility_changed ~toolbar_visibility_changed
-    ~tabbar_visibility_changed ~outline_visibility_changed
-    ~vmessages_visibility_changed ~hvmessages_visibility_changed
-    ~project_history_changed =
+and signals ~startup ~switch_project ~project_history_changed =
   object
-    inherit ml_signals [startup#disconnect; switch_project#disconnect; menubar_visibility_changed#disconnect;
-                        toolbar_visibility_changed#disconnect; tabbar_visibility_changed#disconnect;
-                        vmessages_visibility_changed#disconnect; project_history_changed#disconnect ]
+    inherit ml_signals [startup#disconnect; switch_project#disconnect; project_history_changed#disconnect ]
     method startup = startup#connect ~after
     method switch_project = switch_project#connect ~after
-    method menubar_visibility_changed = menubar_visibility_changed#connect ~after
-    method toolbar_visibility_changed = toolbar_visibility_changed#connect ~after
-    method tabbar_visibility_changed = tabbar_visibility_changed#connect ~after
-    method outline_visibility_changed = outline_visibility_changed#connect ~after
-    method vmessages_visibility_changed = vmessages_visibility_changed#connect ~after
-    method hvmessages_visibility_changed = hvmessages_visibility_changed#connect ~after
     method project_history_changed = project_history_changed#connect ~after
   end
 
@@ -1148,7 +1117,7 @@ let create window =
 let splashscreen () =
   let pref = Preferences.preferences#get in
   if pref.splashscreen_enabled then begin
-    let decorated = (*false && *)Sys.win32 in
+    let decorated = false in
     let pixbuf = ??? Icons.logo in
     let image = GMisc.image ~pixbuf () in
     let window = GWindow.window

@@ -6,6 +6,7 @@ type 'a expr = {
 type 'a state = Created | Running of Thread.t | Ran_to_completion of 'a | Faulted of exn
 
 type 'a task = {
+  id : int;
   mutex : Mutex.t;           (* A mutex to synchronize access to the task state. *)
   mutable state : 'a state;  (* The current state of the task. *)
 }
@@ -23,9 +24,11 @@ let continue_with = map
 
 let ( let* ) a f = (>>=) a f
 let ( let+ ) a f = map f a
+let tids = Atomic.make 0
 
 let start_as_task (a : 'a expr) =
   let task = {
+    id = Atomic.fetch_and_add tids 1;
     mutex = Mutex.create();
     state = Created;
   } in
@@ -33,14 +36,15 @@ let start_as_task (a : 'a expr) =
   task.state <-
     Running begin
       Thread.create begin fun () ->
-        (*Printf.printf "%s, new thread started for %S.\n%!" __MODULE__ a.name;*)
         try
           let result = a.computation () in
           Mutex.lock task.mutex;
           task.state <- Ran_to_completion result;
           Mutex.unlock task.mutex;
         with ex ->
-          Printf.eprintf "%s, task %S failed: %s\n%!" __MODULE__ a.name (Printexc.to_string ex);
+          let thid = Thread.id (Thread.self()) in
+          Printf.printf "%s, task %S (%d-%d) failed: %s\n%!" __MODULE__ a.name thid task.id (Printexc.to_string ex);
+          Printf.eprintf "File \"async.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
           Mutex.lock task.mutex;
           task.state <- Faulted ex;
           Mutex.unlock task.mutex;

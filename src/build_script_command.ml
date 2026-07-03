@@ -46,7 +46,7 @@ let command_of_string = function
   | "install-lib" -> `Install_lib
   | "clean" -> `Clean
   | "distclean" -> `Distclean
-  | x -> raise (Unrecognized_command (sprintf "`%s' is not a recognized command." x));;
+  | x -> raise (Unrecognized_command (sprintf "'%s' is not a recognized command." x));;
 
 let code_of_command = function
   | `Show -> "`Show"

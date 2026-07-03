@@ -151,7 +151,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
 
     method stop () =
       match process with None -> () | Some proc ->
-        let exit_value = Process_termination.kill proc.Spawn.pid in
+        Unix.kill proc.Spawn.pid 9 |> ignore;
         killed <- true;
         self#close()
 
@@ -238,12 +238,12 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
         Mutex.lock m_write;
         signal_enabled <- false;
         self#clear();
-        (*      kprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "Environment: %s" (String.concat "; " task.Task.env);
-                kprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "\nWorking directory: %s\n" task.Task.dir;
-                kprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "Command:\n%s\n" (Process.cmd_line proc);*)
-        (*kprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "%s\n" (Cmd.expand (project.Prj.autocomp_compiler ^ " -v"));*)
+        (*      ksprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "Environment: %s" (String.concat "; " task.Task.env);
+                ksprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "\nWorking directory: %s\n" task.Task.dir;
+                ksprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "Command:\n%s\n" (Process.cmd_line proc);*)
+        (*ksprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "%s\n" (Cmd.expand (project.Prj.autocomp_compiler ^ " -v"));*)
         let args = String.concat " " (List.map (fun (_ , x) -> x) (List.filter (fun (e, _) -> e) task.Task.et_args)) in
-        kprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "%s %s\n" (Filename.quote task.Task.et_cmd) args;
+        ksprintf (view#buffer#insert ~tag_names:["bold"; "output"]) "%s %s\n" (Filename.quote task.Task.et_cmd) args;
         signal_enabled <- true;
         Mutex.unlock m_write;
         self#present ();
@@ -363,11 +363,11 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
             if process <> None && signal_enabled then (GtkThread2.sync begin fun () ->
                 let start = it#backward_chars (String.length txt) in
                 view#buffer#apply_tag_by_name "input" ~start ~stop:(view#buffer#get_iter `INSERT);
-                match process_outchan with None -> ()
-                                         | Some ochan ->
-                                             output_string ochan (Glib.Convert.convert_with_fallback ~fallback:"?"
-                                                                    ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset txt);
-                                             flush ochan;
+                match process_outchan with
+                | None -> ()
+                | Some ochan ->
+                    output_string ochan txt;
+                    flush ochan;
               end ())
           end);
       end;
@@ -469,10 +469,13 @@ let views : (string * (view * GObj.widget)) list ref = ref []
 
 (** create *)
 let create ~editor task_kind task =
-  let console_id = sprintf "%s %s %s"
-      task.Task.et_name
-      task.Task.et_cmd
-      (String.concat " " (List.flatten (List.filter_map (fun (e, v) -> if e then Some (Shell.parse_args v) else None) task.Task.et_args))) in
+  let console_id =
+    task.Task.et_args
+    |> List.filter_map (fun (e, v) -> if e then Some (Shell.parse_args v) else None)
+    |> List.flatten
+    |> String.concat " "
+    |> sprintf "%s %s %s" task.Task.et_name task.Task.et_cmd
+  in
   try
     let (console, _) = List.assoc console_id !views in
     console#set_task task;
@@ -505,10 +508,10 @@ let create ~editor task_kind task =
       page#set_title task.Task.et_name;
       Gaux.may icon ~f:(fun icon -> page#set_icon (Some icon#pixbuf));
       if task.Task.et_visible then Messages.vmessages#append_page ~label_widget ~with_spinner:(task_kind <> `RUN) page#as_page;
-      ignore (page#connect#working_status_changed ~callback:begin fun active ->
-          (match set_active_func with None -> page#is_working#set | Some f -> f) active
-        end);
-      ignore (page#misc#connect#destroy ~callback:(fun () -> views := List.remove_assoc console_id !views));
+      page#connect#working_status_changed ~callback:begin fun active ->
+        (match set_active_func with None -> page#is_working#set | Some f -> f) active
+      end |> ignore;
+      page#misc#connect#destroy ~callback:(fun () -> views := List.remove_assoc console_id !views) |> ignore;
       views := (console_id, (page, page#vbox#coerce)) :: !views;
       page
     end
@@ -518,25 +521,32 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
   let mode : [`all | `group | `single] = `single in
   let f tasks =
     try
-      ignore (List.fold_left begin fun acc (task_kind, task) ->
-          let console =
-            match acc with
-            | Some console when mode = `all || mode = `group ->
-                console#set_task task;
-                console
-            | _ -> GtkThread2.sync (create ~editor task_kind) task
-          in
-          (*if mode = `single then (GtkThread2.async console#tab_label#set_text task.Task.et_name);*)
-          begin
-            match console#run ?run_cb ~use_thread:true () with
-            | None -> ();
-            | Some th -> Thread.join th;
-          end;
-          if console#has_errors || console#killed then (raise Exit);
-          Some console
-        end None tasks);
+      Project.stop_file_watcher editor#project;
+      tasks
+      |> List.fold_left begin fun acc (task_kind, task) ->
+        let console =
+          match acc with
+          | Some console when mode = `all || mode = `group ->
+              console#set_task task;
+              console
+          | _ -> GtkThread2.sync (create ~editor task_kind) task
+        in
+        (*if mode = `single then (GtkThread2.async console#tab_label#set_text task.Task.et_name);*)
+        begin
+          match console#run ?run_cb ~use_thread:true () with
+          | None -> ();
+          | Some th -> Thread.join th;
+        end;
+        if console#has_errors || console#killed then (raise Exit);
+        Some console
+      end None
+      |> ignore;
+      Project.start_file_watcher editor#project;
       at_exit()
-    with Exit -> (at_exit(); raise Exit)
+    with Exit ->
+      Project.start_file_watcher editor#project;
+      at_exit();
+      raise Exit
   in
   let g () =
     try
@@ -591,11 +601,15 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   let build_deps = if with_deps then Target.find_target_dependencies project.Prj.targets target else [] in
   let compile_name = sprintf "Compile \xC2\xAB%s\xC2\xBB" (Filename.basename target.name) in
   let build_name = sprintf "Build \xC2\xAB%s\xC2\xBB" (Filename.basename target.name) in
-  let at_exit = fun () -> GtkThread2.async editor#with_current_page (fun p -> p#compile_buffer ?join:None ()) in
+  let compile_buffer = fun () ->
+    (* N.B. compile_buffer also updates ocaml-index *)
+    GtkThread2.async editor#with_current_page (fun p -> p#compile_buffer ?join:None ());
+  in
   match task_kind with
   | `CLEANALL ->
       let cmd, args = Target.create_cmd_line target in
-      let task = Task.create ~name:"Clean Project" ~env:[] ~dir:"" ~cmd ~args:(args @ [true, "-distclean"]) () in
+      let args = args @ [true, "-distclean"] in
+      let task = Task.create ~name:"Clean Project" ~env:[] ~dir:"" ~cmd ~args () in
       exec_sync ~editor [[`CLEANALL, task]];
       (*let console = create ~editor `CLEANALL task in
         ignore (console#button_run#connect#clicked ~callback:(fun () -> ignore (console#run())));
@@ -623,10 +637,10 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   | `CLEAN -> exec_sync ~editor [tasks_clean ()];
   | `ANNOT -> exec_sync ~editor [tasks_annot ()];
   | `COMPILE ->
-      let rec f () = exec_sync ~run_cb:f ~editor ~at_exit (tasks_compile ~name:build_name ~build_deps ~can_compile_native target) in
+      let rec f () = exec_sync ~run_cb:f ~editor ~at_exit:compile_buffer (tasks_compile ~name:build_name ~build_deps ~can_compile_native target) in
       f()
   | `COMPILE_ONLY ->
-      exec_sync ~editor ~at_exit (tasks_compile ~flags:["-c"] ~name:compile_name ~build_deps ~can_compile_native target);
+      exec_sync ~editor ~at_exit:compile_buffer (tasks_compile ~flags:["-c"] ~name:compile_name ~build_deps ~can_compile_native target);
   | `RCONF rc ->
       if Oebuild.check_restrictions target.restrictions then
         let compilation = if target.Target.opt then Oebuild.Native else Oebuild.Bytecode in

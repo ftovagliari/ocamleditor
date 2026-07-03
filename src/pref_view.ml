@@ -48,33 +48,34 @@ class pref_view title ?packing () =
   (*  let combo_insert, _ = GEdit.combo_box_text ~strings:["Insert at end"; "Insert at beginning"; "Sort alphabetically"]
       ~packing:(table#attach ~top:2 ~left:1 ~expand:`X) () in*)
   (* Maximize View *)
-  let align                 = create_align ~title:"Workspace" ~vbox () in
+  let align                 = create_align ~title:"Appearance" ~vbox () in
   let box                   = GPack.vbox ~spacing:row_spacings ~packing:align#add () in
-  let table                 = GPack.table ~homogeneous:false ~col_spacings ~row_spacings ~packing:box#pack () in
+  let table                 = GPack.table ~homogeneous:false ~col_spacings ~row_spacings ~packing:box#add () in
   let top                   = ref 0 in
-  let width                 = 65 in
   let none_action_label     = GMisc.label ~text:"" ~packing:(table#attach ~top:0 ~left:0) () in
   (*let label_menubar = GMisc.label ~width ~text:"Show\nMenubar" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:1) () in*)
-  let label_toolbar         = GMisc.label ~width ~text:"Show\nToolbar" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:2) () in
-  let label_tabbar          = GMisc.label ~width ~text:"Show\nTabs" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:3) () in
-  let label_messages        = GMisc.label ~width ~text:"Keep\nMessages" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:4) () in
-  let label_fullscreen      = GMisc.label ~width ~text:"Full-Screen" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:6) () in
+  let label_toolbar         = GMisc.label ~text:"Show\nToolbar" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:2) () in
+  let label_tabbar          = GMisc.label ~text:"Show\nTabs" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:3) () in
+  let label_messages        = GMisc.label ~text:"Keep\nMessages" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:4) () in
+  let label_fullscreen      = GMisc.label ~text:"Fullscreen" ~justify:`CENTER ~xalign:0.5 ~packing:(table#attach ~top:!top ~left:6) () in
   let _                     = incr top in
-  let fst_action_label      = GMisc.label ~text:"Workspace 1:" ~xalign:0.0 ~packing:(table#attach ~top:!top ~left:0) () in
+  let fst_action_label      = GMisc.label ~text:"Compact Layout:" ~xalign:0.0 ~packing:(table#attach ~top:!top ~left:0) () in
   (*let check_menubar_1 = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:1) () in*)
   let check_toolbar_1       = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:2) () in
   let check_tabbar_1        = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:3) () in
   let check_messages_1      = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:4) () in
-  let check_fullscreen_1    = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:6) () in
+  let check_fullscreen_1    = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:6) ~active:false () in
+  let _ = check_fullscreen_1#misc#set_sensitive false in
   let _                     = incr top in
   (*  let snd_action_check = GButton.check_button ~label:"Second level:" ~packing:(table#attach ~top:!top ~left:0) () in*)
-  let snd_action_label      = GMisc.label ~text:"Workspace 2:" ~xalign:0.0 ~packing:(table#attach ~top:!top ~left:0) () in
+  let snd_action_label      = GMisc.label ~text:"Fullscreen:" ~xalign:0.0 ~packing:(table#attach ~top:!top ~left:0) () in
   (*let check_menubar_2 = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:1) () in*)
   let check_toolbar_2       = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:2) () in
   let check_tabbar_2        = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:3) () in
   let check_messages_2      = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:4) () in
-  let check_fullscreen_2    = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:6) () in
-  let use_maximize          = GButton.check_button ~label:"Use maximized window instead of full-screen" ~packing:box#pack () in
+  let check_fullscreen_2    = GButton.check_button ~packing:(table#attach ~fill:`NONE ~top:!top ~left:6) ~active:true () in
+  let _ = check_fullscreen_2#misc#set_sensitive false in
+  let use_maximize          = GButton.check_button ~label:"Use maximized window instead of fullscreen" ~packing:box#pack () in
   (*  let _ = snd_action_check#connect#toggled ~callback:begin fun () ->
       check_menubar_2#misc#set_sensitive snd_action_check#active;
       check_toolbar_2#misc#set_sensitive snd_action_check#active;

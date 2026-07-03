@@ -26,6 +26,7 @@ let magic = "1";;
 type 'a dump = Dump of string * 'a
 
 exception Bad_magic_number
+exception Invalid_linechar of Merlin_j.pos
 
 let open_dump = function Dump (m, a) ->
   if m = magic then a
@@ -133,4 +134,21 @@ type browser_maximized_view_action = {
   mva_tabbar                  : bool;
   mva_messages                : bool;
   mva_fullscreen              : bool;
+  mva_decorated               : bool;
 }
+
+class type outline =
+  object
+    method attach : unit -> unit
+    method detach : unit -> unit
+    method get : Merlin_j.outline list
+    method is_valid : bool
+    method update : ?force:bool -> unit -> unit
+    method connect : outline_signals
+  end
+and outline_signals =
+  object ('a)
+    method after : 'a
+    method changed : callback:(unit -> unit) -> GtkSignal.id
+    method disconnect : GtkSignal.id -> unit
+  end

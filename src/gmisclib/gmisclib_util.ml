@@ -60,6 +60,16 @@ let idle_add ?prio (f : unit -> unit) = ignore (GMain.Idle.add ?prio begin fun (
     with ex -> (eprintf "%s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace())); false
   end)
 
+(** Schedules a sequence of operations to be executed sequentially in the idle loop.
+    This function takes a list of operations and schedules them to run one after another
+    when the system is idle, using GTK's idle callback mechanism. Operations are chained
+    together so that completing one operation triggers the next. *)
+let idleize_cascade =
+  let idleize ?prio f k () = idle_add ?prio (f (); k) in
+  let compose ff = List.fold_left (fun acc f -> f acc) ignore ff in
+  fun ?prio operations ->
+    operations |> List.map (idleize ?prio) |> compose;;
+
 (** get_iter_at_mark_safe *)
 let get_iter_at_mark_safe buffer mark =
   (*try*)

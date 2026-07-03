@@ -63,19 +63,20 @@ let install_fonts () =
   font_names
   |> List.iter begin fun name ->
     let filename = font_dir / name in
-    if Sys.file_exists filename then begin
+    let should_copy =
+      not (Sys.file_exists filename) ||
       let stat_old = Unix.stat filename in
       let stat_new = Unix.stat (App_config.application_fonts / name) in
-      if stat_new.Unix.st_mtime > stat_old.Unix.st_mtime then copy_font name
-    end else copy_font name
-  end
+      stat_new.Unix.st_mtime > stat_old.Unix.st_mtime
+    in
+    if should_copy then copy_font name  end
 
 (** main *)
 let main () = begin
   install_fonts();
   let open Preferences in
-  let _ = About.build_id := Build_id.timestamp in
-  let _ = About.git_hash := Build_id.git_hash in
+  (* let _ = About.build_id := Build_id.timestamp in
+     let _ = About.git_hash := Build_id.git_hash in *)
   let _locale = GtkMain.Main.init ~setlocale:false () in
 
   let start splashscreen =
@@ -104,17 +105,16 @@ let main () = begin
       Gaux.may splashscreen ~f:(fun w -> w#set_transient_for browser#window#as_window);
       Sys.chdir (Filename.dirname Sys.executable_name);
       Printf.printf "%s\n%!" (System_properties.to_string());
-      Plugin.load "dot_viewer_svg.cma" |> ignore;
       Project_xml.init();
     end |> ignore;
     browser#connect#after#startup ~callback:begin fun () ->
       Gmisclib.Idle.add ~prio:300 begin fun () ->
-        window#set_position `CENTER_ALWAYS;
+        (*window#set_position `CENTER_ALWAYS;
+          window#move ~x:0 ~y:0;
+          window#set_position `CENTER;*)
         window#set_decorated true;
         window#deiconify();
         window#present();
-        window#move ~x:0 ~y:0;
-        window#set_position `CENTER;
         Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
         Gaux.may splashscreen ~f:fade_out;
       end

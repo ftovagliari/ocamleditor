@@ -351,13 +351,13 @@ class widget
           else match buffer with
             | None ->
                 let n_res = List.length results in
-                kprintf label_message#set_text "%d hit%s in %d file%s%s"
+                ksprintf label_message#set_text "%d hit%s in %d file%s%s"
                   hits (if hits = 1 then "" else "s") n_res (if n_res = 1 then "" else "s")
                   (if n_res > 1 then sprintf " (%d %s)" count_dirs
                        (if count_dirs = 1 then "directory" else "directories") else "");
             | _ ->
                 let bufname = match editor#get_page `ACTIVE with Some p -> p#get_filename | _ -> assert false in
-                kprintf label_message#set_text "%d hits in \xC2\xAB%s\xC2\xBB" hits (Filename.basename bufname)
+                ksprintf label_message#set_text "%d hits in \xC2\xAB%s\xC2\xBB" hits (Filename.basename bufname)
         end ()
       end
 
@@ -612,7 +612,7 @@ class widget
               List.iter begin fun (start, stop) ->
                 let iter = page#buffer#get_iter (`LINECHAR (ln, 0)) in
                 let bline = page#buffer#get_text ?start:(Some iter) ?stop:(Some iter#forward_to_line_end) ?slice:None ?visible:None () in
-                if (Project.convert_to_utf8 project (strip_cr line)) = (strip_cr bline) then begin
+                if strip_cr line = strip_cr bline then begin
                   let name_start = new_mark_name() in
                   let (_ : Gtk.text_mark) = page#buffer#create_mark ?name:(Some name_start) ?left_gravity:None (iter#forward_chars start) in
                   delete_marks <- (fun () -> page#buffer#delete_mark (`NAME name_start)) :: delete_marks;
@@ -752,7 +752,7 @@ class widget
             let path = model#get ~row ~column:col_path in
             let filename = path // file in
             tbuf#set_lexical_enabled (filename ^^^ ".ml" || filename ^^^ ".mli" || filename ^^^ ".mll" || filename ^^^ ".mly");
-            match List_opt.find (fun {filename=fn; _} -> fn = filename) results with
+            match List.find_opt (fun {filename=fn; _} -> fn = filename) results with
             | None -> () (* TODO: Under Windows sometimes I get filenames separated by "backslash" instead of "/" in results. *)
             | Some res ->
                 let lines_involved = res.lines in

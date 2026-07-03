@@ -28,7 +28,6 @@ type dcolor = GDraw.color color
 
 (** Configuration     Section =================================================== *)
 
-let dot_viewer : [`DEFAULT | `PDF]       = `DEFAULT
 let dot_attributes                       = " -Glabelloc=t -Gfontsize=26pt -Gfontname=\"Helvetica\" -Nfontsize=16pt -Nfontname=\"Helvetica\""
 let ocp_indent_tab_key_enabled           = true
 let autosave_enabled                     = true
@@ -58,39 +57,20 @@ let current_line_style                   = (*`ON_OFF_DASH*) `SOLID
 let current_line_join                    = (*`ROUND `MITER `BEVEL *) `BEVEL
 let on_off_dashes                        = [3; 3]
 let use_theme_colors_when_possible       = true
-(* Gutter colors:
-   `CALC factor    : Calculated according to the bg color of the text view.
-                    [darker] 0.5 <= factor <= 1.0 [same as text view]
-   `THEME          : Based on the GTK theme.
-   `NAME "#ffffff" : Specific color. *)
-let gutter_fg_color                      = `THEME (*`CALC 0.50*) (*`NAME "#6070ff"*)
-let gutter_border_color                  = `THEME (*`CALC 0.875*) (*`CALC 0.97*)
-let gutter_marker_color                  = `THEME (*`CALC 0.50*)
-let gutter_marker_bg_color               = `THEME (*`CALC 0.80*)
-let gutter_diff_size                     = 50 (* 0 = disabled *)
-let code_folding_scope_color             = `NAME "#e5e5e5" (* disabled *)
-let code_folding_highlight_color         = { light = "#f1f1f1"; dark = "#202020" }
-let code_folding_hightlight_gradient     = [ (* [] for no gradient *)
-  { light = "#f4f4f4"; dark = "#202020" };
-  { light = "#f9f9f9"; dark = "#1b1b1b" };
-  { light = "#fefefe"; dark = "#161616" };
-]
+
+(** Whether the [collapse_to_definitions] command should collapse all definitions,
+    including nested ones, or only affect top-level definitions. *)
+let code_folding_deep_collapse           = true
+let code_folding_highlight_color         = { light = "#e1eded"; dark = "#202530" }
 let code_folding_tag_invisible_name      = "fold-invisible"
 let code_folding_tag_highlight_name      = "fold-highlight"
 let code_folding_expander_color          = `NAME "#ff0000"
 
-
 let global_gutter_size                   = 30
-let global_gutter_comments_color         = `NAME "#fa80a5"
-let global_gutter_comments_bgcolor       = `NAME "#fad0f5"
-
-
 let global_gutter_diff_color_add         = { light = "#60b060"; dark = "#13401e" }
 let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#3e181d" }
 let global_gutter_diff_color_change      = { light = "#0079FF"; dark = "#0079FF" }
 let global_gutter_diff_style             = (`COLOR false : [`BW | `COLOR of bool])
-let global_gutter_diff_tooltips          = false
-let global_gutter_no_errors              = `NAME "#daedd0"
 let find_replace_history_max_length      = 75
 let find_text_output_highlight           = `DEFAULT, `DEFAULT (*`NAME "#ffff7e", `NONE*) (* Background and foreground colors to highlight occurrences where the pattern matches.
                                                                                             (`NONE=do not change color; `DEFAULT=default color; `NAME=specific color)*)
@@ -104,14 +84,7 @@ let location_history_max_length          = 30 (* hint *)
 let location_history_max_edit            = 5
 let module_browser_max_results           = 150 (* Max. number of search results to display in the search_entry as you type *)
 let module_browser_secondary_title_color = { light = "#877033"; dark = "#707070" }
-let completion_popup_default_dimensions  = 900, 350
 let completion_name_table_enabled        = true
-let odoc_tag_properties                  = [ (* These properties apply to ocamldoc comments only, not to the type descriptions. *)
-  `PIXELS_INSIDE_WRAP 2;
-  `PIXELS_BELOW_LINES 2;
-  `WRAP_MODE `WORD]
-let odoc_margin                          = 8
-let layout_find_references               = `VERTICAL
 let layout_find_module_browser           = `VERTICAL
 (* Path relative to the project home directory where to find custom templates. *)
 let template_project_filename            = ".extensions" // "templates.cma"
@@ -121,17 +94,11 @@ let editor_tab_color_alt_normal          = `NAME "#310080"
 let colored_types                        = true
 let unify_statusbars                     = false
 
-
 (** End of Configuration Section ============================================ *)
 
+let ocaml_codeset = "UTF-8"
 
-
-let ocaml_codeset = "ISO-8859-1"
-
-(*
-  THE FOLLOWING LINE IS PROCESSED BY "tools/prepare_build", DO NOT EDIT.
-*)
-let _ = Printexc.record_backtrace (List.mem_assoc "record_backtrace" App_config.application_param)
+let _ = Printexc.record_backtrace true
 
 let _ = App_config.ensure_ocamleditor_user_home ()
 let _ = Unix.putenv "TERM" ""
@@ -139,7 +106,7 @@ let getenv_ocamllib = try Some (Sys.getenv "OCAMLLIB") with Not_found -> None
 
 (** Commands *)
 let find_command name =
-  let basename = name ^ (if Sys.win32 then ".exe" else "") in
+  let basename = name in
   let path = (!! Sys.executable_name) // basename in
   if Sys.file_exists path && not (Sys.is_directory path) then path
   else
@@ -151,13 +118,13 @@ let oebuild_command = App_config.get_oebuild_command ()
 
 let get_version ?(ok_status=0) command =
   try
-    let redirect_stderr = if Sys.os_type = "Win32" then "1>NUL 2>NUL" else "1>/dev/null 2>/dev/null" in
+    let redirect_stderr = "1>/dev/null 2>/dev/null" in
     let cmd = sprintf "%s %s" command redirect_stderr in
-    let status_not_found = if Sys.win32 then [1; 9009] else [127] in
+    let status_not_found = [127] in
     let status = Sys.command cmd in
     (*Printf.printf "%s -- %d -- %b\n%!" cmd status (status = ok_status);*)
     if status = ok_status || not (List.mem status status_not_found) then
-      let redirect_stderr = if Sys.win32 then " 2>&1" else " 2>&1" in
+      let redirect_stderr = " 2>&1" in
       let cmd = sprintf "%s %s" command redirect_stderr in
       (match Shell.get_command_output cmd with ver :: _ -> Some ver | _ -> None)
     else failwith cmd
@@ -167,10 +134,6 @@ let dot_version = get_version "dot -V"
 let plink_version = get_version "plink -V" (* exits with status = 1 *)
 let xdg_open_version = get_version "xdg-open --version"
 let git_version = get_version ~ok_status:1 "git --version"
-let ml = if Sys.win32 then get_version ~ok_status:0 "ml" else None
-let cl = if Sys.win32 then get_version ~ok_status:0 "cl" else None
-let rc = if Sys.win32 then get_version ~ok_status:1 "rc" else None
-let cvtres = if Sys.win32 then get_version ~ok_status:0 "cvtres" else None
 
 
 (** GTK config *)
@@ -182,12 +145,11 @@ let current_line_border_adjust, dash_style, dash_style_offset =
   | 2, 16 -> 0, `DOUBLE_DASH, None
   | 2, 20 -> 1, `ON_OFF_DASH, (Some 2)
   | 2, 22 -> 2, `DOUBLE_DASH, None
-  | 2, 24 when Sys.os_type = "Win32" -> 1, `DOUBLE_DASH, None
   | 2, 24 -> 1, `ON_OFF_DASH, (Some 2)
   | _     -> 1, `DOUBLE_DASH, None
 
 (** Clear OCAMLLIB environment variable *)
-let _ = Ocaml_config.putenv_ocamllib None
+let _ = Ocaml_config.putenv_ocamllib ()
 
 (** geometry_memo_filename *)
 let geometry_memo_filename = Filename.concat App_config.ocamleditor_user_home "geometry_memo.ocaml"

@@ -26,22 +26,12 @@ open Printf
 (** get_locale *)
 let get_locale () =
   try
-    if Sys.win32 then begin
-      let lines = Shell.get_command_output "reg query \"hkcu\\Control Panel\\International\" /v LocaleName" in
-      let lines = List.map String.trim lines in
-      let locale =
-        List.find (fun l -> Str.string_match (Str.regexp "LocaleName.+") l 0) lines
-      in
-      Str.string_match (Str.regexp ".*[\t ]\\([a-zA-Z-][a-zA-Z-][a-zA-Z-][a-zA-Z-][a-zA-Z-]\\)") locale 0 |> ignore;
-      Some (Str.matched_group 1 locale)
-    end else begin
-      let lines = Shell.get_command_output "locale" in
-      let locale =
-        List.find (fun l -> Str.string_match (Str.regexp ".*=.+") l 0) lines
-      in
-      Str.string_match (Str.regexp ".*=\\(.*\\)") locale 0 |> ignore;
-      Some (Str.matched_group 1 locale)
-    end
+    let lines = Shell.get_command_output "locale" in
+    let locale =
+      List.find (fun l -> Str.string_match (Str.regexp ".*=.+") l 0) lines
+    in
+    Str.string_match (Str.regexp ".*=\\(.*\\)") locale 0 |> ignore;
+    Some (Str.matched_group 1 locale)
   with ex ->
     Printf.eprintf "File \"utils.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
     None
@@ -81,28 +71,19 @@ let to_string () =
     20, "plugins", App_config.application_plugins;
     20, "oebuild", Oe_config.oebuild_command;
     20, "native_compilation", (match Ocaml_config.can_compile_native () with Some x -> "Yes (" ^ x ^ ")" | _ -> "No");
-  ] @
-    (if Sys.win32 && not Ocaml_config.is_mingw then [
-        30, "cl", (Option.value Oe_config.cl ~default:"<Not Found>");
-        30, "ml", (Option.value Oe_config.ml ~default:"<Not Found>");
-        30, "VSINSTALLDIR", (try Sys.getenv "VSINSTALLDIR" with Not_found -> "<Not Found>");
-        30, "rc", (Option.value Oe_config.rc ~default:"<Not Found>");
-        30, "cvtres", (Option.value Oe_config.cvtres ~default:"<Not Found>");
-      ] else [
-       70, "xdg-open", (Option.value Oe_config.xdg_open_version ~default:"<Not Found>");
-     ]) @ [
-      70, "dot", (Option.value Oe_config.dot_version ~default:"<Not Found>");
-      50, "findlib", (Option.value (findlib_package_exists "findlib") ~default:"<Not Found>");
-      50, "lablgtk2", (Option.value (findlib_package_exists "lablgtk2") ~default:"<Not Found>");
-      50, "ocamldiff", (Option.value (findlib_package_exists "ocamldiff") ~default:"<Not Found>");
-      50, "lablgtk2.rsvg", (Option.value (findlib_package_exists "lablgtk2.rsvg") ~default:"<Not Found>");
-      50, "curl", (Option.value (findlib_package_exists "curl") ~default:"<Not Found>");
-      70, "git", (Option.value Oe_config.git_version ~default:"<Not Found>");
-      40, "version", (sprintf "%d.%d.%d" a b c);
-      60, "locale", (Option.value (get_locale ()) ~default:"<Not Found>");
-      60, "charset", (let x, charset = Glib.Convert.get_charset () in sprintf "%b, %s" x charset);
-      20, "backtrace_status", (sprintf "%b" (Printexc.backtrace_status ()));
-    ] in
+    70, "xdg-open", (Option.value Oe_config.xdg_open_version ~default:"<Not Found>");
+    70, "dot", (Option.value Oe_config.dot_version ~default:"<Not Found>");
+    50, "findlib", (Option.value (findlib_package_exists "findlib") ~default:"<Not Found>");
+    50, "lablgtk2", (Option.value (findlib_package_exists "lablgtk2") ~default:"<Not Found>");
+    50, "ocamldiff", (Option.value (findlib_package_exists "ocamldiff") ~default:"<Not Found>");
+    50, "lablgtk2.rsvg", (Option.value (findlib_package_exists "lablgtk2.rsvg") ~default:"<Not Found>");
+    50, "curl", (Option.value (findlib_package_exists "curl") ~default:"<Not Found>");
+    70, "git", (Option.value Oe_config.git_version ~default:"<Not Found>");
+    40, "version", (sprintf "%d.%d.%d" a b c);
+    60, "locale", (Option.value (get_locale ()) ~default:"<Not Found>");
+    60, "charset", (let x, charset = Glib.Convert.get_charset () in sprintf "%b, %s" x charset);
+    20, "backtrace_status", (sprintf "%b" (Printexc.backtrace_status ()));
+  ] in
   let properties = List.sort compare properties in
   let properties = List.map (fun (g, n, v) -> (List.assoc g groups) ^ "." ^ n, v) properties in
   List.iter (bprintf buf "%s\n") (Text_util.dot_leaders properties);

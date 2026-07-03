@@ -18,7 +18,8 @@ build: [["ocaml" "build.ml" "ocamleditor"]]
 install: [["ocaml" "tools/install.ml" "-prefix" prefix]]
 
 depends: [
-  "ocaml" {>= "4.14" & < "5"}
+  "ocaml" {= "5.3.0"}
+  "odoc"
   "ocamlfind" {>= "1.4.0"}
   "lablgtk" {>= "2.18.0"}
   "ocp-indent" { >= "1.8.0" }
@@ -27,8 +28,8 @@ depends: [
   "yojson" {>= "2.1"}
   "atdgen" {>= "2.12"}
   "ocamldiff" {>= "1.2"}
-  "merlin" {>= "4.9"}
-]
-depopts: [
+  "merlin" {>= "5.5"}
+  "inotify"
   "ocurl"
 ]
+

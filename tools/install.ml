@@ -54,11 +54,11 @@ let install () =
     let cmas = String.concat " " (List.flatten cmas) in
     (*  *)
     pushd libname;
-    ignore (kprintf Sys.command "ocamlfind remove %s" libname);
-    ignore (kprintf Sys.command "ocamlfind install %s META %s %s %s %s" libname cmas ar (find ".cmi") (find ".mli"));
+    ignore (ksprintf Sys.command "ocamlfind remove %s" libname);
+    ignore (ksprintf Sys.command "ocamlfind install %s META %s %s %s %s" libname cmas ar (find ".cmi") (find ".mli"));
     popd();
   end else if !nsis then begin
-    let exit_code = kprintf Sys.command "\"%s\" ..\\ocamleditor.nsi" (Filename.quote "%ProgramFiles(x86)%\\NSIS\\makensis") in
+    let exit_code = ksprintf Sys.command "\"%s\" ..\\ocamleditor.nsi" (Filename.quote "%ProgramFiles(x86)%\\NSIS\\makensis") in
     match exit_code with
     | 0 ->
         let version = match get_lines_from_file ~filename:"../VERSION" [1] with (_, x) :: [] -> x | _ -> assert false in
@@ -70,17 +70,18 @@ You will need the free NSIS install system (http://nsis.sourceforge.net).";
   end else begin
     if not (Sys.file_exists !prefix) then failwith ("Path " ^ !prefix ^ " doesn't exist");
     let exe, cpr, cp = if Sys.win32 then ".exe", "XCOPY /S/Y", "XCOPY /Y" else "", "cp -vr", "cp -v" in
-    let icons = sprintf "%s/share/ocamleditor/icons" !prefix in
+    let icons_light = sprintf "%s/share/ocamleditor/icons/light" !prefix in
+    let icons_dark = sprintf "%s/share/ocamleditor/icons/dark" !prefix in
+    let icons_svg = sprintf "%s/share/ocamleditor/icons/svg" !prefix in
     let fonts = sprintf "%s/share/ocamleditor/fonts" !prefix in
-    mkdir_p icons;
+    mkdir_p icons_light;
+    mkdir_p icons_dark;
+    mkdir_p icons_svg;
     mkdir_p fonts;
-    sys_command [cpr; !!"../icons/*"; !!icons];
-    sys_command [cpr; !!"../fonts/*"; !!fonts];
-    if Sys.readdir "../plugins" <> [||] then begin
-      let plugins = sprintf "%s/share/ocamleditor/plugins" !prefix in
-      mkdir_p plugins;
-      sys_command [cpr; !!"../plugins/*"; !!plugins]
-    end;
+    sys_command [cpr; !!"icons/light/*"; !!icons_light];
+    sys_command [cpr; !!"icons/dark/*"; !!icons_dark];
+    sys_command [cpr; !!"icons/svg/*"; !!icons_svg];
+    sys_command [cpr; !!"fonts/*"; !!fonts];
     let bin = sprintf "%s/bin" !prefix in
     mkdir_p bin;
     let filename = if Sys.file_exists ("ocamleditor.opt" ^ exe) then ("ocamleditor.opt" ^ exe) else ("ocamleditor" ^ exe) in

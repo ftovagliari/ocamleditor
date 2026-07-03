@@ -13,7 +13,7 @@ let do_rename page renaming_positions new_name =
       let start = page#buffer#get_iter_at_mark m1 in
       let stop = page#buffer#get_iter_at_mark m2 in
       let is_use =
-        match [@warning "-4"] Definition.find ~filename:page#get_filename ~buffer:text ~iter:start with
+        match [@warning "-4"] Definition.locate ~filename:page#get_filename ~text ~iter:start with
         | Merlin.Ok (Some _) -> true
         | _ -> false
       in
@@ -116,9 +116,9 @@ let rename editor =
                 (* TODO Support prefix and infix symbols *)
                 if Str.string_match re_ocaml_ident new_name 0 then begin
                   let count = do_rename page renaming_positions new_name in
-                  Printf.kprintf editor#status_message "%d occurrences have been renamed." count;
+                  Printf.ksprintf editor#status_message "%d occurrences have been renamed." count;
                 end else
-                  Printf.kprintf editor#status_message "%S is not a valid identifier." new_name;
+                  Printf.ksprintf editor#status_message "%S is not a valid identifier." new_name;
                 window#destroy();
                 true
               end else false

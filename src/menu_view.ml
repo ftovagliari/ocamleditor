@@ -23,21 +23,6 @@
 
 open Utils
 
-let get_switch_viewer_label page =
-  let device =
-    match Oe_config.dot_viewer with
-    | `PDF -> (module Dot_viewer_pdf.PDF : Dot_viewer_plugin.DEVICE)
-    | _ -> !Dot_viewer_plugin.device
-  in
-  match device with (module DEV : Dot_viewer_plugin.DEVICE) ->
-    if not DEV.have_embedded_viewer then "Dependency Graph"
-    else begin
-      match page with
-      | Some page when page#button_dep_graph#active -> "Switch Viewer to \xC2\xABSource\xC2\xBB"
-      | Some _ -> "Switch Viewer to \xC2\xABDependencies\xC2\xBB"
-      | _ -> ""
-    end
-
 let get_switch_view_sensitive project page =
   (project.Prj.in_source_path page#get_filename) <> None
 
@@ -77,8 +62,6 @@ let update_labels
   toggle_word_wrap#misc#set_sensitive has_current_page;
   switch_viewer#misc#set_sensitive has_current_page;
   rev_history#misc#set_sensitive has_current_page;
-  let text = get_switch_viewer_label page in
-  switch_viewer#misc#set_property "label" (`STRING (Some text));
   Option.iter (fun page ->
       switch_viewer#misc#set_sensitive (get_switch_view_sensitive editor#project page)) page;;
 

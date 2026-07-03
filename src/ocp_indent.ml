@@ -151,5 +151,5 @@ let indent ~project ~view ?syntaxes bounds =
 let indent_for_extension ~project ~view ~extension bounds =
   match extension with
   | ".ml" | ".mli" -> ignore @@ indent ~project ~view bounds
-  | ".mll" -> ignore @@ indent ~project ~view ~syntaxes: ["mll"] bounds
+  (*| ".mll" -> ignore @@ indent ~project ~view ~syntaxes: ["mll"] bounds*)
   | _ -> ()

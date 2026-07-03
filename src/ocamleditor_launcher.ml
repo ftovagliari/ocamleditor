@@ -23,8 +23,7 @@
 let first_line cmd =
   let tmp = Filename.temp_file "ocamleditor" "" in
   let cmd = cmd ^ " > " ^ tmp in
-  if Sys.win32 then Unix.open_process_in cmd |> Unix.close_process_in |> ignore
-  else Sys.command cmd |> ignore;
+  Sys.command cmd |> ignore;
   let chan = open_in_bin tmp in
   let line = try String.trim (input_line chan) with ex -> (close_in_noerr chan; raise ex) in
   close_in_noerr chan;
@@ -41,29 +40,20 @@ let launch () =
     let cmd = "CD " ^  dir ^ " && CMD /C ocamleditor.bat" in (* rimane *)
     let cmd = "CD " ^  dir ^ " && CMD /K ocamleditor.bat" in (* rimane *)
     let cmd = "CD " ^  dir ^ " && ocamleditor.bat" in (* rimane *)*)
-  let cmd =
-    if Sys.win32 then
-      if Ocaml_config.is_mingw then "START /D" ^ (Filename.quote dir) ^ " /B ocamleditor-mingw.bat"
-      else "START /D" ^ (Filename.quote dir) ^ " /B ocamleditor.bat"
-    else Filename.concat dir "ocamleditor"
-  in
-  if Sys.win32 then Unix.open_process_in cmd |> Unix.close_process_in |> ignore
-  else Sys.command cmd |> ignore
+  let cmd = Filename.concat dir "ocamleditor" in
+  Sys.command cmd |> ignore
 ;;
 
 let _ =
   let dest = App_config.launcher_filename in
   if Array.length Sys.argv > 1 then begin
     let param = Sys.argv.(1) in
-    let executable = "ocamleditor" ^ (if Sys.win32 then ".exe" else "")  in
+    let executable = "ocamleditor" in
     let chan = open_out_gen [Open_append; Open_binary; Open_creat] 0o644 dest in
     output_string chan param;
     output_char chan '\n';
     close_out_noerr chan;
-    let cmd =
-      if Sys.win32 then "tasklist /nh /fi \"imagename eq " ^ executable ^ "\" | find /C \"" ^ executable ^ "\""
-      else "ps -e | grep -w -c " ^ executable
-    in
+    let cmd = "ps -e | grep -w -c " ^ executable in
     let line = first_line cmd in
     let num = int_of_string (String.make 1 line.[0]) in
     if num = 0 then launch();

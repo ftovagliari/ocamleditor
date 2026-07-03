@@ -189,6 +189,3 @@ module SVG = struct
     | None -> assert false
     | Some dev -> dev#display ~filename
 end
-
-let _ = Dot_viewer_plugin.device := (module SVG : Dot_viewer_plugin.DEVICE)
-

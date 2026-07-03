@@ -48,16 +48,6 @@ class sub_logic () =
   end
 "
 
-
-(** color_name *)
-let color_name color =
-  let r, g, b = (Gdk.Color.red color, Gdk.Color.green color, Gdk.Color.blue color) in
-  let r, g, b =
-    truncate ((float r) /. 65535. *. 255.),
-    truncate ((float g) /. 65535. *. 255.),
-    truncate ((float b) /. 65535. *. 255.) in
-  sprintf "#%02X%02X%02X" r g b
-
 let (//) = Filename.concat
 
 (** create_align *)

@@ -21,8 +21,8 @@ let execute_async filename source_code command =
     (json : json_string)
   end
 
-let as_cps merlin_func ~filename ~buffer cont =
-  merlin_func ~filename ~buffer |> Async.start_with_continuation cont
+let as_cps merlin_func ?name ~filename ~buffer cont =
+  merlin_func ~filename ~buffer |> Async.start_with_continuation ?name cont
 
 let check_configuration ~filename ~buffer =
   [ "check-configuration" ] |> execute_async filename buffer
@@ -30,12 +30,15 @@ let check_configuration ~filename ~buffer =
 let errors ~filename ~buffer =
   [ "errors" ] |> execute_async filename buffer
 
+[@@@warning "-42"]
+[@@@warning "-40"]
+
 let case_analysis ~(start : GText.iter) ~(stop : GText.iter) ~filename ~buffer =
   let start = sprintf "%d:%d" (start#line + 1) start#line_offset in
   let stop = sprintf "%d:%d" (stop#line + 1) stop#line_offset in
   [ "case-analysis"; "-start"; start; "-end"; stop ]
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.case_analysis_answer_of_string json with
     | Return case_analysis ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -59,9 +62,32 @@ let locate ~position:(line, col) ?prefix ?look_for ~filename ~buffer () =
   |> execute_async filename buffer
   |> Async.map ~name:"locate-result" begin fun json ->
     match Merlin_j.locate_answer_of_string json with
-    | Return document ->
+    | Return locate ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
-        Ok document.value
+        Ok locate.value
+    | Failure msg ->
+        Log.println `ERROR "%s" msg.value;
+        Failure msg.value
+    | Error msg | Exception msg ->
+        Log.println `ERROR "%s" msg.value;
+        Error msg.value
+  end
+
+let occurrences ~identifier_at:(line, col) ?scope ?index_file ~filename ~buffer () =
+  let identifier_at = sprintf "%d:%d" line col in
+  "occurrences" :: "-identifier-at" :: identifier_at ::
+  (match index_file with None -> "-index-file project.ocaml-index" | Some file -> sprintf "-index-file %s" file) ::
+  (match scope with
+   | None -> ""
+   | Some `Buffer -> "-scope buffer"
+   | Some `Project -> "-scope project"
+   | Some `Renaming -> "-scope renaming") :: []
+  |> execute_async filename buffer
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
+    match Merlin_j.occurrences_answer_of_string json with
+    | Return occurrences ->
+        Log.println `INFO "%s" (Yojson.Safe.prettify json);
+        Ok occurrences.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
         Failure msg.value
@@ -74,7 +100,7 @@ let locate_type ~position:(line, col) ~filename ~buffer =
   let position = sprintf "%d:%d" line col in
   "locate-type" :: "-position" :: position :: []
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.locate_type_answer_of_string json with
     | Return document ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -125,7 +151,7 @@ let document ~position:(line, col) ?identifier ~filename ~buffer () =
   "document" :: "-position" :: position ::
   (match identifier with None -> [] | Some identifier -> ["-identifier"; sprintf "\"%s\"" identifier])
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.document_answer_of_string json with
     | Return document ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -151,7 +177,7 @@ let type_enclosing ~position:(line, col) ?expression ?cursor ?verbosity ?index ~
     (match index with Some i -> ["-index"; string_of_int i ] | _ -> [])
   ] |> List.concat
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.type_enclosing_answer_of_string json with
     | Return types ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -168,7 +194,7 @@ let complete_prefix ~position:(line, col) ~prefix ~filename ~buffer =
   let position = sprintf "%d:%d" line col in
   [ "complete-prefix"; "-position"; position; "-prefix"; sprintf "\"%s\"" prefix; "-doc true -types true" ]
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.complete_prefix_answer_of_string json with
     | Return complete ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -185,7 +211,7 @@ let expand_prefix ~position:(line, col) ~prefix ~filename ~buffer =
   let position = sprintf "%d:%d" line col in
   [ "expand-prefix"; "-position"; position; "-prefix";  sprintf "\"%s\"" prefix; "-doc true -types true" ]
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.complete_prefix_answer_of_string json with
     | Return complete ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
@@ -202,7 +228,7 @@ let type_expression ~position:(line, col) ~expression ~filename ~buffer =
   let position = sprintf "%d:%d" line col in
   [ "type-expression"; "-position"; position; "-expression"; sprintf "\"%s\"" expression ]
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.type_expression_answer_of_string json with
     | Return type_expression ->
         Log.println `INFO "%s" (Yojson.Safe.prettify json);
@@ -215,32 +241,10 @@ let type_expression ~position:(line, col) ~expression ~filename ~buffer =
         Error msg.value
   end
 
-let occurrences ~identifier_at:(line, col) ?scope ~filename ~buffer () =
-  let identifier_at = sprintf "%d:%d" line col in
-  "occurrences" :: "-identifier-at" :: identifier_at ::
-  (match scope with
-   | None -> ""
-   | Some `Buffer -> sprintf "-scope buffer"
-   | Some `Project -> "-scope project"
-   | Some `Renaming -> "-scope renaming") :: []
-  |> execute_async filename buffer
-  |> Async.map begin fun json ->
-    match Merlin_j.occurrences_answer_of_string json with
-    | Return document ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
-        Ok document.value
-    | Failure msg ->
-        Log.println `ERROR "%s" msg.value;
-        Failure msg.value
-    | Error msg | Exception msg ->
-        Log.println `ERROR "%s" msg.value;
-        Error msg.value
-  end
-
 let outline ~filename ~buffer =
   [ "outline" ]
   |> execute_async filename buffer
-  |> Async.map begin fun json ->
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.outline_answer_of_string json with
     | Return outline ->
         Log.println `DEBUG "%s" (Yojson.Safe.prettify json);

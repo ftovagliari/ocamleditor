@@ -68,34 +68,6 @@ let create ~editor ~page () =
   find_definition#set_image (GMisc.image ~pixbuf:(??? Icons.definition) ())#coerce;
   let find_references = GMenu.image_menu_item ~label:"Find References" ~packing:gmenu#append () in
   find_references#set_image (GMisc.image ~pixbuf:(??? Icons.references) ())#coerce;
-  (*  let find_used_components = GMenu.menu_item ~packing:gmenu#append () in
-      let label_find_used_components = GMisc.label ~xalign:0. ~markup:"" ~packing:find_used_components#add () in*)
-  (*  *)
-  gmenu#append (GMenu.separator_item ());
-  let select_in_structure_pane = GMenu.image_menu_item ~label:"Select in Structure Pane" ~packing:gmenu#append () in
-  select_in_structure_pane#set_image (GMisc.image ~pixbuf:(??? Icons.select_in_structure) ())#coerce;
-  ignore (select_in_structure_pane#connect#activate ~callback:begin fun () ->
-      editor#with_current_page begin
-        let sigid = ref None in
-        let rec f page =
-          if editor#show_outline then begin
-            Gaux.may !sigid ~f:begin fun id ->
-              editor#disconnect id;
-              sigid := None;
-            end;
-            match page#outline with
-            | Some ol ->
-                ignore (ol#select_from_buffer ?align:None (page#buffer#get_mark `INSERT))
-            | _ -> ()
-          end else begin
-            sigid := Some (editor#connect#outline_visibility_changed
-                             ~callback:(function true -> f page | false -> ()));
-            editor#set_show_outline true;
-          end;
-        in f
-      end
-    end);
-  select_in_structure_pane#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
   (*  *)
   gmenu#append (GMenu.separator_item ());
   let eval_in_toplevel = GMenu.image_menu_item ~label:"Eval in Toplevel" ~packing:gmenu#append () in

@@ -149,7 +149,15 @@ let compare_with_head page continue_with =
         ~process_in:(Spawn.loop (fun ic -> Buffer.add_string buf (input_line ic); Buffer.add_char buf '\n'))
         ~continue_with:begin fun _ ->
           let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
-          try (*  *)
+          try (* TODO Crashed here
+                 at parsing.ml:143
+                 #1  0x000056469f749302 in camlStdlib__Parsing.loop_521 () at parsing.ml:143
+                 #2  0x000056469f749075 in camlStdlib__Parsing.yyparse_515 () at parsing.ml:165
+                 #3  0x000056469f6194f7 in camlOdiff.parse_from_lexbuf_281 () at lib/odiff_parser.ml:310
+                 #4  0x000056469f619ebb in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
+                 #5  0x000056469f619ebb in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
+                 #6  0x000056469f1d5f84 in camlGlobal_diff.fun_1904 () at global_diff.ml:153
+              *)
             continue_with (Odiff.strings_diffs (Buffer.contents buf) text)
           with ex ->
             Printf.eprintf "File \"global_diff.ml\": %s\n%s\n%!"

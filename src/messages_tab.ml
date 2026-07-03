@@ -72,7 +72,7 @@ class widget ~page ?label_widget ?(with_spinner=true) ?packing () =
     method set_active = set_active
 
     method private data_get _ sel ~info ~time =
-      if info = 0 then (kprintf sel#return "%d" page#misc#get_oid)
+      if info = 0 then (ksprintf sel#return "%d" page#misc#get_oid)
 
     method private data_delete _ = ()
 

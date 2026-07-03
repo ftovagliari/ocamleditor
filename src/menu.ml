@@ -372,46 +372,45 @@ let view ~browser ~group ~flags
     menu_item_view_menubar := (item, sign) :: !menu_item_view_menubar;
     end;*)
   begin
-    let item = GMenu.check_menu_item ~label:"Toolbar" ~active:browser#toolbar_visible ~packing:menu#add () in
-    let sign = item#connect#activate ~callback:(fun () -> browser#set_toolbar_visible (not browser#toolbar_visible)) in
+    let item = GMenu.check_menu_item ~label:"Toolbar" ~active:browser#toolbar_visible#get ~packing:menu#add () in
+    let sign = item#connect#activate ~callback:(fun () -> browser#toolbar_visible#set (not browser#toolbar_visible#get)) in
     menu_item_view_toolbar := (item, sign) :: !menu_item_view_toolbar;
   end;
   begin
     let item = GMenu.check_menu_item ~label:"Tabbar" ~active:editor#show_tabs ~packing:menu#add () in
     item#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._b ~flags;
-    let sign = item#connect#activate ~callback:(fun () -> browser#set_tabbar_visible (not editor#show_tabs)) in
+    let sign = item#connect#activate ~callback:(fun () -> browser#tabbar_visible#set (not editor#show_tabs)) in
     menu_item_view_tabbar := (item, sign) :: !menu_item_view_tabbar;
   end;
   begin
-    let item = GMenu.check_menu_item ~label:"Structure" ~active:editor#show_outline ~packing:menu#add () in
+    let item = GMenu.check_menu_item ~label:"Outline" ~active:editor#show_outline ~packing:menu#add () in
     item#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._z ~flags;
-    let sign = item#connect#activate ~callback:(fun () -> browser#set_outline_visible (not editor#show_outline)) in
+    let sign = item#connect#activate ~callback:(fun () -> browser#outline_visible#set (not editor#show_outline)) in
     menu_item_view_outline := (item, sign) :: !menu_item_view_outline;
   end;
   begin
     let item = GMenu.check_menu_item ~label:"Messages" ~active:Messages.vmessages#visible ~packing:menu#add () in
     item#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._m ~flags;
-    let sign = item#connect#activate ~callback:(fun () -> browser#set_vmessages_visible (not Messages.vmessages#visible)) in
+    let sign = item#connect#activate ~callback:(fun () -> Messages.vmessages#set_visible (not Messages.vmessages#visible)) in
     menu_item_view_messages := (item, sign) :: !menu_item_view_messages;
   end;
   begin
     let item = GMenu.check_menu_item ~label:"Messages (right pane)" ~active:Messages.hmessages#visible ~packing:menu#add () in
-    let sign = item#connect#activate ~callback:(fun () -> browser#set_hmessages_visible (not Messages.hmessages#visible)) in
+    let sign = item#connect#activate ~callback:(fun () -> Messages.hmessages#set_visible (not Messages.hmessages#visible)) in
     menu_item_view_hmessages := (item, sign) :: !menu_item_view_hmessages;
   end;
-  (** Workspaces *)
-  let maximize = GMenu.image_menu_item ~label:"Workspaces" ~packing:menu#add () in
-  maximize#set_image (GMisc.image ~stock:`FULLSCREEN ~icon_size:`MENU ())#coerce;
-  let maximize_menu = GMenu.menu ~packing:maximize#set_submenu () in
-  let maximize_1 = GMenu.image_menu_item ~label:"Workspace 1" ~packing:maximize_menu#add () in
-  let maximize_2 = GMenu.image_menu_item ~label:"Workspace 2" ~packing:maximize_menu#add () in
-  let maximize_0 = GMenu.image_menu_item ~label:"Reset Workspace" ~packing:maximize_menu#add () in
-  let _ = maximize_1#connect#activate ~callback:(fun () -> browser#set_maximized_view `FIRST) in
-  let _ = maximize_2#connect#activate ~callback:(fun () -> browser#set_maximized_view `SECOND) in
-  let _ = maximize_0#connect#activate ~callback:(fun () -> browser#set_maximized_view `NONE) in
-  maximize_1#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._comma ~flags;
-  maximize_2#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._period ~flags;
-  maximize_2#add_accelerator ~group ~modi:[] GdkKeysyms._F11 ~flags;
+  (* Appearance *)
+  let appearance = GMenu.image_menu_item ~label:"Appearance" ~packing:menu#add () in
+  let appearance_menu = GMenu.menu ~packing:appearance#set_submenu () in
+  let compact_mode = GMenu.image_menu_item ~label:"Compact Mode" ~packing:appearance_menu#add () in
+  let fullscreen = GMenu.image_menu_item ~label:"Fullscreen" ~packing:appearance_menu#add () in
+  let resore_default_layout = GMenu.image_menu_item ~label:"Restore Default Layout [Ctrl+K Esc]" ~packing:appearance_menu#add () in
+  let _ = compact_mode#connect#activate ~callback:(fun () -> browser#set_maximized_view `FIRST) in
+  let _ = fullscreen#connect#activate ~callback:(fun () -> browser#set_maximized_view `SECOND) in
+  let _ = resore_default_layout#connect#activate ~callback:(fun () -> browser#set_maximized_view `NONE) in
+  fullscreen#add_accelerator ~group ~modi:[] GdkKeysyms._F11 ~flags;
+  fullscreen#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._period ~flags;
+  compact_mode#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._comma ~flags;
   (** Remove All Messages *)
   let _ = GMenu.separator_item ~packing:menu#add () in
   let messages_remove = GMenu.menu_item ~label:"Remove All Messages" ~packing:menu#add () in
@@ -422,6 +421,7 @@ let view ~browser ~group ~flags
   let code_folding = GMenu.menu_item ~label:"Code Folding" ~packing:menu#add () in
   let code_folding_menu = GMenu.menu ~packing:code_folding#set_submenu () in
   let enable_code_folding = GMenu.check_menu_item ~label:"Enable Code Folding" ~packing:code_folding_menu#add () in
+  enable_code_folding#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._F1 ~flags;
   ignore (enable_code_folding#connect#after#toggled ~callback:begin fun () ->
       Menu_view.toggle_code_folding ~enable_code_folding editor
     end);
@@ -430,20 +430,16 @@ let view ~browser ~group ~flags
       editor#with_current_page (fun page -> (* TODO *) ())) |> ignore;
   collapse_enclosing#add_accelerator ~group ~modi:[`CONTROL;] GdkKeysyms._minus ~flags;
   (* Collapse to Definitions *)
-  let collapse_definitions = GMenu.menu_item ~label:"Collapse to Definitions [Ctrl+K Ctrl+0]" ~packing:code_folding_menu#add () in
+  let collapse_definitions = GMenu.menu_item ~label:"Collapse to Definitions [Ctrl+K 0]" ~packing:code_folding_menu#add () in
   collapse_definitions#connect#activate ~callback:(fun () ->
       editor#with_current_page Margin_fold.collapse_to_definitions) |> ignore;
   (* Expand All folds *)
-  let unfold_all = GMenu.menu_item ~label:"Expand All Folds [Ctrl+K Ctrl+J]" ~packing:code_folding_menu#add () in
+  let unfold_all = GMenu.menu_item ~label:"Expand All Folds [Ctrl+K J]" ~packing:code_folding_menu#add () in
   unfold_all#connect#activate ~callback:(fun () -> editor#with_current_page Margin_fold.expand_all) |> ignore;
   (** Select in Structure Pane *)
   let select_in_outline = GMenu.image_menu_item
       ~image:(GMisc.image ~pixbuf:(??? Icons.select_in_structure) ~icon_size:`MENU ())
       ~label:"Select in Structure Pane" ~packing:menu#add () in
-  ignore (select_in_outline#connect#activate ~callback:(fun () ->
-      editor#with_current_page (fun page ->
-          editor#set_show_outline true;
-          Gaux.may page#outline ~f:(fun ol -> ol#select_from_buffer ?align:None (page#buffer#get_mark `INSERT)))));
   (** Show Whitespace Characters *)
   let show_whitespace_chars = GMenu.check_menu_item
       ~active:editor#show_whitespace_chars
@@ -456,7 +452,7 @@ let view ~browser ~group ~flags
       ~callback:(Editor_menu.toggle_word_wrap_toggled ~editor) in
   (**  *)
   let _ = GMenu.separator_item ~packing:menu#add () in
-  let switch_viewer = GMenu.menu_item ~label:"Switch Viewer to \xC2\xABDependencies\xC2\xBB" ~packing:menu#add () in
+  let switch_viewer = GMenu.menu_item ~label:"Dependency Graph" ~packing:menu#add () in
   ignore (switch_viewer#connect#activate ~callback:begin fun () ->
       editor#with_current_page (fun page -> page#button_dep_graph#clicked ())
     end);
@@ -508,9 +504,6 @@ let tools ~browser ~group ~flags items =
   let toplevel = GMenu.menu_item ~label:"OCaml Toplevel" ~packing:menu#add () in
   ignore (toplevel#connect#activate ~callback:browser#shell);
   let module_browser = GMenu.menu_item ~label:"Module Browser" ~packing:menu#add () in
-  ignore (module_browser#connect#activate ~callback:(fun () ->
-      browser#with_current_project (fun project ->
-          Mbrowser_tool.append_to_messages ?page:None ?search_string:None ~project)));
   let dialog_external_tools = GMenu.menu_item ~label:"External Tools" ~packing:menu#add () in
   ignore (dialog_external_tools#connect#activate ~callback:browser#dialog_external_tools);
   let _ = GMenu.separator_item ~packing:menu#add () in
@@ -627,9 +620,9 @@ let help ~browser ~group ~flags items =
   crono#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._apostrophe ~flags;
   ignore (crono#connect#activate ~callback:(Print_debug_info.print ~editor));
   (*end;*)
-  let _ = GMenu.separator_item ~packing:menu#add () in
   let system_properties = GMenu.menu_item ~label:"System Properties" ~packing:menu#add () in
   ignore (system_properties#connect#activate ~callback:Menu_help.system_properties);
+  let _ = GMenu.separator_item ~packing:menu#add () in
   let about = GMenu.menu_item ~label:(sprintf "About %s" About.program_name) ~packing:menu#add () in
   ignore (about#connect#activate ~callback:Menu_help.about);
   help, menu

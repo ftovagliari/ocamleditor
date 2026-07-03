@@ -23,7 +23,10 @@
 
 open Printf
 
+(** Alias for [Filename.concat] *)
 let (//) = Filename.concat
+
+(** Alias for [Filename.dirname] *)
 let (!!) = Filename.dirname
 
 let split sep str =
@@ -90,15 +93,11 @@ let ensure_ocamleditor_user_home () =
 let launcher_filename = ocamleditor_user_home // "launcher.list"
 
 let get_application_dir name =
-  let is_app_in_cwd = !! Sys.executable_name = "." in
-  let prefix =
-    if is_app_in_cwd then Filename.dirname (Sys.getcwd()) else !! (!! Sys.executable_name)
-  in
+  let exe_dir = !! Sys.executable_name in
+  let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
   let path = prefix // name in
-  if Sys.file_exists path && (Sys.is_directory path) then path
-  else
-    let install_path = prefix // "share" // "ocamleditor" // name in
-    install_path
+  if Sys.file_exists path && Sys.is_directory path then path
+  else prefix // "share" // "ocamleditor" // name
 
 let application_icons = get_application_dir "icons"
 
@@ -107,7 +106,7 @@ let application_fonts = get_application_dir "fonts"
 let application_plugins = get_application_dir "plugins"
 
 let find_best ?(param="--help") prog =
-  let redirect_stderr = if Sys.os_type = "Win32" then " 2>NUL" else " 2>/dev/null" in
+  let redirect_stderr = " 2>/dev/null" in
   try
     List.find begin fun comp ->
       let ok =
@@ -122,10 +121,10 @@ let find_best ?(param="--help") prog =
       ok
     end prog
   with Not_found ->
-    kprintf failwith "Cannot find: %s" (String.concat ", " prog)
+    ksprintf failwith "Cannot find: %s" (String.concat ", " prog)
 
 let find_command name =
-  let basename = name ^ (if Sys.win32 then ".exe" else "") in
+  let basename = name in
   let path = (!! Sys.executable_name) // basename in
   if Sys.file_exists path && not (Sys.is_directory path) then path
   else

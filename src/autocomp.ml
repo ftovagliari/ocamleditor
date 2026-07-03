@@ -80,19 +80,20 @@ let include_flags project =
   in
   Array.of_list include_flags
 
-(** Replaces the build [.cmi] file with the auto-compilation generated [.cmi]
-    file
+(** Replaces build artifacts in the project source directory with auto-compilation generated
+    artifacts from the temporary directory.
 
-    TODO: Only replace when there interface changed.
+    TODO: The function should be enhanced to only replace artifacts when the interface
+    has actually changed.
 *)
-let replace_cmi_file ~project tmp relpath =
-  let filename = relpath ^ ".cmi" in
-  let tmp_filename = tmp // filename in
-  if Sys.file_exists tmp_filename then begin
-    let src_filename = Project.path_src project // filename in
+let replace_compiler_artifact ~project tmp_dir relpath ext =
+  let file_ext = relpath ^ ext in
+  let tmp_ext = tmp_dir // file_ext in
+  if Sys.file_exists tmp_ext then begin
+    let src_ext = Project.path_src project // file_ext in
     try
-      if Sys.file_exists src_filename then Sys.remove src_filename;
-      Sys.rename tmp_filename src_filename
+      if Sys.file_exists src_ext then Sys.remove src_ext;
+      Sys.rename tmp_ext src_ext
     with Sys_error _ as ex ->
       Printf.eprintf "File \"autocomp.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
   end
@@ -130,26 +131,14 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
         in
         let at_exit _ =
           let modname = Filename.chop_extension relpath in
-          replace_cmi_file ~project working_directory modname;
+          replace_compiler_artifact ~project working_directory modname ".cmi";
+          replace_compiler_artifact ~project working_directory modname ".cmt";
 
           let errors = Error.parse_string (Buffer.contents compiler_output) in
           GtkThread2.async page#error_indication#apply_tag errors;
           (* Outline *)
           let no_errors = errors.Oe.er_errors = [] in
-          if editor#show_outline then begin
-            Gmisclib.Idle.add ~prio:100 begin fun () ->
-              match page#outline with
-              | None ->
-                  let ol = new Cmt_view.widget ~editor ~page () in
-                  ol#load ();
-                  Gaux.may page#outline ~f:(fun x -> x#destroy());
-                  page#set_outline (Some ol);
-                  editor#with_current_page begin fun current_page ->
-                    if current_page#get_oid = page#get_oid then (editor#pack_outline ol#coerce)
-                  end;
-              | Some ol -> if no_errors then ol#load ()
-            end
-          end;
+          if editor#show_outline then begin end;
           Activity.remove activity_name;
         in
         let process_err = Spawn.loop process_err in

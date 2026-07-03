@@ -75,7 +75,7 @@ let dot_of_dag (dag : t) =
   let buf = Buffer.create 1000 in
   Buffer.add_string buf "digraph {\n";
   Hashtbl.iter begin fun key ->
-    List.iter (kprintf (Buffer.add_string buf) "%S -> %S;\n" key)
+    List.iter (ksprintf (Buffer.add_string buf) "%S -> %S;\n" key)
   end dag;
   Buffer.add_string buf "}\n";
   Buffer.contents buf;;

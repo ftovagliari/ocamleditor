@@ -2,8 +2,8 @@ open GUtil
 open Utils
 open Merlin
 module ColorOps = Color
-open Preferences
 open Printf
+open Markup
 
 module String_utils = struct
   let rec locate_intersection left right =
@@ -17,35 +17,6 @@ module String_utils = struct
       with Not_found ->
         locate_intersection left (Str.first_chars right (len_right - 1))
 end
-
-let color_of_kind = function
-  | "Value" -> Preferences.editor_tag_color "structure"
-  | "Type" -> Preferences.editor_tag_color "lident"
-  | "Module" -> Preferences.editor_tag_color "uident"
-  | "Constructor" -> Preferences.editor_tag_color "lident"
-  | "Label" -> Preferences.editor_tag_color "label"
-  | "Class" -> Preferences.editor_tag_color "lident"
-  | "Method" -> Preferences.editor_tag_color "lident"
-  | "Signature" -> Preferences.editor_tag_color "lident"
-  | "Exn" -> `NAME "red" |> GDraw.color
-  | "#" -> Preferences.editor_tag_color "lident"
-  | x -> Preferences.editor_tag_color "lident"
-
-let icon_of_kind kind =
-  let color = kind |> color_of_kind |> ColorOps.name_of_gdk in
-  match kind with
-  | "Value" -> sprintf "<span color='%s'>\u{ea8c} </span>" color
-  | "Type" -> sprintf "<span color='%s'>\u{1d6bb} </span>" color
-  | "Module" -> sprintf "<span color='%s'>\u{f1b2} </span>" color
-  | "Constructor" -> sprintf "<span color='%s'>\u{ea88} </span>" color
-  | "Variant" -> sprintf "<span color='%s'>\u{ea88} </span>" color
-  | "Label" -> sprintf "<span color='%s'>\u{f0316} </span>" color
-  | "Class" -> sprintf "<span color='%s'>\u{eb5b} </span>" color
-  | "Method" -> sprintf "<span color='%s'>\u{eb65} </span>" color
-  | "Signature" -> sprintf "<span color='%s'>\u{eb61} </span>" color
-  | "Exn" -> sprintf "<span color='%s'>\u{f12a} </span>" color
-  | "#" -> sprintf "<span color='%s'>\u{f0ad} </span>" color
-  | x -> sprintf "<span color='%s'>%s</span>" color x
 
 class virtual completion =
   object
@@ -114,12 +85,13 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
   in
   let view = page#ocaml_view in
   let buffer = view#buffer in
-  let merlin merlin_func cont =
+  let merlin merlin_func cont name =
     let filename = match (view#obuffer#as_text_buffer :> Text.buffer)#file with Some file -> file#filename | _ -> "" in
     let buffer = buffer#get_text () in
-    (Merlin.as_cps merlin_func ~filename ~buffer) cont
+    (Merlin.as_cps merlin_func ~name ~filename ~buffer) cont
   in
   let markup_odoc = new Markup.odoc() in
+  let mx_model_entries = Mutex.create() in
   object (self)
     inherit GObj.widget vbox#as_widget
     inherit completion
@@ -227,10 +199,10 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
                     expand_prefix.Merlin_j.entries |> List.map (fun x -> 1., x) |> self#add_entries "E";
                     loading_complete#call count;
                 | Error _ | Failure _ -> ()
-                end
+                end |=> "expand_prefix"
             end else loading_complete#call count;
         | Error _ | Failure _ -> ()
-        end
+        end |=> "complete_prefix"
 
     method private apply path =
       let row = model#get_iter path in
@@ -258,13 +230,13 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
       try
         let path =
           match lview#selection#get_selected_rows with
-          | [] -> GTree.Path.create [0]
           | [ path ] when direction = `NEXT -> GTree.Path.next path; path
           | [ path ] when direction = `PREV -> if GTree.Path.prev path then path else GTree.Path.create [0]
-          | _ -> assert false
+          | _  -> GTree.Path.create [0]
         in
+        lview#selection#unselect_all();
+        lview#scroll_to_cell path vc_kind;
         lview#selection#select_path path;
-        lview#scroll_to_cell path vc_kind
       with Gpointer.Null -> ()
 
     method private show_info () =
@@ -295,49 +267,56 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
               end
             end else begin
               let name = model#get ~row ~column:col_name in
+              let path = model#get_path row in
               merlin@@Merlin.type_expression ~position:(1,1) ~expression:name |=> begin function
                 | Ok res ->
-                    GtkThread.async begin fun () ->
-                      model#set ~row ~column:col_desc res;
-                      self#show_info()
-                    end ()
+                    begin
+                      try [@warning "-42"]
+                        let row = model#get_iter path in
+                        model#set ~row ~column:col_desc res;
+                        self#show_info()
+                      with Failure _ -> () (* "GtkTree.TreeModel.get_iter" *)
+                    end;
                 | Error _ | Failure _ -> ()
-                end
+                end |=> "type_expression"
             end
       with Gpointer.Null -> ()
 
     method private display_window_info path markup_type markup_doc =
-      let create_window ~x ~y ?width ?height ?show child =
-        current_window_info |> List.iter (fun w -> (*Gmisclib.Idle.add*) w#destroy());
-        let window = Gtk_util.window_tooltip child ~parent:page ~x ~y ?width ?height ?show () in
-        current_window_info <- window :: current_window_info;
-        self#misc#connect#destroy ~callback:window#destroy |> ignore;
-        window
-      in
-      let row_area = lview#get_cell_area ~path () in
-      let r0 = self#misc#allocation in
-      let wx, wy = Gdk.Window.get_position self#misc#toplevel#misc#window in
-      let x0 = wx + r0.Gtk.width in
-      let y0 = wy + Gdk.Rectangle.y row_area in
-      let vbox = GPack.vbox ~spacing:5 ~border_width:5 () in
-      let label_type = GMisc.label ~markup:markup_type ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:true ~packing:vbox#add () in
-      let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add ~show:(markup_doc <> "") () in
-      let label_doc = GMisc.label ~markup:markup_doc ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:true ~packing:vbox#add ~show:(markup_doc <> "") () in
-      let window_info = create_window ~x:x0 ~y:y0 ~show:false vbox#coerce in
-      window_info#resize ~width:1 ~height:1;
-      Gmisclib.Idle.add ~prio:100 begin fun () ->
-        window_info#show();
-        let _ = Gtk_util.move_window_within_screen_bounds window_info x0 y0 in
-        let r = window_info#misc#allocation in
-        if r.height > Gdk.Screen.height() then begin
-          let sw = GBin.scrolled_window ~hpolicy:`AUTOMATIC () in
-          let vp = GBin.viewport ~packing:sw#add () in
-          vbox#misc#reparent vp#coerce;
-          let width = r.width + 21 in
-          let height = Gdk.Screen.height() - y0 - 13 in
-          create_window ~x:x0 ~y:y0 ~width ~height sw#coerce |> ignore;
+      try
+        let create_window ~x ~y ?width ?height ?show child =
+          current_window_info |> List.iter (fun w -> (*Gmisclib.Idle.add*) w#destroy());
+          let window = Gtk_util.window_tooltip child ~parent:page ~x ~y ?width ?height ?show () in
+          current_window_info <- window :: current_window_info;
+          self#misc#connect#destroy ~callback:window#destroy |> ignore;
+          window
+        in
+        let row_area = lview#get_cell_area ~path () in
+        let r0 = self#misc#allocation in
+        let wx, wy = Gdk.Window.get_position self#misc#toplevel#misc#window in
+        let x0 = wx + r0.Gtk.width in
+        let y0 = wy + Gdk.Rectangle.y row_area in
+        let vbox = GPack.vbox ~spacing:5 ~border_width:5 () in
+        let label_type = GMisc.label ~markup:markup_type ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:true ~packing:vbox#add () in
+        let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add ~show:(markup_doc <> "") () in
+        let label_doc = GMisc.label ~markup:markup_doc ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:true ~packing:vbox#add ~show:(markup_doc <> "") () in
+        let window_info = create_window ~x:x0 ~y:y0 ~show:false vbox#coerce in
+        window_info#resize ~width:1 ~height:1;
+        Gmisclib.Idle.add ~prio:100 begin fun () ->
+          window_info#show();
+          let _ = Gtk_util.move_window_within_screen_bounds window_info x0 y0 in
+          let r = window_info#misc#allocation in
+          if r.height > Gdk.Screen.height() then begin
+            let sw = GBin.scrolled_window ~hpolicy:`AUTOMATIC () in
+            let vp = GBin.viewport ~packing:sw#add () in
+            vbox#misc#reparent vp#coerce;
+            let width = r.width + 21 in
+            let height = Gdk.Screen.height() - y0 - 13 in
+            create_window ~x:x0 ~y:y0 ~width ~height sw#coerce |> ignore;
+          end
         end
-      end
+      with ex ->
+        Log.println `ERROR "%s\n%s" (Printexc.to_string ex) (Printexc.get_backtrace());
 
     method private selected_path =
       try
@@ -346,7 +325,7 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
         | _ -> None
       with Gpointer.Null -> None
 
-    val mutable model_entries : (float ref * Gtk.tree_iter * Merlin_t.entry) list = []
+    val mutable model_entries : (float ref * Gtk.tree_path ref * Merlin_t.entry) list = []
 
     method private add_entries source entries =
       let last_count = count in
@@ -361,34 +340,42 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
         model#set ~row ~column:col_desc entry.desc;
         model#set ~row ~column:col_info entry.info;
         count <- count + 1;
-        model_entries <- (ref score, row, entry) :: model_entries;
+        let path = model#get_path row in
+        model_entries <- (ref score, ref path, entry) :: model_entries;
+        row
       in
       begin
         try
           entries
           |> List.iter begin fun (score, (entry : Merlin_t.entry)) ->
-            if is_destroyed || List.length model_entries > 30 then raise Exit;
+            if is_destroyed then raise Exit;
             model_entries
             |> List.find_opt (fun (_, _, e) -> e.Merlin_t.name = entry.Merlin_t.name)
             |> function
-            | Some (s, row, _) when score > !s ->
-                s := score;
-                if model#remove row then add_row entry score
-            | None -> add_row entry score
+            | Some (s, path, _) when score > !s ->
+                Mutex.protect mx_model_entries begin fun () ->
+                  s := score;
+                  let row = model#get_iter !path in
+                  if model#remove row then begin
+                    let row = add_row entry score in
+                    path := model#get_path row
+                  end
+                end;
+            | None ->
+                Mutex.protect mx_model_entries
+                  (fun () -> add_row entry score |> ignore);
             | _ -> ()
           end
         with Exit -> ()
       end;
       if last_count = 0 && count > 0 then first_entry_available#call();
+      lview#scroll_to_cell (GTree.Path.create [0]) vc_kind;
 
     initializer
       view#misc#connect#after#realize ~callback:(fun _ -> vc_name#set_sizing `GROW_ONLY) |> ignore;
       self#misc#connect#destroy ~callback:begin fun () ->
         single_instance := None;
         is_destroyed <- true
-      end |> ignore;
-      self#connect#first_entry_available ~callback:begin fun () ->
-        Gmisclib.Idle.add (fun () -> self#select_row `NEXT; (* Select first result *));
       end |> ignore;
       self#connect#loading_complete ~callback:begin fun count ->
         if count > 0 then Gmisclib.Idle.add self#show_info

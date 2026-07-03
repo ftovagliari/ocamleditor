@@ -137,14 +137,12 @@ class incremental () =
           end
 
     method private find_regexp ~control (view : Text.view) start =
-      let text_to_find = Glib.Convert.convert_with_fallback ~fallback:"?"
-          ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset status#text_find in
+      let text_to_find = status#text_find in
       let buffer = view#buffer in
       try
         let ins = if status#backward then start#backward_char else start in
         let pos = ins#offset in
-        let text = Glib.Convert.convert_with_fallback ~fallback:"?"
-            ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset (buffer#get_text ()) in
+        let text = buffer#get_text () in
         let pat = if status#case_sensitive then Str.regexp text_to_find
           else Str.regexp_case_fold text_to_find in
         let pos = if status#backward then Str.search_backward pat text pos
@@ -176,12 +174,8 @@ class incremental () =
         self#set_view (Some view);
         let dialog =
           match Sys.os_type with
-          (*            | "Win32" -> GWindow.window ~allow_grow:false
-                          ~kind:`POPUP ~type_hint:`MENU ~modal:true ~border_width:5 ()*)
           | _ -> GWindow.window ~allow_grow:true
-                   ?type_hint:(match Sys.os_type with
-                       | "Win32" -> Some `UTILITY (* to skip taskbar on Windows *)
-                       | _ -> Some `DIALOG)
+                   ?type_hint:(Some `DIALOG)
                    ~decorated:false ~modal:false ~border_width:1 ()
         in
         dialog#set_skip_taskbar_hint true;

@@ -36,7 +36,7 @@ let parse_string buf =
     let messages = Err_parser.compiler_output Err_lexer.token lexbuf in
     create messages
   with Parsing.Parse_error ->
-    eprintf "Error: %S\n%!" buf;
+    eprintf "Parsing.Parse_error: <<<\n%s\n>>>\n%!" buf;
     empty
 
 let parse chan =

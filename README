@@ -35,9 +35,9 @@ DEPENDENCIES
   * yojson;
   * atdgen;
   * ocamldiff;
-  * (optional) ocurl-0.6 to allow remote editing;
-  * (optional) Dot command to display the module dependencies graph;
-  * (optional) Lablgtk.rsvg to embed the graph viewer in the editor.
+  * ocurl-0.6 to allow remote editing;
+  * Dot command to display the module dependencies graph;
+  * Lablgtk.rsvg to embed the graph viewer in the editor.
 
 
 
@@ -46,10 +46,6 @@ HOW TO COMPILE
   Change to the OCamlEditor toplevel directory and execute:
 
     ocaml build.ml ocamleditor
-
-  Under Windows with MSVC execute:
-
-    ocaml build.ml ocamleditor-msvc
 
   If the native code compiler is not available on your platform, compile with:
 
@@ -76,10 +72,6 @@ INSTALLATION
   under "/usr/local/share/ocamleditor/icons" and plugins under
   "/usr/local/share/ocamleditor/plugins". You can specify an installation
   prefix other than "/usr/local" by giving an absolute file name as argument.
-
-  Windows users may build an installer by compiling the included NSIS
-  script, "ocamleditor.nsi". The free NSIS install system can be found at
-  http://nsis.sourceforge.net
 
 
 

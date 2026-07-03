@@ -23,11 +23,11 @@
 
 open Printf
 
-let redirect_stderr = if Sys.os_type = "Win32" then " 2>NUL" else " 2>/dev/null"
+let redirect_stderr = " 2>/dev/null"
 
 
 let read_ocaml_config () =
-  let conf = Printf.kprintf Shell.get_command_output "ocamlc -config" in
+  let conf = Printf.ksprintf Shell.get_command_output "ocamlc -config" in
   let re = Str.regexp ": " in
   List.map (fun l -> match Str.split re l with [n;v] -> n, v | [n] -> n, "" | _ -> assert false) conf
 
@@ -37,18 +37,13 @@ let get name = List.assoc name cache
 
 let is_mingw = try get "system" = "mingw" with Not_found -> false
 
-let putenv_ocamllib value =
-  match Sys.os_type with
-  | "Win32" ->
-      let value = match value with None -> "" | Some x -> x in
-      Unix.putenv "OCAMLLIB" value
-  | _ -> ignore (Sys.command "unset OCAMLLIB")
+let putenv_ocamllib () = Sys.command "unset OCAMLLIB" |> ignore
 
 let find_best_compiler compilers =
   try
     Some (List.find begin fun comp ->
         try
-          let output = kprintf Shell.get_command_output "%s -version%s" comp redirect_stderr in
+          let output = ksprintf Shell.get_command_output "%s -version%s" comp redirect_stderr in
           output <> []
         with _ -> false
       end compilers)
@@ -64,8 +59,7 @@ let find_tool which path =
     | `OCAMLC -> ["ocamlc"]
     | `OCAML -> ["ocaml"]
   in
-  let commands = if Sys.win32 then List.map (fun c -> if Filename.check_suffix c ".opt" then c ^ ".exe" else c) commands else commands in
-  let quote    = if path <> "" && Sys.os_type = "Win32" && String.contains path ' ' then Filename.quote else (fun x -> x) in
+  let quote    = Fun.id in
   let path     = if path <> "" then Filename.concat path "bin" else "" in
   find_best_compiler (List.map quote (List.map (Filename.concat path) commands))
 
@@ -103,7 +97,7 @@ let can_compile_native ?ocaml_home () =
     with _ -> (close_out ochan)
   end;
   let outname = Filename.chop_extension filename in
-  let exename = outname ^ (if Sys.os_type = "Win32" then ".exe" else "") in
+  let exename = outname in
   let compiler = match ocaml_home with
     | Some home -> find_tool `BEST_OCAMLOPT home
     | _ -> Some "ocamlopt"
@@ -124,12 +118,8 @@ let can_compile_native ?ocaml_home () =
       if Sys.file_exists obj then (Sys.remove obj);
       let obj = outname ^ ".obj" in
       if Sys.file_exists obj then (Sys.remove obj);
-      if Sys.win32 then begin
-        let manifest = exename ^ ".manifest" in
-        if Sys.file_exists manifest then (Sys.remove manifest);
-      end;
       if !result then begin
-        let conf = String.concat "\n" (kprintf Shell.get_command_output "%s -config" compiler) in
+        let conf = String.concat "\n" (ksprintf Shell.get_command_output "%s -config" compiler) in
         let re = Str.regexp "ccomp_type: \\(.*\\)\n" in
         if Str.search_forward re conf 0 >= 0 then begin
           Some (Str.matched_group 1 conf)

@@ -153,11 +153,11 @@ class ocaml_shell ?project () =
                            | Some p -> begin fun () ->
                                sh#delete_input_line();
                                List.iter begin fun dir ->
-                                 kprintf sh#insert "#directory %S;;\n" dir;
+                                 ksprintf sh#insert "#directory %S;;\n" dir;
                                end (Project.get_load_path p);
                                List.iter begin fun lib ->
                                  if not (Filename.check_suffix lib ".o") then begin
-                                   kprintf sh#insert "#load \"%s.cma\";;\n" (String.escaped lib);
+                                   ksprintf sh#insert "#load \"%s.cma\";;\n" (String.escaped lib);
                                  end
                                end (Project.get_libraries p);
                                sh#return()

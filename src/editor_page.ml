@@ -85,7 +85,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
   let buffer                   = new Ocaml_text.buffer ~project ?file () in
   let sw, text_view, ocaml_view = create_view ~project ~buffer ?file () in
   let vbox                     = GPack.vbox ~spacing:0 () in
-  let textbox                  = GPack.hbox ~spacing:1 ~packing:vbox#add () in
+  let paned                    = GPack.paned `HORIZONTAL ~packing:vbox#add () in
+  let textbox                  = GPack.hbox ~spacing:0 ~packing:paned#add2 () in
   let _                        = textbox#add sw#coerce in (* Text box *)
   let svbox                    = GPack.vbox ~spacing:1 ~packing:textbox#pack () in (* Vertical scrollbar box *)
   let global_gutter_ebox       = GBin.event_box ~packing:textbox#pack () in (* Global gutter box *)
@@ -139,7 +140,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     val mutable load_complete = false
     val mutable quick_info = Quick_info.create ocaml_view
     val error_indication = new Error_indication.error_indication ocaml_view vscrollbar global_gutter
-    val mutable outline = None
     val mutable dotview = None
     val mutable word_wrap = editor#word_wrap
     val mutable show_whitespace = editor#show_whitespace_chars
@@ -147,6 +147,10 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     val mutable signal_button_toggle_whitespace = None
     val mutable signal_button_dotview = None
     val mutable global_gutter_tooltips : ((int * int * int * int) * (unit -> GObj.widget)) list = []
+    val mutable outline : Oe.outline option = None
+
+    method outline = outline
+    method set_outline ol = outline <- Some ol
 
     method global_gutter_tooltips = global_gutter_tooltips
     method set_global_gutter_tooltips x = global_gutter_tooltips <- x
@@ -156,18 +160,17 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method global_gutter = global_gutter
     method vscrollbar = vscrollbar
 
-    method outline = outline
-    method set_outline x = outline <- x
-
     method is_changed_after_last_autosave = last_autosave_time < buffer#last_edit_time
     method sync_autosave_time () = last_autosave_time <- Unix.gettimeofday()
 
     method statusbar = editorbar
 
     method read_only = read_only
+
     method set_read_only ro =
       read_only <- ro;
       text_view#set_editable (not ro)
+
     method set_tab_widget x = tab_widget <- Some x
     method tab_widget = match tab_widget with None -> assert false | Some x -> x
     method file = file
@@ -185,6 +188,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       file_changed#call file_obj
 
     method get_filename = match file with None -> "untitled.ml" | Some f -> f#filename
+
     method get_title =
       match file with
       | Some file ->
@@ -194,6 +198,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             | Some rmt -> sprintf "%s@%s%s" rmt.Editor_file_type.user rmt.Editor_file_type.host file#filename
           end;
       | _ -> ""
+
     method view = view
     method ocaml_view = ocaml_view
     method buffer = buffer
@@ -220,7 +225,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       self#error_indication#set_flag_tooltip Preferences.preferences#get.editor_err_tooltip;
       self#error_indication#set_flag_gutter Preferences.preferences#get.editor_err_gutter;
       self#view#create_highlight_current_line_tag();
-      Gaux.may outline ~f:(fun outline -> outline#view#misc#modify_font_by_name Preferences.preferences#get.editor_completion_font);
       error_indication#set_phase ();
 
     method update_statusbar () =
@@ -236,7 +240,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
                   let last_modified = sprintf "%4d-%d-%d %02d:%02d:%02d" (tm.Unix.tm_year + 1900)
                       (tm.Unix.tm_mon + 1) tm.Unix.tm_mday tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
                   in
-                  kprintf editorbar#filename#misc#set_tooltip_markup "%s%s\nLast modified: %s\n%s bytes - %s lines - %s characters"
+                  ksprintf editorbar#filename#misc#set_tooltip_markup "%s%s\nLast modified: %s\n%s bytes - %s lines - %s characters"
                     (if project.Prj.in_source_path file#filename <> None then "<b>" ^ project.Prj.name ^ "</b>\n" else "")
                     self#get_title
                     last_modified
@@ -254,8 +258,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method save () = Gaux.may file ~f:begin fun file ->
         if not file#is_readonly then begin
           if Preferences.preferences#get.editor_bak then (self#backup());
-          let text = Project.convert_from_utf8 project (buffer#get_text ()) in
-          file#write text;
+          file#write (buffer#get_text ());
           Gmisclib.Idle.add self#update_statusbar;
           Gmisclib.Idle.add (fun () -> self#compile_buffer ?join:None ());
           (* Delete existing recovery copy *)
@@ -305,7 +308,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             try
               view#misc#hide();
               load#call `Begin;
-              buffer#insert (Project.convert_to_utf8 project file#read);
+              buffer#insert file#read;
               (* Initial cursor position and syntax highlighting *)
               Gmisclib.Idle.add begin fun () ->
                 if scroll then begin
@@ -348,7 +351,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
               if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
               true
             with Glib.Convert.Error (_, message) -> begin
-                let message = if project.Prj.encoding <> Some "UTF-8" then (kprintf Convert.to_utf8
+                let message = if project.Prj.encoding <> Some "UTF-8" then (ksprintf Convert.to_utf8
                                                                               "Cannot convert file\n\n%s\n\nfrom %s codeset to UTF-8.\n\n%s"
                                                                               file#filename
                                                                               (match project.Prj.encoding with None -> "Default" | Some x -> x)
@@ -369,8 +372,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
         buffer#sync_autocomp_time ();
         Autocomp.compile_buffer ~project ~editor ~page:self ?join ();
       end else begin
-        editor#pack_outline (Cmt_view.empty());
-        self#set_outline None;
       end
 
     method tooltip ((*(x, y) as*) location) =
@@ -434,25 +435,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
               begin match editor#project.Prj.in_source_path self#get_filename with
               | Some filename ->
                   let filename = String.concat "/" (Utils.filename_split filename) in
-                  let on_ready_cb viewer =
-                    Option.iter begin fun viewer ->
-                      if editorbar#button_dotview#active then begin
-                        textbox#misc#hide();
-                        vbox#reorder_child viewer#coerce ~pos:0;
-                        dotview <- Some viewer;
-                        List.iter (fun b -> b#misc#set_sensitive false)
-                          [editorbar#button_font_incr; editorbar#button_font_decr; editorbar#button_rowspacing_incr; editorbar#button_rowspacing_decr;
-                           (*button_h_prev; button_h_next; button_h_last*)];
-                        List.iter (fun b -> b#misc#set_sensitive false) [editorbar#button_toggle_wrap; editorbar#button_toggle_whitespace];
-                        hscrollbar#misc#hide();
-                        editorbar#pos_box#misc#hide();
-                      end
-                    end viewer
-                  in
-                  begin match Dot.draw ~project:editor#project ~filename ~packing:vbox#add ~on_ready_cb () with
-                  | None -> reset_button()
-                  | _ -> ();
-                  end
+                  Dot.draw ~project:editor#project ~filename ();
+                  reset_button()
 
               | None ->
                   let title = "Could not show dependency graph" in
@@ -574,8 +558,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
           if iter#inside_word then
             if not !current_hyperlink_exists then begin
               match
-                Definition.find
-                  ~filename:self#get_filename ~buffer:(buffer#get_text ()) ~iter
+                Definition.locate
+                  ~filename:self#get_filename ~text:(buffer#get_text ()) ~iter
               with
               | Merlin.Ok (Some _) -> current_hyperlink_exists := true;
               | Merlin.Ok None | Merlin.Failure _ | Merlin.Error _ -> ()
@@ -601,9 +585,21 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       (** Dotview *)
       if Oe_config.dot_version <> None then begin
         (signal_button_dotview <- Some (editorbar#button_dotview#connect#clicked ~callback:self#show_dep_graph));
-        editorbar#button_dotview#misc#set_tooltip_text (Menu_view.get_switch_viewer_label (Some self));
+        editorbar#button_dotview#misc#set_tooltip_text "Dependency Graph";
         editorbar#button_dotview#misc#set_sensitive (Menu_view.get_switch_view_sensitive editor#project self);
       end
+
+    method show_outline () =
+      match outline with
+      | Some outline ->
+          let outline_view = new Outline.view ~outline ~source_view:self#ocaml_view () in
+          paned#add1 (outline_view :> GObj.widget);
+          Gmisclib.Idle.add ~prio:300 outline_view#refresh
+      | _ -> Log.println `ERROR "outline does not exist"
+
+    method hide_outline () =
+      try paned#child1#destroy()
+      with Gpointer.Null -> ()
 
     method connect = signals
     method disconnect = signals#disconnect

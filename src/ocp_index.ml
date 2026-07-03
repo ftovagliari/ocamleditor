@@ -28,7 +28,7 @@ let execute_async command ?(context:context option) ~full_open ident =
 
 let fullname_async ~context ident =
   execute_async "print" ~context ~full_open:[] ident
-  |> Async.map begin fun ((ic, _, _) as channels) ->
+  |> Async.map ~name:"fullname_async" begin fun ((ic, _, _) as channels) ->
     let pid = Unix.process_full_pid channels in
     let first_line =
       try Some (String.trim (input_line ic))

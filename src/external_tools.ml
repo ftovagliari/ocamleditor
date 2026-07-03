@@ -37,14 +37,7 @@ let rec read () =
   let ichan = open_in_gen [Open_binary; Open_creat] 0o777 filename in
   let tools = lazy (try input_value ichan with End_of_file -> []) @$ (lazy (close_in ichan)) in
   let tools = if tools = [] then begin
-      let tools = (if Sys.win32 then [
-          ("1000", "Console", "start \"$(project_name)\" cmd /K cd \"$(project_source)\"");
-          ("1001", "Explorer", "explorer \"$(project_source)\"");
-          ("1002", "Open with Notepad", "start notepad \"$(current_filename)\"");
-          ("1003", "Open containing folder", "explorer \"$(current_filename_dir)\"");
-        ] else []) @ [
-                    ("2002", "OCamlBrowser", "ocamlbrowser -I \"$(project_source)\"")
-                  ] in
+      let tools = ["2002", "OCamlBrowser", "ocamlbrowser -I \"$(project_source)\"" ] in
       write tools;
       read ()
     end else tools in

@@ -68,19 +68,7 @@ let window ~editor ~page () =
             create_file ~editor ~page ~text:(buffer#get_text()) ~filename window
           in
           if Sys.file_exists filename then begin
-            let overwrite () =
-              if Sys.os_type = "Win32" then begin
-                (* Because of the Win32 case insensitiveness of filenames
-                   we delete the target file and close the editor page of
-                   the target file *)
-                Sys.remove filename;
-                let lc_filename = String.lowercase_ascii filename in
-                List_opt.may_find (fun p -> String.lowercase_ascii p#get_filename = lc_filename)
-                  editor#pages editor#close ();
-              end;
-              create_file()
-            in
-            Dialog_rename.ask_overwrite ~run ~overwrite ~filename window
+            Dialog_rename.ask_overwrite ~run ~overwrite:create_file ~filename window
           end else (create_file())
         end;
     | _ -> window#destroy()

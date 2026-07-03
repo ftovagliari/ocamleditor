@@ -38,7 +38,6 @@ setup.data
 setup.log
 setup.ml
 src/resource.res
-src/icons
 src/build_id.ml
 *.so
 
@@ -49,3 +48,6 @@ src/.merlin
 src/merlin_?.ml*
 src/settings_?.ml*
 
+*.ocaml-index
+_build
+src/icons/icons.ml

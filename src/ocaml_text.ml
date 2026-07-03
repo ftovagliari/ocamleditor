@@ -46,6 +46,8 @@ class buffer ?project ?file ?(lexical_enabled=false) () =
     val mutable select_word_state_init = None
     val mutable last_autocomp_time = 0.0
 
+    method filename = match file with Some fn -> fn#filename | _ -> ""
+
     method is_ocaml_file = is_ocaml_file
     method colorize ?start ?stop () = Lexical.tag ?start ?stop self#as_gtext_buffer
 
@@ -254,16 +256,60 @@ class buffer ?project ?file ?(lexical_enabled=false) () =
 (** View *)
 and view ?project ?buffer () =
   let buffer = match buffer with None -> new buffer ?project () | Some b -> b in
+  (* Double-click selects OCaml identifiers; click on a selected range
+     reduces the selection to part of the identifier. *)
+  let is_two_button_press = ref false in
   object (self)
-    inherit Text.view ?project ~buffer:buffer#as_text_buffer () as super
+    inherit Text.view ?project ~buffer:buffer#as_text_buffer ()
     val mutable popup = None
     val mutable smart_click = true;
     val mutable select_enclosing_expr = None
+
+    initializer
+      select_enclosing_expr <- Some (new Enclosing_expr.manager ~ocaml_view:self);
+      self#create_highlight_current_line_tag(); (* recreate current line tag after code folding highlight to draw it above *)
+      self#event#connect#button_release ~callback:self#button_release_handler |> ignore;
+      self#event#connect#button_press ~callback:self#button_press_handler |> ignore
 
     method obuffer = buffer
 
     method smart_click = smart_click
     method set_smart_click x = smart_click <- x
+
+    method private button_press_handler ev =
+      if GdkEvent.Button.button ev = 1 && smart_click then begin
+        match GdkEvent.get_type ev with
+        | `TWO_BUTTON_PRESS ->
+            is_two_button_press := true;
+            self#obuffer#select_word ~pat:Ocaml_word_bound.regexp () |> ignore;
+            true (* true *)
+        | `BUTTON_PRESS when buffer#has_selection ->
+            let x = int_of_float (GdkEvent.Button.x ev) in
+            let y = int_of_float (GdkEvent.Button.y ev) in
+            let x, y = self#window_to_buffer_coords ~tag:`TEXT ~x ~y in
+            let where = self#get_iter_at_location ~x ~y in
+            let start, stop = buffer#selection_bounds in
+            let start, stop = if start#compare stop > 0 then stop, start else start, stop in
+            if where#in_range ~start ~stop then begin
+              buffer#place_cursor ~where;
+              let a, b = self#obuffer#select_word ~pat:Ocaml_word_bound.part () in
+              if a#equal start && b#equal stop then begin
+                buffer#place_cursor ~where;
+                false
+              end else true; (* true *)
+            end else false;
+        | _ -> false
+      end else false
+
+    method private button_release_handler ev =
+      if GdkEvent.Button.button ev = 1 && smart_click then begin
+        match GdkEvent.get_type ev with
+        | `BUTTON_RELEASE when !is_two_button_press ->
+            is_two_button_press := false;
+            self#obuffer#select_word ~pat:Ocaml_word_bound.regexp () |> ignore;
+            false;
+        | _ -> false
+      end else false
 
     method private comment_selection () =
       let bounds = "(\042", "\042)" in
@@ -336,11 +382,7 @@ and view ?project ?buffer () =
           if comp <> 0 then begin
             self#comment_selection ();
           end else if select_nearest then begin
-            match
-              Comments.nearest (Comments.scan
-                                  (Glib.Convert.convert_with_fallback ~fallback:"?"
-                                     ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset (tb#get_text ()))) pos
-            with
+            match Comments.nearest (Comments.scan (tb#get_text ())) pos with
             | None -> ()
             | Some (b, e) ->
                 let i, s = if abs(pos - b) <= abs(pos - e) then b, e else e, b in
@@ -359,48 +401,4 @@ and view ?project ?buffer () =
     method select_enclosing_expr ?(iter = buffer#get_iter_at_mark `INSERT) () =
       select_enclosing_expr |> Option.iter (fun sel -> sel#start ~iter)
 
-    method! scroll_lazy iter =
-      super#scroll_lazy iter
-
-    initializer
-      select_enclosing_expr <- Some (new Enclosing_expr.manager ~ocaml_view:self);
-      self#create_highlight_current_line_tag(); (* recreate current line tag after code folding highlight to draw it above *)
-      (* Double-click selects OCaml identifiers; click on a selected range
-         reduces the selection to part of the identifier. *)
-      let two_button_press = ref false in
-      self#event#connect#button_release ~callback:begin fun ev ->
-        if GdkEvent.Button.button ev = 1 && smart_click then begin
-          match GdkEvent.get_type ev with
-          | `BUTTON_RELEASE when !two_button_press ->
-              two_button_press := false;
-              self#obuffer#select_word ~pat:Ocaml_word_bound.regexp () |> ignore;
-              false;
-          | _ -> false
-        end else false
-      end |> ignore;
-      self#event#connect#button_press ~callback:begin fun ev ->
-        if GdkEvent.Button.button ev = 1 && smart_click then begin
-          match GdkEvent.get_type ev with
-          | `TWO_BUTTON_PRESS ->
-              two_button_press := true;
-              self#obuffer#select_word ~pat:Ocaml_word_bound.regexp () |> ignore;
-              true (* true *)
-          | `BUTTON_PRESS when buffer#has_selection ->
-              let x = int_of_float (GdkEvent.Button.x ev) in
-              let y = int_of_float (GdkEvent.Button.y ev) in
-              let x, y = self#window_to_buffer_coords ~tag:`TEXT ~x ~y in
-              let where = self#get_iter_at_location ~x ~y in
-              let start, stop = buffer#selection_bounds in
-              let start, stop = if start#compare stop > 0 then stop, start else start, stop in
-              if where#in_range ~start ~stop then begin
-                buffer#place_cursor ~where;
-                let a, b = self#obuffer#select_word ~pat:Ocaml_word_bound.part () in
-                if a#equal start && b#equal stop then begin
-                  buffer#place_cursor ~where;
-                  false
-                end else true; (* true *)
-              end else false;
-          | _ -> false
-        end else false
-      end |> ignore
   end

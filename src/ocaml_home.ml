@@ -34,10 +34,10 @@ class widget ~project ?(spacing=3) ?border_width ~label_width ?packing ()=
   let entry_version = GEdit.entry ~editable:false ~packing:box#add () in
 
   let _ = incr top in
-  let _ = GMisc.label ~xalign:0.0 ~width:label_width ~text:"OCAMLLIB:" ~show:Sys.win32 ~packing:(table#attach ~top:!top ~left:0) () in
+  let _ = GMisc.label ~xalign:0.0 ~width:label_width ~text:"OCAMLLIB:" ~show:false ~packing:(table#attach ~top:!top ~left:0) () in
   let box = GPack.hbox ~spacing ~packing:(table#attach ~top:!top ~left:1 ~expand:`X) () in
-  let entry_ocamllib = GEdit.entry ~editable:true ~show:Sys.win32 ~packing:box#add () in
-  let button_ocamllib = GButton.button ~label:"  ...  " ~show:Sys.win32 ~packing:box#pack () in
+  let entry_ocamllib = GEdit.entry ~editable:true ~show:false ~packing:box#add () in
+  let button_ocamllib = GButton.button ~label:"  ...  " ~show:false ~packing:box#pack () in
 
   let _ = incr top in
   let _ = GMisc.label ~xalign:0.0 ~width:label_width ~text:"Native Compilation:" ~packing:(table#attach ~top:!top ~left:0) () in
@@ -50,8 +50,8 @@ class widget ~project ?(spacing=3) ?border_width ~label_width ?packing ()=
     inherit GObj.widget vbox#as_widget
 
     method private with_ocamllib : 'a.(unit -> 'a) -> 'a = fun f ->
-      Ocaml_config.putenv_ocamllib (Some entry_ocamllib#text);
-      let finally () = Ocaml_config.putenv_ocamllib (Some original_ocamllib) in
+      Ocaml_config.putenv_ocamllib ();
+      let finally () = Ocaml_config.putenv_ocamllib () in
       (try let result = f() in finally(); result with ex -> (finally(); raise ex))
 
     method get_ocaml_version () =
@@ -99,7 +99,7 @@ class widget ~project ?(spacing=3) ?border_width ~label_width ?packing ()=
       in
       ignore (entry_ocamllib#connect#changed ~callback:begin fun () ->
           let ver, stdlib = self#get_ocaml_version () in
-          kprintf entry_version#set_text "%s - %s" ver stdlib;
+          ksprintf entry_version#set_text "%s - %s" ver stdlib;
           set_tooltips();
           entry_native#set_text "";
         end);

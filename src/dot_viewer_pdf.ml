@@ -23,20 +23,12 @@
 
 open Printf
 
-(*class virtual viewer =
-  object
-  method virtual display : filename:string -> unit
-  method virtual coerce : GObj.widget
-  method virtual destroy : unit -> unit
-  end
-*)
+module PDF : Dot_viewer_types.DEVICE = struct
 
-module PDF = struct
-
-  let create ?packing () = None
+  (*let create ?packing () = None*)
 
   let viewer_cmd ~filename =
-    let cmd = if Sys.os_type = "Win32" then "" else Preferences.preferences#get.program_pdf_viewer in
+    let cmd = Preferences.preferences#get.program_pdf_viewer in
     sprintf "%s %s" cmd filename
 
   let open_file filename =
@@ -63,20 +55,7 @@ module PDF = struct
 
   let lang = "pdf"
 
-  let have_embedded_viewer = false
-
-  let draw ~filename _ = open_file filename
+  let draw ~filename = open_file filename
 
 end
 
-
-(*module type DEVICE = sig
-  val lang : string
-  val have_embedded_viewer : bool
-  val create : ?packing:(GObj.widget -> unit) -> unit -> viewer option
-  val draw : filename:string -> viewer option -> unit
-  end
-
-
-  let device : (module DEVICE) ref = ref (module PDF : DEVICE)
-*)

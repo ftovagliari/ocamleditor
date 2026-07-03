@@ -242,9 +242,6 @@ class view ~editor ~project ?packing () =
               let target = {target with id = target.id} in
               target.external_tasks <- List.map (fun et ->
                   {et with Task.et_name = et.Task.et_name}) target.external_tasks;
-              target.resource_file <-
-                (match target.resource_file with None -> None | Some rc ->
-                    Some {rc with Resource_file.rc_title = rc.Resource_file.rc_title});
               let row = model#append ?parent () in
               incr count;
               model#set ~row ~column:col_data (Target target);

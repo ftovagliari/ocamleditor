@@ -90,15 +90,15 @@ open Preferences
 
 (** widget *)
 class widget ~page ?packing () =
-  let diff_cmd       = Preferences.preferences#get.program_diff_graphical  in
-  let mk_diff_cmd    = if Sys.win32 && not Ocaml_config.is_mingw then Filename.quote diff_cmd else diff_cmd in
+  let pref_diff_cmd  = Preferences.preferences#get.program_diff_graphical  in
+  let diff_cmd       = Str.split (Utils.regexp " +") pref_diff_cmd in
   let project        = page#project in
   let mbox           = GPack.vbox ~spacing:0 ?packing () in
   let toolbar        = GButton.toolbar ~style:`ICONS ~orientation:`HORIZONTAL ~packing:(mbox#pack ~from:`END) () in
   let _              = toolbar#set_icon_size `MENU in
   let button_compare_ext = GButton.tool_button ~label:"Compare" ~packing:toolbar#insert () in
   let _              = button_compare_ext#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.diff) ())#coerce in
-  let _              = kprintf button_compare_ext#misc#set_tooltip_markup "External diff with <span size='x-small' font-family='monospace'>%s</span>" diff_cmd in
+  let _              = ksprintf button_compare_ext#misc#set_tooltip_markup "External diff with <span size='x-small' font-family='monospace'>%s</span>" pref_diff_cmd in
   let _              = GButton.separator_tool_item ~packing:toolbar#insert () in
   let button_ignore_ws = GButton.toggle_tool_button ~label:"Ignore Whitespace" ~active:true ~packing:toolbar#insert () in
   let button_ws      = GButton.toggle_tool_button ~label:"View Whitespaces" ~active:true ~packing:toolbar#insert () in
@@ -273,7 +273,12 @@ class widget ~page ?packing () =
           let filename1 = self#get_filename ~row in
           let row = model#get_iter path2 in
           let filename2 = self#get_filename ~row in
-          Spawn.async mk_diff_cmd [| filename1; filename2 |] |> ignore
+          begin
+            match diff_cmd with
+            | [] -> eprintf "Unable to execute graphics diff command"
+            | program :: args ->
+                Spawn.async program (Array.of_list (args @ [ filename1; filename2 ])) |> ignore
+          end
       | _ -> ()
 
     method private get_filename ~row =

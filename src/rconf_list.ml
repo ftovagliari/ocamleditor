@@ -115,7 +115,7 @@ class view ~target_list ~editor ~project ~page ?packing () =
       view#expand_all()
 
     method private markup rc =
-      match List_opt.find (fun bc -> bc.Target.id = rc.Rconf.target_id) (target_list#get_targets()) with
+      match List.find_opt (fun bc -> bc.Target.id = rc.Rconf.target_id) (target_list#get_targets()) with
       | Some target ->
           sprintf "<b>%s</b>\n<small><i>%s</i></small>" rc.Rconf.name target.Target.name
       | _ -> ""
@@ -185,7 +185,7 @@ class view ~target_list ~editor ~project ~page ?packing () =
               let row = model#get_iter path in
               let rc = model#get ~row ~column:col_data in
               let targets = (target_list#get_targets()) in
-              match List_opt.find (fun b -> b.Target.id = rc.Rconf.target_id) targets with
+              match List.find_opt (fun b -> b.Target.id = rc.Rconf.target_id) targets with
               | Some bc -> ignore (Task_console.exec ~editor (`RCONF rc) bc)
               | _ -> ()
             end

@@ -51,6 +51,7 @@ type t = {
   mutable symbols            : Oe.symbol_cache;
   mutable build_script       : Build_script.t;
   mutable bookmarks          : Oe.bookmark list;
+  mutable file_watcher       : Inotify.watch option;
 }
 
 let default_extension = ".project"
@@ -61,11 +62,11 @@ let default_dir_tools = "tools"
 let old_extension = ".xml"
 
 let find_target proj id =
-  List_opt.find (fun bc -> bc.Target.id = id) proj.targets;;
+  List.find_opt (fun bc -> bc.Target.id = id) proj.targets;;
 
 let find_target_string proj id = find_target proj (int_of_string id)
 
 let find_task proj name =
-  List_opt.find (fun et -> et.Task.et_name = name)
+  List.find_opt (fun et -> et.Task.et_name = name)
     (List.flatten (List.map (fun bc -> bc.Target.external_tasks) proj.targets));;
 

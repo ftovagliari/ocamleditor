@@ -7,6 +7,8 @@ open Preferences
 
 let multi_space = regexp "\\( \\( +\\)\\)\\|(\\*\\*\\(\\*+\\)\\|(\\*\\* \\|(\\* \\|(\\*\\|\\*)"
 
+let _ = Lexer.init()
+
 let tags, colors =
   let tags, colors =
     Preferences.preferences#get.editor_tags
@@ -118,25 +120,19 @@ let tag ?start ?stop (tb : GText.buffer) =
   and stop = Gaux.default tb#end_iter ~opt:stop in
   (* Se start e stop sono all'interno di commenti allora prendo come start e stop
      l'inizio del primo commento e la fine del secondo. *)
-  let text = tb#get_text () in
-  let text = Glib.Convert.convert_with_fallback ~fallback:"?" ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset text in
-  let global_comments = Comments.scan text in
+  let global_comments = Comments.scan (tb#get_text ()) in
   let start = match Comments.enclosing global_comments start#offset with
     | None -> start
-    | Some (x, _) ->
-        tb#get_iter_at_char x in
+    | Some (x, _) -> tb#get_iter_at_char x in
   let stop = match Comments.enclosing global_comments stop#offset with
     | None -> stop
-    | Some (_, y) ->
-        tb#get_iter_at_char y in
+    | Some (_, y) -> tb#get_iter_at_char y in
   (*  *)
-  let u_text = tb#get_text ~start ~stop () in
-  let lines = line_starts u_text in
+  let text = tb#get_text ~start ~stop () in
+  let lines = line_starts text in
   let tpos = tpos ~start ~lines in
-  let i_text = (Glib.Convert.convert_with_fallback ~fallback:"?" ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset u_text) in
-  let buffer = Lexing.from_string i_text in
-  let extra_bytes = ref 0 in
-  let comments = Comments.scan_utf8 u_text in
+  let buffer = Lexing.from_string text in
+  let comments = Comments.scan_utf8 text in
   let succ_comments = ref comments in
   let last = ref ("", EOF, 0, 0) in
   let last_but_one = ref ("", EOF, 0, 0) in
@@ -153,21 +149,8 @@ let tag ?start ?stop (tb : GText.buffer) =
         let token = Lexer.token buffer in
         let lstart = Lexing.lexeme_start buffer in
         let lstop = Lexing.lexeme_end buffer in
-        let length = lstop - lstart in
-        let u_lstart, u_lstop =
-          (Glib.Utf8.offset_to_pos ~pos:0 ~off:lstart u_text),
-          (Glib.Utf8.offset_to_pos ~pos:0 ~off:lstop u_text)
-        in
-        let u_length = u_lstop - u_lstart in
-        (*printf "(%d, %d) (%d, %d)\n%!" lstart lstop u_lstart u_lstop;*)
-        let lexeme = String.sub u_text u_lstart u_length in
-        let start1 = lstart + !extra_bytes in
-        let _, succ, start = Comments.partition !succ_comments start1  in
+        let _, succ, start = Comments.partition !succ_comments lstart  in
         succ_comments := succ;
-        let extra_bytes_in_comments = start - start1 in
-        let extra_bytes_in_lexeme = u_length - length in
-        let stop = start + u_length in
-        extra_bytes := !extra_bytes + extra_bytes_in_lexeme + extra_bytes_in_comments;
         let tag =
           match token with
           | AMPERAMPER
@@ -242,6 +225,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | UIDENT _ | BACKQUOTE -> "uident"
           | LIDENT _ when !in_annotation -> "annotation"
           | LIDENT _ ->
+              let lexeme = Lexing.lexeme buffer in
               begin match !last with
               | _, (QUESTION | TILDE), _, _ -> "label"
               | _, BACKQUOTE, _, _ -> "number"
@@ -262,7 +246,7 @@ let tag ?start ?stop (tb : GText.buffer) =
               begin match !last with
                 _, LIDENT _, lstart, lstop ->
                   if lstop = start then
-                    tb#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos stop);
+                    tb#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos lstop);
                   ""
               | _ -> ""
               end
@@ -285,14 +269,14 @@ let tag ?start ?stop (tb : GText.buffer) =
           | RBRACKET -> if !in_annotation then (in_annotation := false; "annotation") else "symbol"
           | ASSERT -> "custom"
           | DOCSTRING _ | COMMENT _ -> "comment"
+          | METAOCAML_ESCAPE | METAOCAML_BRACKET_OPEN | METAOCAML_BRACKET_CLOSE | EFFECT -> ""
           | EOL -> ""
           | EOF -> raise End_of_file
         in
-        if tag <> "" then begin
-          tb#apply_tag_by_name tag ~start:(tpos start) ~stop:(tpos stop);
-        end;
+        if tag <> "" then
+          tb#apply_tag_by_name tag ~start:(tpos start) ~stop:(tpos lstop);
         last_but_one := !last;
-        last := (tag, token, start, stop)
+        last := (tag, token, start, lstop)
       with Lexer.Error _ -> ()
     done;
   with
@@ -302,7 +286,7 @@ let tag ?start ?stop (tb : GText.buffer) =
         if not ocamldoc then begin
           let ms = Utils.Search.all multi_space begin fun ~pos ~matched_string:mat ->
               Utils.Search.Append (pos, pos + String.length mat, mat)
-            end (String.sub u_text b (e - b)) in
+            end (String.sub text b (e - b)) in
           let (*b = b and*) e = e - 2 in
           let tag = "comment" in
           tb#apply_tag_by_name tag ~start:(tpos b) ~stop:(tpos e);

@@ -26,7 +26,6 @@ open Shell
 open Spawn
 open App_config
 open File_util
-open List_opt
 open Argc
 open Option_syntax
 open Manual_reset_event

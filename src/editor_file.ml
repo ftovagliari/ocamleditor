@@ -133,15 +133,12 @@ class file filename =
       with Unix.Unix_error _ -> None (* TODO *)
   end
 
+let create_remote = ref
+    (fun ~host ~user ~pwd ~sslkey ~sshpublickeyfile ~sslkeypasswd ~filename -> failwith "create_remote")
+
 (** create *)
 let create ?remote filename =
   match remote with
   | None -> (new file filename :> abstract_file)
   | Some {Editor_file_type.host; user; pwd; sslkey; sshpublickeyfile; sslkeypasswd} ->
-      begin
-        match !Plugins.remote with
-        | Some plugin ->
-            let module Remote = (val plugin) in
-            Remote.create ~host ~user ~pwd ~sslkey ~sshpublickeyfile ~sslkeypasswd ~filename;
-        | None -> assert false
-      end
+      !create_remote ~host ~user ~pwd ~sslkey ~sshpublickeyfile ~sslkeypasswd ~filename;

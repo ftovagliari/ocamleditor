@@ -92,7 +92,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.|}
   modify_label ~color:"#0000ff" label;
   link_button#set_focus_on_click false;
   ignore (link_button#connect#clicked ~callback:(fun () ->
-      kprintf open_url "%s?%s-%s-%s"
+      ksprintf open_url "%s?%s-%s-%s"
         About.website Sys.os_type About.version !About.build_id));
 
   (* Report a bug *)

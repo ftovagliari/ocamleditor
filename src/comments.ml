@@ -57,12 +57,12 @@ let scan txt = Locale (scan_locale txt)
 
 let scan_utf8 txt =
   match scan txt with
-  | Locale comments -> Utf8 (List.map
-                               begin fun (x, y, ocamldoc) ->
-                                 let c = String.sub txt x (y - x) in
-                                 x, y, String.length c - String.length
-                                         (Glib.Convert.convert_with_fallback ~fallback:"?" ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset c), ocamldoc
-                               end comments)
+  | Locale comments -> Utf8 (
+      List.map
+        begin fun (x, y, ocamldoc) ->
+          let c = String.sub txt x (y - x) in
+          x, y, String.length c - String.length c, ocamldoc
+        end comments)
   | (Utf8 _) as res -> res
 
 let enclosing comments pos =

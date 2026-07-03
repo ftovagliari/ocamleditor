@@ -271,8 +271,8 @@ let spec : spec list ref =
       OUT; T0 "end;"; NL
     ];
 
-    "callback", "~callback:begin fun () -> ... end",
-    [T " ~callback:begin fun () ->"; IN; NL; TI ""; I; NL; OUT; TI "end;"];
+    "callback", "~callback:begin fun () -> ... end |> ignore",
+    [T " ~callback:begin fun () ->"; IN; NL; TI ""; I; NL; OUT; TI "end |> ignore;"];
 
     "for", "for ... do ... done", [
       TI "for i = 0 to "; I; T " do"; NL;

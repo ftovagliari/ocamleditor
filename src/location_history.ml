@@ -61,7 +61,7 @@ let string_of_location loc =
             label name
         | Some buffer ->
             let iter = Gmisclib.Util.get_iter_at_mark_safe buffer mark in
-            kprintf label "%d : %d" (GtkText.Iter.get_line iter + 1) (GtkText.Iter.get_line_offset iter)
+            ksprintf label "%d : %d" (GtkText.Iter.get_line iter + 1) (GtkText.Iter.get_line_offset iter)
       end
 
 (** iter *)
@@ -194,7 +194,7 @@ let add nh ~kind ~(view : GText.view) ~filename ~offset =
 (*end ()*)
 
 (** last_edit_location *)
-let last_edit_location nh = List_opt.find (fun loc -> loc.kind = `EDIT) nh.history
+let last_edit_location nh = List.find_opt (fun loc -> loc.kind = `EDIT) nh.history
 
 (** goto_last_edit_location *)
 let goto_last_edit_location nh =

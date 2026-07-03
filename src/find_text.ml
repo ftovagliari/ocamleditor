@@ -207,7 +207,6 @@ let create_regexp ~project
     ?(case_sensitive=status.case_sensitive)
     ?(match_whole_word=status.match_whole_word)
     ~text () =
-  let text = Project.convert_from_utf8 project text in
   match match_whole_word, use_regexp, case_sensitive with
   | false, true, true -> Str.regexp text
   | false, true, false -> Str.regexp_case_fold text

@@ -33,7 +33,7 @@ type verbosity = [
   | `OFF
 ];;
 
-let verbosity_of_string = function
+let verbosity_of_string x = match String.trim x with
   | "OFF"   -> `OFF
   | "FATAL" -> `FATAL
   | "ERROR" -> `ERROR
@@ -46,11 +46,11 @@ let verbosity_of_string = function
 let string_of_verbosity = function
   | `FATAL -> "FATAL"
   | `ERROR -> "ERROR"
-  | `WARN  -> "WARN"
-  | `INFO  -> "INFO"
+  | `WARN  -> "WARN "
+  | `INFO  -> "INFO "
   | `DEBUG -> "DEBUG"
   | `TRACE -> "TRACE"
-  | `OFF   -> "OFF";;
+  | `OFF   -> "OFF  ";;
 
 let verbosities = List.mapi (fun i x -> x, i) [`DEBUG; `TRACE; `INFO; `WARN; `ERROR; `FATAL; `OFF]
 let (>=) x y = List.assoc x verbosities >= List.assoc y verbosities
@@ -116,16 +116,16 @@ module Make (X : sig
 
     let fprint level f =
       if level <> `OFF && level >= !verbosity then begin
-        if !print_timestamp then (Printf.kprintf (Format.pp_print_string log_formatter) "%s " (timestamp()));
-        Printf.kprintf (Format.pp_print_string log_formatter) "[%s] [%d] " (string_of_verbosity level) (Thread.id (Thread.self()));
+        if !print_timestamp then (Printf.ksprintf (Format.pp_print_string log_formatter) "%s " (timestamp()));
+        Printf.ksprintf (Format.pp_print_string log_formatter) "[%s] [%d] " (string_of_verbosity level) (Thread.id (Thread.self()));
         Option.iter (Format.pp_print_string log_formatter) prefix;
         Format.kfprintf (fun fmt -> Format.pp_print_flush fmt ()) log_formatter f
       end else Format.ifprintf Format.err_formatter f
 
     let fprintln level f =
       if level <> `OFF && level >= !verbosity then begin
-        if !print_timestamp then (Printf.kprintf (Format.pp_print_string log_formatter) "%s " (timestamp()));
-        Printf.kprintf (Format.pp_print_string log_formatter) "[%s] [%d] " (string_of_verbosity level) (Thread.id (Thread.self()));
+        if !print_timestamp then (Printf.ksprintf (Format.pp_print_string log_formatter) "%s " (timestamp()));
+        Printf.ksprintf (Format.pp_print_string log_formatter) "[%s] [%d] " (string_of_verbosity level) (Thread.id (Thread.self()));
         Option.iter (Format.pp_print_string log_formatter) prefix;
         Format.kfprintf (fun fmt -> Format.pp_print_newline fmt (); Format.pp_print_flush fmt ())
           log_formatter f

@@ -30,6 +30,7 @@ module Idle =
 struct
   let add     = Gmisclib_util.idle_add
   let add_gen = Gmisclib_util.idle_add_gen
+  let idleize_cascade = Gmisclib_util.idleize_cascade
 end
 
 module Text =

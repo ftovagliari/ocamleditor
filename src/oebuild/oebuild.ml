@@ -58,12 +58,12 @@ let ocamllib = Ocaml_config.ocamllib()
 
 (** check_package_list *)
 let check_package_list =
-  let redirect_stderr = if Sys.os_type = "Win32" then " 1>NUL 2>NUL" else " 1>/dev/null 2>/dev/null" in
+  let redirect_stderr = " 1>/dev/null 2>/dev/null" in
   fun package_list ->
     let package_list = Str.split (Str.regexp "[, ]") package_list in
     let available, unavailable =
       List.partition begin fun package ->
-        kprintf (Oebuild_util.command ~echo:false) "ocamlfind query %s %s" package redirect_stderr = 0
+        ksprintf (Oebuild_util.command ~echo:false) "ocamlfind query %s %s" package redirect_stderr = 0
       end package_list
     in
     if unavailable <> [] then begin
@@ -161,9 +161,9 @@ let get_output_name ~compilation ~outkind ~outname ?(dontaddopt=false) () =
     match outkind with
     | Library when compilation = Native -> ".cmxa"
     | Library -> ".cma"
-    | Executable when compilation = Native && dontaddopt -> win32 ".exe" ""
-    | Executable when compilation = Native -> ".opt" ^ (win32 ".exe" "")
-    | Executable -> win32 ".exe" ""
+    | Executable when compilation = Native && dontaddopt -> ""
+    | Executable when compilation = Native -> ".opt"
+    | Executable -> ""
     | Plugin when compilation = Native -> ".cmxs"
     | Plugin -> ".cma"
     | Pack -> ".cmx"
@@ -205,30 +205,13 @@ let install ~compilation ~outkind ~outname ~deps ~path ~ccomp_type =
 (** run_output *)
 let run_output ~outname ~args =
   let args = List.rev args in
-  if Sys.win32 then begin
-    let cmd = Str.global_replace (Str.regexp "/") "\\\\" outname in
-    let cmd = Filename.current_dir_name // cmd in
-
-    (*let args = cmd :: args in
-      let args = Array.of_list args in
-      Unix.execv cmd args*)
-
-    (*let args = String.concat " " args in
-      ignore (kprintf command "%s %s" cmd args)*)
-
-    Spawn.sync
-      ~process_in:Spawn.redirect_to_stdout ~process_err:Spawn.redirect_to_stderr
-      cmd (Array.of_list args) |> ignore
-
-  end else begin
-    let cmd = Filename.current_dir_name // outname in
-    (* From the execv manpage:
-       "The first argument, by convention, should point to the filename associated
-       with the file being executed." *)
-    let args = cmd :: args in
-    let args = Array.of_list args in
-    Unix.execv cmd args
-  end
+  let cmd = Filename.current_dir_name // outname in
+  (* From the execv manpage:
+     "The first argument, by convention, should point to the filename associated
+     with the file being executed." *)
+  let args = cmd :: args in
+  let args = Array.of_list args in
+  Unix.execv cmd args
 ;;
 
 (** sort_dependencies *)
@@ -239,7 +222,6 @@ let sort_dependencies ~deps subset =
   end deps;
   List.rev !result
 ;;
-
 
 (** serial_compile *)
 let serial_compile ~compilation ~times ~compiler ~cflags ~includes ~toplevel_modules:_ ~deps ~verbose =
@@ -301,8 +283,7 @@ let parallel_compile ~compilation ?times ?pp ~compiler ~cflags ~includes ~toplev
 
 (** Build *)
 let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_only
-    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt (*~ms_paths*)
-    ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
+    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt     ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
 
   let crono = if verbose >= 3 then crono else fun ?label f x -> f x in
   let crono4 = if verbose >= 4 then crono else fun ?label f x -> f x in
@@ -349,7 +330,7 @@ let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_on
   if thread then (cflags := !cflags ^ " -thread"; lflags := !lflags ^ " -thread");
   if vmthread then (cflags := !cflags ^ " -vmthread"; lflags := !lflags ^ " -vmthread");
   if annot then (cflags := !cflags ^ " -annot");
-  if bin_annot then (cflags := !cflags ^ " -bin-annot");
+  if bin_annot then (cflags := !cflags ^ " -bin-annot -bin-annot-occurrences");
   if pp <> "" then (cflags := !cflags ^ " -pp " ^ pp);
   let pp = if pp <> "" then Some pp else None in
   (* inline *)
@@ -530,7 +511,6 @@ let check_prop expr get =
     end;
   with Not_found (* name (matched_group) *) -> false (* [4] *)
 
-
 (** check_restrictions *)
 let check_restrictions restr =
   List.for_all begin function
@@ -543,9 +523,9 @@ let check_restrictions restr =
   | res when Str.string_match re_fl_pkg_exist res 0 ->
       let packages = Str.matched_group 2 res in
       let packages = Str.split re_comma packages in
-      let redirect_stderr = if Sys.os_type = "Win32" then " 1>NUL 2>NUL" else " 1>/dev/null 2>/dev/null" in
+      let redirect_stderr = " 1>/dev/null 2>/dev/null" in
       packages = [] || List.for_all begin fun package ->
-        kprintf (Oebuild_util.command ~echo:false) "ocamlfind query %s %s" package redirect_stderr = 0
+        ksprintf (Oebuild_util.command ~echo:false) "ocamlfind query %s %s" package redirect_stderr = 0
       end packages
   | _ -> false
   end restr;;

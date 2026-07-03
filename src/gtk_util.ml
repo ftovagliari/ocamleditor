@@ -72,7 +72,6 @@ let window widget
   window#set_accept_focus focus;
   if show then begin
     if fade then (window#set_opacity 0.0);
-    if Sys.os_type = "Win32" then (window#present());
     window#move ~x ~y;
     let alloc = window#misc#allocation in
     let x, y =
@@ -81,7 +80,7 @@ let window widget
     in
     window#move ~x ~y;
     if fade then (Gmisclib.Util.fade_window window);
-    if Sys.os_type <> "Win32" then (window#present());
+    window#present();
   end;
   window
 
@@ -122,7 +121,6 @@ let window_tooltip widget ?parent ?(fade=false) ~x ~y ?width ?height ?(kind=`POP
   window#move ~x ~y;
   if show then begin
     if fade then (Gmisclib.Util.fade_window window) else window#present();
-    (*if Sys.os_type <> "Win32" then (window#present());*)
   end;
   move_window_within_screen_bounds window x y |> ignore;
   window
@@ -149,7 +147,7 @@ let increase_font_size ?weight ?(increment=3) widget =
 (** try_font *)
 let try_font context family =
   try
-    let fd = Printf.kprintf Pango.Font.from_string "%s 9" family in
+    let fd = Printf.ksprintf Pango.Font.from_string "%s 9" family in
     let _ = Pango.Context.load_font context#as_context fd in
     true
   with Gpointer.Null -> false

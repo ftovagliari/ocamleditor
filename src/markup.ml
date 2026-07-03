@@ -1,9 +1,42 @@
-open Preferences
 open Printf
+module ColorOps = Color
+open Preferences
 
 let re_indent = Str.regexp "^[ ]+"
 let re_multi_space = Str.regexp " [ ]+"
 let re_newlines = Str.regexp "[\n\r]+"
+
+let color_of_kind = function
+  | "Value" -> Preferences.editor_tag_color "uident"
+  | "Type" -> Preferences.editor_tag_color "uident"
+  | "Module" -> Preferences.editor_tag_color "uident"
+  | "Constructor" -> Preferences.editor_tag_color "uident"
+  | "Variant" -> Preferences.editor_tag_color "uident"
+  | "Label" -> Preferences.editor_tag_color "uident"
+  | "Class" -> Preferences.editor_tag_color "structure"
+  | "Method" -> Preferences.editor_tag_color "structure"
+  | "ClassType" -> Preferences.editor_tag_color "lident"
+  | "Signature" -> Preferences.editor_tag_color "lident"
+  | "Exn" -> `NAME "red" |> GDraw.color
+  | "#" -> Preferences.editor_tag_color "lident"
+  | x -> Preferences.editor_tag_color "lident"
+
+let icon_of_kind kind =
+  let color = kind |> color_of_kind |> ColorOps.name_of_gdk in
+  match kind with
+  | "Value" -> sprintf "<span color='%s'></span>" color
+  | "Type" -> sprintf "<span color='%s'>󰬛</span>" color
+  | "Module" -> sprintf "<span color='%s'> </span>" color
+  | "Constructor" -> sprintf "<span color='%s'>󰘵</span>" color
+  | "Variant" -> sprintf "<span color='%s'>󰓼</span>" color
+  | "Label" -> sprintf "<span color='%s'>󰌕</span>" color
+  | "Class" -> sprintf "<span size='larger' color='%s'></span>" color
+  | "ClassType" -> sprintf "<span size='larger' style='italic' color='%s'></span>" color
+  | "Method" -> sprintf "<span color='%s'></span>" color
+  | "Signature" -> sprintf "<span size='larger' color='%s'> </span>" color
+  | "Exn" -> sprintf "<span style='italic' color='%s'>󱈸</span>" color
+  | "#" -> sprintf "<span color='%s'></span>" color
+  | x -> sprintf "<span color='%s'>%s</span>" color x
 
 let type_info ?(color=Oe_config.colored_types) text =
   if color then

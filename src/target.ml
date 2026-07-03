@@ -55,7 +55,6 @@ type t = {
   mutable visible          : bool;
   mutable subsystem        : subsystem option;
   mutable dontaddopt       : bool;
-  mutable resource_file    : Resource_file.t option;
   mutable node_collapsed   : bool;
 }
 and task = [ `NONE | `CLEAN | `COMPILE | `REBUILD | `ETASK of Task.t ]
@@ -107,7 +106,7 @@ let target_type_of_string = function
 let subsystem_of_string = function
   | "Console" -> Console
   | "Windows" -> Windows
-  | x -> kprintf failwith "subsystem_of_string: %S" x
+  | x -> ksprintf failwith "subsystem_of_string: %S" x
 
 let string_of_subsystem = function
   | Console -> "Console"
@@ -146,7 +145,6 @@ let create ~id ~name = {
   visible            = true;
   subsystem          = None;
   dontaddopt         = false;
-  resource_file      = None;
   node_collapsed     = false;
 }
 
@@ -162,7 +160,7 @@ let find_dependencies target =
 (** find_target_dependencies *)
 let rec find_target_dependencies targets trg =
   Utils.ListExt.remove_dupl (List.flatten (List.map begin fun id ->
-      match List_opt.find (fun tg -> tg.id = id) targets with
+      match List.find_opt (fun tg -> tg.id = id) targets with
       | Some target -> (find_target_dependencies targets target) @ [target]
       | _ -> []
     end trg.dependencies));;
@@ -176,23 +174,8 @@ let filter_external_tasks target phase =
     | _ -> None
   end target.external_tasks
 
-(** create_rc_filename *)
-let create_rc_filename target =
-  let exename = Oebuild.get_output_name
-      ~compilation:Oebuild.Native
-      ~outkind:Oebuild.Executable
-      ~outname:target.outname
-      ~dontaddopt:target.dontaddopt ()
-  in
-  let rcname = Filename.chop_extension exename in
-  Filename.concat (Filename.dirname rcname) ((Filename.basename rcname) ^ ".resource.rc")
-
 (** get_full_libs *)
-let get_full_libs target =
-  match target.resource_file with
-  | Some rc when Oe_config.rc <> None && Oe_config.cvtres <> None ->
-      (Filename.basename (Filename.chop_extension rc.Resource_file.rc_filename)) ^ ".obj " ^ target.libs
-  | _ -> target.libs
+let get_full_libs target = target.libs
 
 (** create_cmd_line *)
 let create_cmd_line ?(flags=[]) ?(can_compile_native=true) target =
@@ -215,7 +198,7 @@ let create_cmd_line ?(flags=[]) ?(can_compile_native=true) target =
     @ (if target.lflags <> "" then ["-lflags"; (quote (target.lflags))] else [])
     @ (if target.package <> "" then ["-package"; (quote (target.package))] else [])
     @ (if target.includes <> "" then ["-I"; (quote (target.includes))] else [])
-    @ (if target.libs <> "" || target.resource_file <> None then ["-l"; (quote (get_full_libs target))] else [])
+    @ (if target.libs <> "" then ["-l"; (quote (get_full_libs target))] else [])
     @ (if target.other_objects <> "" then ["-m"; quote (target.other_objects)] else [])
     @ begin
       match target.target_type with

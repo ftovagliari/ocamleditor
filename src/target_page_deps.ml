@@ -102,7 +102,7 @@ class widget ~target_list ?packing () =
       model#clear();
       current_ids <- [];
       List.iter begin fun dep_id ->
-        match List_opt.find (fun x -> x.Target.id = dep_id) targets with
+        match List.find_opt (fun x -> x.Target.id = dep_id) targets with
         | Some dep ->
             let row = model#append () in
             model#set ~row ~column:col_bc dep;

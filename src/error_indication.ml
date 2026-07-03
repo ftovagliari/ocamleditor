@@ -280,11 +280,8 @@ class error_indication (view : Ocaml_text.view) vscrollbar global_gutter =
                   popup#misc#modify_bg [`NORMAL, border_color];
                   let ebox = GBin.event_box ~packing:popup#add () in
                   ebox#misc#modify_bg [`NORMAL, bg_color];
-                  let error_message = Glib.Convert.convert_with_fallback ~fallback:"?"
-                      ~from_codeset:Oe_config.ocaml_codeset ~to_codeset:"UTF-8" error.Oe.er_message
-                  in
                   let markup = (*(error.Oe.er_location) ^*)
-                    (Print_type.markup3 error_message) in
+                    (Print_type.markup3 error.Oe.er_message) in
                   let label = GMisc.label ~markup ~xpad:5 ~ypad:5 ~packing:ebox#add () in
                   label#misc#modify_font_by_name Preferences.preferences#get.editor_completion_font;
                   label#misc#modify_fg [`NORMAL, `BLACK];

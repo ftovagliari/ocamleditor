@@ -24,6 +24,18 @@ open Printf
 open Arg
 open Oebuild
 
+let doc_when =
+  "\"<c1&c2&...>\" Exit immediately if any condition specified here is not true.
+                                 Recognized conditions are:
+
+                                   FINDLIB(packages,...)     : Findlib packages are installed
+                                   IS_UNIX                   : O.S. type is Unix
+                                   IS_WIN32                  : O.S. type is Win32
+                                   IS_CYGWIN                 : O.S. type is Cygwin
+                                   ENV(name[{=|<>}value])    : Check environment variable
+                                   OCAML(name[{=|<>}value])  : Check OCaml configuration property
+                                   NATIVE                    : Native compilation is supported\n"
+
 (** main *)
 let main () =
   let enabled = ref true in
@@ -116,16 +128,7 @@ let main () =
       ("-dep",         Unit dep,                        " Print dependencies and exit.");
       ("-no-dep",      Set nodep,                       " Do not detect module dependencies.");
       ("-dont-link-dep", Set dontlinkdep,               " Do not link module dependencies.");
-      ("-when",        String check_restrictions,       "\"<c1&c2&...>\" Exit immediately if any condition specified here is not true.
-                                 Recognized conditions are:
-
-                                   FINDLIB(packages,...)     : Findlib packages are installed
-                                   IS_UNIX                   : O.S. type is Unix
-                                   IS_WIN32                  : O.S. type is Win32
-                                   IS_CYGWIN                 : O.S. type is Cygwin
-                                   ENV(name[{=|<>}value])    : Check environment variable
-                                   OCAML(name[{=|<>}value])  : Check OCaml configuration property
-                                   NATIVE                    : Native compilation is supported\n");
+      ("-when",        String check_restrictions,       doc_when);
       ("-output-name", Set print_output_name,           " (undocumented)");
       ("-msvc",        Set ms_paths,                    " (undocumented)");
       ("-no-build",    Set no_build,                    " (undocumented)");
@@ -135,9 +138,6 @@ let main () =
       ("-jobs",        Set_int jobs,                    " (undocumented)");
       ("-serial",      Set serial,                      " (undocumented)");
       ("-verbose",     Set_int verbose,                 " (undocumented)");
-      (*    ("-cs", Set compile_separately, " Compile separately without recompiling unmodified modules.");*)
-      (*    ("-install", Set_string install, "\"<path>\" Copy the output to the specified directory. When building libraries the path is relative to " ^
-            (win32 "%OCAMLLIB%" "$OCAMLLIB") ^ ". Create all non-existing directories.");*)
     ] in
   let command_name = Filename.basename Sys.argv.(0) in
   let help_message = sprintf "\nUsage:\n  %s target.ml... [options]\n\nOptions:" command_name in
@@ -162,7 +162,6 @@ let main () =
     end;
     (* Clean *)
     if !is_clean || !is_distclean then begin
-      (*let deps = Oebuild_util.crono ~label:"Oebuild_dep.find" (Oebuild_dep.find ~pp:!pp ~ignore_stderr:false) !toplevel_modules in*)
       let deps =
         Oebuild_dep.ocamldep_toplevels ~verbose:false ~pp:!pp ~ignore_stderr:false !toplevel_modules
         |> Oebuild_dep.sort_dependencies
@@ -232,14 +231,14 @@ let main () =
           begin
             match !run_code with
             | Some Native ->
-                (match List.assoc Native outnames with None -> ()
-                                                     | Some outname -> run_output ~outname ~args:!run_args)
+                (match List.assoc Native outnames
+                 with None -> () | Some outname -> run_output ~outname ~args:!run_args)
             | Some Bytecode ->
-                (match List.assoc Bytecode outnames with None -> ()
-                                                       | Some outname -> run_output ~outname ~args:!run_args)
+                (match List.assoc Bytecode outnames
+                 with None -> () | Some outname -> run_output ~outname ~args:!run_args)
             | Some Unspecified ->
-                (match !last_outname with None -> ()
-                                        | Some outname -> run_output ~outname ~args:!run_args)
+                (match !last_outname
+                 with None -> () | Some outname -> run_output ~outname ~args:!run_args)
             | None -> ()
           end
         with Not_found -> (invalid_arg "-run-opt or -run-byt")

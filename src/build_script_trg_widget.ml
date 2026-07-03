@@ -108,7 +108,7 @@ class widget ~project ?packing () =
 
     method set build_script_targets =
       List.iter begin fun bst ->
-        match List_opt.assoc bst.bst_target.Target.id table with
+        match List.assoc_opt bst.bst_target.Target.id table with
         | Some path ->
             let row = model#get_iter path in
             model#set ~row ~column:col_show bst.bst_show;

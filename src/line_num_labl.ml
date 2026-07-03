@@ -51,7 +51,7 @@ let reset (lnl : 'a pool) =
     identified by [key]. It does nothing if the element identified by [key] is
     not among the locked elements. *)
 let hide key lnl =
-  match List_opt.assoc key lnl.locked with Some lnl -> lnl#misc#hide() | _ -> ()
+  match List.assoc_opt key lnl.locked with Some lnl -> lnl#misc#hide() | _ -> ()
 
 let find lnl x = List.assoc_opt x lnl.locked
 

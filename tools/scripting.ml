@@ -21,10 +21,12 @@
 *)
 
 
-#load "unix.cma"
-#load "str.cma"
-#use "../src/common/shell.ml"
-#use "../src/common/utils.ml"
+#directory "+unix";;
+#directory "+str";;
+#load "unix.cma";;
+#load "str.cma";;
+#use "../src/common/shell.ml";;
+#use "../src/common/utils.ml";;
 
 exception Script_error of string * int
 
@@ -103,8 +105,8 @@ let substitute ~filename ?(regexp=false) repl =
       done;
       assert false;
     with
-      | End_of_file -> finally()
-      | ex -> finally(); raise ex
+    | End_of_file -> finally()
+    | ex -> finally(); raise ex
   end;;
 
 (** get_command_output *)
@@ -116,12 +118,12 @@ let get_command_output command =
     while true do output := (input_line ch) :: !output done;
     assert false
   with End_of_file -> begin
-    ignore (Unix.close_process_in ch);
-    List.rev !output
-  end | e -> begin
-    ignore (Unix.close_process_in ch);
-    raise e
-  end
+      ignore (Unix.close_process_in ch);
+      List.rev !output
+    end | e -> begin
+      ignore (Unix.close_process_in ch);
+      raise e
+    end
 
 (** Main *)
 open Arg
@@ -130,10 +132,10 @@ let main ?dir ?(targets=[]) ?default_target ~options () =
   try
     let mktarget f x =
       fun () ->
-        (match dir with Some dir -> pushd dir | _ -> ());
-        let finally () = match dir with Some _ -> popd() | _ -> () in
-        (try f x with ex -> (finally(); raise ex));
-        finally();
+      (match dir with Some dir -> pushd dir | _ -> ());
+      let finally () = match dir with Some _ -> popd() | _ -> () in
+      (try f x with ex -> (finally(); raise ex));
+      finally();
     in
     let target_func = ref None in
     let target f x = target_func := Some (mktarget f x) in
@@ -149,10 +151,16 @@ let main ?dir ?(targets=[]) ?default_target ~options () =
     Arg.parse speclist (fun x -> raise (Bad x)) help_message;
     begin
       match !target_func with
-        | Some f -> f ();
-        | None when default_target <> None -> (match default_target with Some f -> (mktarget f ()) () | _ -> assert false)
-        | _ -> Arg.usage speclist help_message
+      | Some f -> f ();
+      | None when default_target <> None -> (match default_target with Some f -> (mktarget f ()) () | _ -> assert false)
+      | _ -> Arg.usage speclist help_message
     end;
-    exit 0;
-  with Script_error _ -> (exit 2)
+    let code = 0 in
+    Printf.printf "Exit code %d\n%!" code;
+    exit code;
+  with Script_error _ ->
+    let code = 0 in
+    Printf.printf "Exit code %d\n%!" code;
+    exit code;
+
 

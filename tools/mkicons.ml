@@ -27,7 +27,7 @@
 open Printf
 
 let generate ochan path =
-  let icons = ".." // "icons" // path in
+  let icons = ".."//"src"//"icons"// path in
   let files =
     icons
     |> Sys.readdir

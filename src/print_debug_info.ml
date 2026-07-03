@@ -59,8 +59,17 @@ let print ~editor () =
         let mnames = List.map (function (Some m, d) ->
             m ^ (if d then "(del)" else "") | _ -> "") mnames in
         printf "%s\n%!" (String.concat "; " mnames);
+        let open Location in
+        Lex.comments ((current_page#buffer :> Text.buffer)#as_gtext_buffer#get_text())
+        |> List.iter begin fun (c, loc) ->
+          let t1, start_ln, start_cn = Location.get_pos_info loc.loc_start in
+          let t2, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in
+          Printf.printf "comment: %d,%d - %d,%d %S\n%!" start_ln start_cn stop_ln stop_cn c;
+        end;
     | _ -> ()
   end;
+  (*  *)
+  Names.Cache.dump editor#project;
   (*  *)
   Prf.print()
 ;;

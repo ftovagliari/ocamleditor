@@ -1,6 +1,7 @@
 open Merlin_j
 open Printf
 open Utils
+open Oe
 
 module Log = Common.Log.Make(struct let prefix = "QUICK-INFO" end)
 let _ =
@@ -21,30 +22,16 @@ module SignalId = struct
     | None -> ()
 end
 
-module Lock = struct
-  let index = Mutex.create()
-  let wininfo = Mutex.create()
-  let mutex mx f x =
-    Mutex.lock mx;
-    try
-      let res = f x in
-      Mutex.unlock mx;
-      res
-    with ex ->
-      Mutex.unlock mx;
-      raise ex
-end
+let mx_index = Mutex.create()
+let mx_wininfo = Mutex.create()
 
-(** [!!mutex f x] applies [f] to [x] inside a critical section locked by
-    [mutex] and returns its result. *)
-let (!!) mx f x = Lock.mutex mx f x
 
 let index = ref 10_000
 let new_index () =
-  !!Lock.index begin fun () ->
+  Mutex.protect mx_index begin fun () ->
     index := !index + 1;
     !index
-  end ()
+  end
 
 (** The type of quick info. *)
 type t = {
@@ -79,7 +66,7 @@ let get_current_window_unsafe qi =
   | _ -> None
 
 (** Returns the last open quick info window. *)
-let get_current_window qi = !!Lock.wininfo get_current_window_unsafe qi
+let get_current_window qi = Mutex.protect mx_wininfo (fun () -> get_current_window_unsafe qi)
 
 let remove_highlight qi wi =
   match wi.range with
@@ -103,8 +90,8 @@ let remove_highlight qi wi =
       end
   | _ -> ()
 
-let add_wininfo qi callback =
-  !!Lock.wininfo (fun wi -> qi.windows <- wi :: qi.windows; callback())
+let add_wininfo qi callback wi =
+  Mutex.protect mx_wininfo (fun () -> qi.windows <- wi :: qi.windows; callback())
 
 let is_poiter_over (wi : wininfo) =
   try
@@ -120,11 +107,11 @@ let is_poiter_over (wi : wininfo) =
 let remove_wininfo qi wi =
   GMain.Timeout.add ~ms:300 ~callback:begin fun () ->
     if not wi.is_pinned && not (is_poiter_over wi) then begin
-      !!Lock.wininfo begin fun () ->
+      Mutex.protect mx_wininfo begin fun () ->
         if not wi.is_pinned then remove_highlight qi wi;
         qi.windows <- qi.windows |> List.filter (fun x -> x.window#misc#get_oid <> wi.window#misc#get_oid);
         wi.window#destroy();
-      end ();
+      end;
     end;
     false
   end |> ignore
@@ -137,17 +124,17 @@ let is_pinned qi =
     previously open and in timed closure. The pinned window is an exception
     and is not hidden. *)
 let hide qi =
-  !!Lock.wininfo begin fun () ->
+  Mutex.protect mx_wininfo begin fun () ->
     qi.windows |> List.iter begin fun wi ->
       if not wi.is_pinned then begin
         remove_highlight qi wi;
         wi.window#misc#hide()
       end
     end;
-  end ()
+  end
 
 let unpin qi =
-  !!Lock.wininfo (List.iter (fun w -> w.is_pinned <- false)) qi.windows;
+  Mutex.protect mx_wininfo (fun () -> List.iter (fun w -> w.is_pinned <- false) qi.windows);
   hide qi
 
 (** Closes the last quick information opened and all other timed closing windows. *)
@@ -278,23 +265,41 @@ let build_content qi (entry : type_enclosing_value) (entry2 : type_enclosing_val
   in
   tail_info, Markup.type_info type_expr, type_params
 
+let get_iter_at_line buffer pos =
+  let ln = pos.line - 1 in
+  if pos.line < 0 || ln > buffer#end_iter#line then raise (Invalid_linechar pos);
+  buffer#get_iter (`LINE ln)
+
+let get_iter_at_linechar buffer pos =
+  let it = get_iter_at_line buffer pos in
+  if pos.col >= it#chars_in_line then raise (Invalid_linechar pos);
+  it#set_line_offset pos.col (*buffer#get_iter (`LINECHAR (pos.line - 1, pos.col))*)
+
 (** Opens a new quick information window with the information received from merlin.
     This function is applied in a separate thread. *)
 let spawn_window qi position (entry : type_enclosing_value) (entry2 : type_enclosing_value option) =
   if qi.view#misc#get_flag `HAS_FOCUS then begin
-    let start = qi.view#obuffer#get_iter (`LINECHAR (entry.te_start.line - 1, entry.te_start.col)) in
-    let stop = qi.view#obuffer#get_iter (`LINECHAR (entry.te_stop.line - 1, entry.te_stop.col)) in
+    let start = get_iter_at_linechar qi.view#buffer entry.te_start in
+    let stop = get_iter_at_linechar qi.view#buffer entry.te_stop in
     let tail_info, type_expr, type_params = build_content qi entry entry2 in
     let label_fn, label_typ, label_vars, label_doc = display qi start stop in
     let ident = qi.view#obuffer#get_text ~start ~stop () in
     let context = qi.filename, Some (start#line + 1), Some (start#line_offset + 1) in
+    (* TODO: Avoid looking up the fullname for local identifiers.
+       If the type_expr value returned by ocp_index is equal to the type_expr value returned
+       by merlin, then the fullname returned by ocp_index is correct;
+       otherwise, do not display the fullname. *)
     Ocp_index.fullname_async ~context ident
-    |> Async.map (fun fullname ->
+    |> Async.map ~name:"spawn_window" begin fun fullname ->
+      try
         match fullname with
         | Some fullname ->
             label_fn#misc#show();
             label_fn#set_label (sprintf "<span size='small'>%s</span>" (Markup.type_info fullname));
-        | None -> label_fn#misc#hide())
+        | None -> label_fn#misc#hide()
+      with ex ->
+        Log.println `ERROR "%s\n\t%s\n%s" __FUNCTION__ (Printexc.to_string ex) (Printexc.get_backtrace())
+    end
     |> Async.run_synchronously;
     label_typ#set_label (sprintf "%s%s" type_expr tail_info);
     if type_params <> "" then begin
@@ -325,9 +330,7 @@ let invoke_merlin qi (iter : GText.iter) ~continue_with =
     end
 
 let is_iter_in_comment (buffer : Ocaml_text.buffer) iter =
-  Comments.enclosing
-    (Comments.scan (Glib.Convert.convert_with_fallback ~fallback:"" ~from_codeset:"UTF-8" ~to_codeset:Oe_config.ocaml_codeset
-                      (buffer#get_text ()))) iter#offset
+  Comments.enclosing (Comments.scan (buffer#get_text ())) iter#offset
 
 let get_typeable_iter_at_coords qi iter =
   if iter#ends_line

@@ -69,45 +69,41 @@ let file ~browser ~group ~flags items =
       ~label:"Open File..." ~packing:menu#add () in
   open_file#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._o ~flags;
   ignore (open_file#connect#activate ~callback:editor#dialog_file_open);
-  let open_remote = GMenu.image_menu_item ~label:"Open Remote File..." ~show:(Plugin.file_exists "remote.cma") ~packing:menu#add () in
-  ignore (open_remote#connect#activate ~callback:begin fun () ->
-      if !Plugins.remote = None then ignore (Plugin.load "remote.cma");
-      Option.iter begin fun (plugin : (module Plugins.REMOTE)) ->
-        let module Remote = (val plugin) in
-        let title =
-          match open_remote#misc#get_property "label" with
-          | `STRING (Some x) -> x
-          | _ -> ""
-        in
-        let window = GWindow.window
-            ~resizable:false
-            ~type_hint:`DIALOG
-            ~allow_grow:false ~allow_shrink:false
-            ~position:`CENTER ~border_width:8
-            ~icon:(??? Icons.oe) ~title ~modal:true ~show:false ()
-        in
-        Gmisclib.Window.GeometryMemo.add ~key:"dialog-remote-edit" ~window Preferences.geometry_memo;
-        let vbox = GPack.vbox ~spacing:8 ~packing:window#add () in
-        let widget = new Remote.widget ~packing:vbox#add () in
-        let _ = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
-        let bbox = GPack.button_box `HORIZONTAL ~border_width:3 ~spacing:3 ~layout:`END ~packing:vbox#pack () in
-        let button_ok = GButton.button ~stock:`OK ~packing:bbox#pack () in
-        let button_cancel = GButton.button ~stock:`CANCEL ~packing:bbox#pack () in
-        Gaux.may (GWindow.toplevel editor) ~f:(fun x -> window#set_transient_for x#as_window);
-        ignore (button_cancel#connect#clicked ~callback:window#destroy);
-        ignore (button_ok#connect#clicked ~callback:widget#apply);
-        ignore (window#event#connect#key_press ~callback:begin fun ev ->
-            let key = GdkEvent.Key.keyval ev in
-            if key = GdkKeysyms._Escape then (button_cancel#clicked(); true)
-            else false
-          end);
-        ignore (widget#connect#open_file ~callback:begin fun (remote, filename) ->
-            ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:(Some remote) filename);
-            window#destroy();
-          end);
-        window#show();
-      end !Plugins.remote
-    end);
+  let open_remote = GMenu.image_menu_item ~label:"Open Remote File..." ~packing:menu#add () in
+  open_remote#connect#activate ~callback:begin fun () ->
+    let title =
+      match open_remote#misc#get_property "label" with
+      | `STRING (Some x) -> x
+      | _ -> ""
+    in
+    let window = GWindow.window
+        ~resizable:false
+        ~type_hint:`DIALOG
+        ~allow_grow:false ~allow_shrink:false
+        ~position:`CENTER ~border_width:8
+        ~icon:(??? Icons.oe) ~title ~modal:true ~show:false ()
+    in
+    Gmisclib.Window.GeometryMemo.add ~key:"dialog-remote-edit" ~window Preferences.geometry_memo;
+    let vbox = GPack.vbox ~spacing:8 ~packing:window#add () in
+    let widget = new Remote.widget ~packing:vbox#add () in
+    let _ = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
+    let bbox = GPack.button_box `HORIZONTAL ~border_width:3 ~spacing:3 ~layout:`END ~packing:vbox#pack () in
+    let button_ok = GButton.button ~stock:`OK ~packing:bbox#pack () in
+    let button_cancel = GButton.button ~stock:`CANCEL ~packing:bbox#pack () in
+    Gaux.may (GWindow.toplevel editor) ~f:(fun x -> window#set_transient_for x#as_window);
+    ignore (button_cancel#connect#clicked ~callback:window#destroy);
+    ignore (button_ok#connect#clicked ~callback:widget#apply);
+    ignore (window#event#connect#key_press ~callback:begin fun ev ->
+        let key = GdkEvent.Key.keyval ev in
+        if key = GdkKeysyms._Escape then (button_cancel#clicked(); true)
+        else false
+      end);
+    ignore (widget#connect#open_file ~callback:begin fun (remote, filename) ->
+        ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:(Some remote) filename);
+        window#destroy();
+      end);
+    window#show();
+  end |> ignore;
 
   (* Recent Files... *)
   let file_recent = GMenu.menu_item ~label:"Recent Files" ~packing:menu#add () in

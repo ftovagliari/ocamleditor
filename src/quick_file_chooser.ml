@@ -293,7 +293,7 @@ class widget ~source ~name ?filter ?packing () =
       end;
 
     method private display_summary () =
-      kprintf label_count#set_text "%d of %d" (List.length visible_paths) model.length;
+      ksprintf label_count#set_text "%d of %d" (List.length visible_paths) model.length;
 
     method private clear_model_filter () =
       view#set_model None;
@@ -323,9 +323,13 @@ class widget ~source ~name ?filter ?packing () =
 
     method private scan ?(blocking=false) () =
       let queue = Queue.create () in
-      let filter_dir d = not (List.mem d [".tmp"; "bak"]) in
+      let filter_dir dir =
+        let path = Str.split (!~~ Filename.dir_sep) dir in
+        let exclude_dir_rec = [".tmp"; "bak"; "_build"] in
+        not (path |> List.exists (fun part -> List.mem part exclude_dir_rec))
+      in
       let do_search dirname =
-        if filter_dir (Filename.basename dirname) then begin
+        if filter_dir dirname then begin
           let filenames = File_util.readdirs ~recursive:false filter dirname in
           List.iter (fun x ->  Queue.add x queue) filenames;
           Hashtbl.replace model.rtimes dirname (Unix.gettimeofday());
@@ -459,7 +463,7 @@ let init ~roots ~filter =
 
 let add_roots ~roots ~filter =
   let name = "" in
-  match List_opt.assoc name !models with
+  match List.assoc_opt name !models with
   | Some model ->
       models := List.remove_assoc name !models;
       begin
