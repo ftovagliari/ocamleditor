@@ -1,3 +1,89 @@
+Version 2.0.0
+--------------
+  * Upgrade to OCaml 5.3.0.
+  * Reorganized font and icon assets by moving them into the `src/` directory.
+  * Refactored core utilities and build scripts for OCaml 5 compatibility.
+  * Improved UTF-8 conversion efficiency in Convert module.
+  * Enhanced async task management with unique task IDs and improved error logging.
+  * Completion Widget: Added name parameter to Merlin calls, refined row selection logic.
+  * Outline View: Reordered toolbar buttons, added jump-to-definition, keyboard shortcuts
+    for collapse/expand outline nodes (Left/Right arrows).
+  * Code Outline: Implemented comprehensive outline view.
+  * Fix: Preferences color pickers now correctly retain selected colors.
+  * Fix: Corrected GDK color conversion from 0-65535 range to 0-255 RGB values.
+  * Disabled ocp-indent on .mll files as it does not work properly.
+  * Fix: Ensure UTF-8 encoding in find/replace history file. 
+  * Various UI improvements and bug fixes.
+
+Version 1.18.1-ocaml414
+-----------------------
+  * Fix version to 1.18.1 and the default dialog window position.
+
+Version 1.18.0-ocaml414
+-----------------------
+  * Various improvements and fixes for OCaml 4.14.
+
+Version 1.16.0-ocaml414
+-----------------------
+  * Make Ctrl+Q exits the editor.
+  * Comment/Uncomment functionality moved to Ctrl+/.
+  * Removed check for updates feature.
+
+Version 1.15.2-ocaml414
+-----------------------
+  * Stability release for OCaml 4.14.
+
+Version 1.15.1-ocaml414
+-----------------------
+  * Updated dependency: ocamldiff has a new version and name.
+  * Various bug fixes.
+
+Version 1.15.0-ocaml414
+-----------------------
+  * Support for OCaml 4.14.
+
+Version 1.14.3-ocaml414
+-----------------------
+  * Support for OCaml 4.14.1.
+  * Updated build system for OCaml 4.14 changes.
+  * Merlin case analysis support.
+
+Version 1.14.1
+--------------
+  * Dark theme support with customizable theme directories and GTK theme handling.
+  * New icons for dark mode.
+  * Code folding highlight color updated for dark theme.
+  * Fixed button_menu prelight color incompatibility with dark themes.
+  * Restored current line border with customizable color in Preferences.
+  * Logo support in dark mode.
+  * Various theme-related improvements and fixes.
+
+Version 1.13.4
+--------------
+  * Support for OCaml 4.02.3.
+  * GADT types display improvements.
+  * Extension constructor and open types support.
+  * Various bug fixes and warnings reduction.
+
+Version 1.13.3
+--------------
+  * Various bug fixes for Windows (MinGW).
+  * Fixed version number in installation scripts.
+
+Version 1.13.2
+--------------
+  * Fixed .cmi/.mli files copied by findlib.
+  * Fixed check for updates.
+  * Improved install script compatibility.
+
+Version 1.13.1
+--------------
+  * Print git status in the title bar.
+  * Fixed underline rendering.
+  * Fixed file diff order.
+  * Removed custom colors from templates window and completion window.
+  * Various bug fixes.
+
 Version 1.13.0
 --------------
   * Use of different tab color for files that do not belong to the project

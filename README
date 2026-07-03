@@ -15,8 +15,8 @@ light-weight, free and open source and runs under Linux and Windows.
 
 COPYRIGHT
 
-  This program is distributed under the GNU GENERAL PUBLIC LICENSE Version 3.
-  See the enclosed file COPYING for more details.
+  This program is distributed under the GNU LESSER GENERAL PUBLIC LICENSE
+  Version 3. See the enclosed file COPYING for more details.
 
   The OCamlEditor logo and the icons used are licensed under a
   Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License
@@ -26,22 +26,29 @@ COPYRIGHT
 
 DEPENDENCIES
 
-  * OCaml-4.14.0;
-  * Lablgtk (installed with Findlib);
-  * Xml-light (installed with Findlib);
-  * Findlib;
-  * ocp-indent;
-  * merlin;
-  * yojson;
-  * atdgen;
-  * ocamldiff;
-  * ocurl-0.6 to allow remote editing;
-  * Dot command to display the module dependencies graph;
-  * Lablgtk.rsvg to embed the graph viewer in the editor.
+  * OCaml 5.3.0;
+  * ocamlfind (>= 1.4.0);
+  * Lablgtk (>= 2.18.0);
+  * Lablgtk.rsvg (for graph viewer support);
+  * xml-light (>= 2.5);
+  * yojson (>= 2.1);
+  * atdgen (>= 2.12);
+  * ocp-indent (>= 1.8.0);
+  * ocp-index (>= 1.3.6);
+  * merlin (>= 5.5);
+  * ocamldiff (>= 1.2);
+  * ocurl (for remote file editing via SFTP);
+  * inotify (file system notifications);
+  * Dot command (optional, for module dependencies graph visualization).
 
 
 
 HOW TO COMPILE
+
+  Ensure all dependencies are installed via OPAM:
+
+    opam install ocaml ocamlfind lablgtk ocp-indent ocp-index xml-light yojson \
+                 atdgen ocamldiff merlin inotify ocurl
 
   Change to the OCamlEditor toplevel directory and execute:
 
@@ -51,27 +58,25 @@ HOW TO COMPILE
 
     ocaml build.ml ocamleditor-bytecode
 
-  The name of the command is "ocamleditor.opt" (or "ocamleditor" if the
-  native compilation is not supported), you can find it in the "src"
-  directory.
+  The name of the executable is "ocamleditor.opt" (or "ocamleditor" if native
+  compilation is not supported), which can be found in the "src" directory.
 
 
 
 INSTALLATION
 
-  Beginning with OCamlEditor-1.9.0 installation paths have changed, so please
-  uninstall the previous version first. You can do this with the command
-
-    ocaml build.ml uninstall -ver-1.8.0 [-prefix <path>]
-
-  To install OCamlEditor become superuser and execute:
+  To install OCamlEditor, execute:
 
     ocaml build.ml install [-prefix <path>]
 
-  By default, commands will be installed under "/usr/local/bin", icons
-  under "/usr/local/share/ocamleditor/icons" and plugins under
-  "/usr/local/share/ocamleditor/plugins". You can specify an installation
-  prefix other than "/usr/local" by giving an absolute file name as argument.
+  By default, the executable is installed under "/usr/local/bin", icons under
+  "/usr/local/share/ocamleditor/icons", and plugins under
+  "/usr/local/share/ocamleditor/plugins". You can specify an alternative
+  installation prefix with the `-prefix` option.
+
+  To uninstall:
+
+    ocaml build.ml uninstall [-prefix <path>]
 
 
 
@@ -80,7 +85,7 @@ DEVELOPMENT
   The main page for development is hosted on Github, see the
   project's page:
 
-    https://github.com/ocamleditor/ocamleditor
+    https://github.com/ftovagliari/ocamleditor
 
 
 
