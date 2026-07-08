@@ -29,7 +29,7 @@ let insert (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
   let diffs = ref [] in
   let process_in ic =
     try diffs := Odiff.from_channel ic
-    with ex -> Printf.eprintf "File \"plugin_diff.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
+    with ex -> (Printf.eprintf "File \"plugin_diff.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace()); diffs := [] ) ;
   in
   let diff = Preferences.preferences#get.program_diff in
   let args =

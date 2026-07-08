@@ -130,15 +130,18 @@ let paint_diffs page diffs =
   end;
   List.iter begin fun diff ->
     Gmisclib.Idle.add ~prio:200 begin fun () ->
-      match diff with
-      | Add (_, ind, a) ->
-          paint color_add [color_add, a] ind |> ignore;
-      | Delete (_, ind, a) ->
-          paint color_del [color_del, a] ind |> ignore;
-      | Change (_, a, ind, b) ->
-          paint color_change [color_del, a; color_add, b] ind
-    end
-  end diffs
+      try
+        match diff with
+        | Add (_, ind, a) ->
+            paint color_add [color_add, a] ind |> ignore;
+        | Delete (_, ind, a) ->
+            paint color_del [color_del, a] ind |> ignore;
+        | Change (_, a, ind, b) ->
+            paint color_change [color_del, a; color_add, b] ind
+      with ex ->
+        Printf.eprintf "global_diff paint_diffs callback failed: %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
+      end
+    end diffs
 
 let compare_with_head page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
