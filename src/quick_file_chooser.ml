@@ -36,6 +36,8 @@ type t = {
   mutable length        : int;
 }
 
+module FS = Fuzzy_search.Make(Fuzzy_search.Letter)
+
 let limit = 100_000
 
 let models : (string * t) list ref = ref []
@@ -239,11 +241,13 @@ class widget ~source ~name ?filter ?packing () =
         let re = regexp_string_case_fold entry#text in
         Hashtbl.fold begin fun filename tpath acc ->
           let name = Filename.basename filename in
-          let score, _ = FuzzyLetters.compare `Greedy2 entry#text name in
-          if score > 0. then
-            let score = if Str.string_partial_match re name 0 then score +. 1. else score in
-            if score > 0.84 then (score, tpath) :: acc else acc
-          else acc
+          let compare = FS.compare ~min_score:0.85 in
+          let result = compare Greedy entry#text name in
+          match result with
+          | Some result ->
+              let score = if Str.string_partial_match re name 0 then result.FS.score +. 1. else result.FS.score in
+              if score > 0.84 then (score, tpath) :: acc else acc
+          | _ -> acc
         end model.filenames []
         |> self#display
 

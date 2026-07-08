@@ -660,14 +660,14 @@ class search (view : GTree.view) =
           end)
   end
 
-(** Experimental outline view with fuzzy search capability.
+(*(** Experimental outline view with fuzzy search capability.
 
     Extends the basic outline view with keyboard-driven fuzzy search.
     Typing while the view has focus opens a search box that performs
     fuzzy matching against outline item names and navigates to the best match.
 
     @note This feature is experimental and not fully polished. *)
-class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
+  class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
   object (self)
     inherit view ~outline ~source_view ?packing ()
 
@@ -775,3 +775,4 @@ class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) 
           search_widget |> Option.iter (fun w -> w#destroy());
           search_widget <- None
   end
+*)
