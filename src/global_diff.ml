@@ -140,8 +140,8 @@ let paint_diffs page diffs =
             paint color_change [color_del, a; color_add, b] ind
       with ex ->
         Printf.eprintf "global_diff paint_diffs callback failed: %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
-      end
-    end diffs
+    end
+  end diffs
 
 let compare_with_head page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
@@ -163,8 +163,9 @@ let compare_with_head page continue_with =
               *)
             continue_with (Odiff.strings_diffs (Buffer.contents buf) text)
           with ex ->
-            Printf.eprintf "File \"global_diff.ml\": %s\n%s\n%!"
+            Printf.eprintf "%s\n%s\n%s\n%!" __LOC__
               (Printexc.to_string ex) (Printexc.get_backtrace());
+            Printf.printf "%s\n------\n%s%!" (Buffer.contents buf) text;
         end |> ignore
   | _ -> ()
 
@@ -177,7 +178,7 @@ let try_compare ?(force=false) page =
         diffs |> paint_diffs page;
         Option.iter (fun m -> m#sync_diff_time()) margin
       with Gpointer.Null as ex ->
-        Printf.eprintf "File \"global_diff.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
+        Printf.eprintf "%s\n%s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
     end
   end
 
@@ -237,7 +238,8 @@ let init_editor editor =
         end;
         true
       with ex ->
-        Printf.eprintf "File \"plugin_diff.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
+        Printf.eprintf "%s\n%s\n%s\n%!"
+          __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
         true
     in
     id_timeout_diff := Some (GMain.Timeout.add ~ms:500 ~callback);

@@ -124,7 +124,7 @@ let write_status () =
     List.iter (fun h -> model#set ~row:(model#append()) ~column h) hist;
     hist
   in
-  let ensure_utf8 s = to_utf8 s in
+  let ensure_utf8 = to_utf8 in
   let xml =
     Xml.Element ("find_text", [
         "check_regexp", (string_of_bool status.use_regexp);
