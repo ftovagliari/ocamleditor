@@ -48,6 +48,9 @@ let prepare_build () =
     run (rm ^ " merlin_t.* merlin_j.*");
     run "atdgen -t merlin.atd";
     run "atdgen -j merlin.atd";
+    run (rm ^ " find_text_t.* find_text_j.*");
+    run "atdgen -t find_text.atd";
+    run "atdgen -j find_text.atd";
     if not is_win32 then begin
       (* Disabled because on Windows it changes the file permissions of oe_config.ml
          forcing it to be recompiled for plugins.*)
