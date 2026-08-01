@@ -71,13 +71,25 @@ and result_line = {
   mutable marks          : (string * string) list
 }
 
+let atd_path_of_path p =
+  match p with
+  | Project_source -> `Project_source
+  | Specified s -> `Specified s
+  | Only_open_files -> `Only_open_files
+
+let path_of_atd_path (p : Find_text_t.path_type) =
+  match p with
+  | `Project_source -> Project_source
+  | `Specified s -> Specified s
+  | `Only_open_files -> Only_open_files
+
 (** status *)
 let status =
   let status_filename =
     let old_name = App_config.ocamleditor_user_home // "find_in_path.xml" in
-    let new_name = App_config.ocamleditor_user_home // "find_text.xml" in
-    if Sys.file_exists old_name then (Sys.rename old_name new_name);
-    new_name
+    let xml_name = App_config.ocamleditor_user_home // "find_text.xml" in
+    if Sys.file_exists old_name then (try Sys.rename old_name xml_name with _ -> ());
+    App_config.ocamleditor_user_home // "find_text.json"
   in {
     status_filename = status_filename;
     text_find       = new GUtil.variable "";
@@ -125,83 +137,67 @@ let write_status () =
     hist
   in
   let ensure_utf8 = to_utf8 in
-  let xml =
-    Xml.Element ("find_text", [
-        "check_regexp", (string_of_bool status.use_regexp);
-        "check_case", (string_of_bool status.case_sensitive);
-        "check_match_whole_word", (string_of_bool status.match_whole_word);
-        "check_rec", (string_of_bool status.recursive);
-        "check_pat", (string_of_bool (status.pattern <> None));
-        "radio_path", (string_of_bool (match status.path with Specified _ -> true | _ -> false));
-        "radio_src", (string_of_bool (status.path = Project_source));
-        "radio_only_open_files", (string_of_bool (status.path = Only_open_files));
-      ], [
-                   Xml.Element ("history_find", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
-                                  (get_history status.text_find#get status.h_find.model status.h_find.column));
-                   Xml.Element ("history_repl", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
-                                  (get_history status.text_repl status.h_repl.model status.h_repl.column));
-                   Xml.Element ("history_path", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
-                                  (get_history
-                                     (match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "")
-                                     status.h_path.model status.h_path.column));
-                   Xml.Element ("history_pattern", [], List.map (fun x -> Xml.Element ("element", [], [Xml.PCData (ensure_utf8 x)]))
-                                  (get_history
-                                     (match status.pattern with None -> "" | Some x -> x)
-                                     status.h_pattern.model status.h_pattern.column));
-                 ])
-  in
-  let ochan = open_out status.status_filename in
-  lazy (output_string ochan ("<!-- OCamlEditor XML Find-Text History -->\n" ^ (Xml.to_string_fmt xml)))
-  /*finally*/ lazy (close_out ochan)
+  let hist_find = List.map ensure_utf8 (get_history status.text_find#get status.h_find.model status.h_find.column) in
+  let hist_repl = List.map ensure_utf8 (get_history status.text_repl status.h_repl.model status.h_repl.column) in
+  let hist_path = List.map ensure_utf8
+      (get_history (match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "")
+           status.h_path.model status.h_path.column) in
+  let hist_pattern = List.map ensure_utf8
+      (get_history (match status.pattern with None -> "" | Some x -> x)
+           status.h_pattern.model status.h_pattern.column) in
+  let atd_status = {
+    Find_text_t.use_regexp = status.use_regexp;
+    case_sensitive = status.case_sensitive;
+    match_whole_word = status.match_whole_word;
+    recursive = status.recursive;
+    pattern_enabled = (status.pattern <> None);
+    path = atd_path_of_path status.path;
+    history_find = hist_find;
+    history_repl = hist_repl;
+    history_path = hist_path;
+    history_pattern = hist_pattern;
+  } in
+  try
+    let json_str = Find_text_j.string_of_find_text_status atd_status |> Yojson.Safe.prettify in
+    let ochan = open_out status.status_filename in
+    lazy (output_string ochan json_str) /*finally*/ lazy (close_out ochan)
+  with ex ->
+    eprintf "Failed to write find_text status to %s: %s\n%!" status.status_filename (Printexc.to_string ex)
 
 (** read_status *)
 let read_status () =
-  try
-    let xml = Xml.parse_file status.status_filename in
-    let attribs = Xml.attribs xml in
-    status.use_regexp <- (bool_of_string (List.assoc "check_regexp" attribs));
-    status.case_sensitive <- (bool_of_string (List.assoc "check_case" attribs));
-    status.match_whole_word <-
-      (match List.assoc_opt "check_match_whole_word" attribs with Some x -> bool_of_string x | _ -> false);
-    status.recursive <- (bool_of_string (List.assoc "check_rec" attribs));
-    status.pattern <- if bool_of_string (List.assoc "check_pat" attribs) then Some "" else None;
-    status.path <-
-      if bool_of_string (List.assoc "radio_path" attribs) then (Specified "")
-      else if bool_of_string (List.assoc "radio_src" attribs) then Project_source
-      else if bool_of_string (List.assoc "radio_only_open_files" attribs) then Only_open_files
-      else assert false;
-    let value xml =
-      match Xml.children xml with
-      | [] -> ""
-      | x :: [] -> to_utf8 (Xml.pcdata x)
-      | _ -> assert false
-    in
-    Xml.iter begin fun node ->
-      match Xml.tag node with
-      | "history_find" when (List.length (Xml.children node) > 0) -> List.iter begin fun x ->
-          let row = status.h_find.model#append () in
-          status.h_find.model#set ~row ~column:status.h_find.column (value x)
-        end (Xml.children node);
-      | "history_repl" when (List.length (Xml.children node) > 0) ->
-          List.iter begin fun x ->
-            let row = status.h_repl.model#append () in
-            status.h_repl.model#set ~row ~column:status.h_repl.column (value x)
-          end (Xml.children node);
-      | "history_path" when (List.length (Xml.children node) > 0) -> List.iter begin fun x ->
-          let row = status.h_path.model#append () in
-          status.h_path.model#set ~row ~column:status.h_path.column (value x)
-        end (Xml.children node);
-      | "history_pattern" when (List.length (Xml.children node) > 0) -> List.iter begin fun x ->
-          let row = status.h_pattern.model#append () in
-          status.h_pattern.model#set ~row ~column:status.h_pattern.column (value x)
-        end (Xml.children node);
-      | _ -> ()
-    end xml
-  with
-  | Xml_light_errors.File_not_found _ -> ()
-  | Xml.Error _ -> begin
-      if Sys.file_exists status.status_filename then (Sys.remove status.status_filename)
-    end
+  if Sys.file_exists status.status_filename then begin
+    try
+      let chan = open_in_bin status.status_filename in
+      let content = really_input_string chan (in_channel_length chan) in
+      close_in chan;
+      let atd_status = Find_text_j.find_text_status_of_string content in
+      status.use_regexp <- atd_status.use_regexp;
+      status.case_sensitive <- atd_status.case_sensitive;
+      status.match_whole_word <- atd_status.match_whole_word;
+      status.recursive <- atd_status.recursive;
+      status.pattern <- if atd_status.pattern_enabled then Some "" else None;
+      status.path <- path_of_atd_path atd_status.path;
+      List.iter begin fun x ->
+        let row = status.h_find.model#append () in
+        status.h_find.model#set ~row ~column:status.h_find.column (to_utf8 x)
+      end atd_status.history_find;
+      List.iter begin fun x ->
+        let row = status.h_repl.model#append () in
+        status.h_repl.model#set ~row ~column:status.h_repl.column (to_utf8 x)
+      end atd_status.history_repl;
+      List.iter begin fun x ->
+        let row = status.h_path.model#append () in
+        status.h_path.model#set ~row ~column:status.h_path.column (to_utf8 x)
+      end atd_status.history_path;
+      List.iter begin fun x ->
+        let row = status.h_pattern.model#append () in
+        status.h_pattern.model#set ~row ~column:status.h_pattern.column (to_utf8 x)
+      end atd_status.history_pattern;
+    with ex ->
+      eprintf "Failed to read find_text status from %s: %s\n%!" status.status_filename (Printexc.to_string ex);
+      if Sys.file_exists status.status_filename then (try Sys.remove status.status_filename with _ -> ())
+  end
 
 (** create_regexp *)
 let create_regexp ~project

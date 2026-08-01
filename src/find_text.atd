@@ -1,0 +1,14 @@
+type path_type = [ Project_source | Specified of string | Only_open_files ]
+
+type find_text_status = {
+  ~use_regexp          <ocaml default="false"> : bool;
+  ~case_sensitive      <ocaml default="false"> : bool;
+  ~match_whole_word    <ocaml default="false"> : bool;
+  ~recursive           <ocaml default="false"> : bool;
+  ~pattern_enabled     <ocaml default="true">  : bool;
+  ~path                <ocaml default="`Project_source"> : path_type;
+  ~history_find        <ocaml default="[]">    : string list;
+  ~history_repl        <ocaml default="[]">    : string list;
+  ~history_path        <ocaml default="[]">    : string list;
+  ~history_pattern     <ocaml default="[]">    : string list;
+}
