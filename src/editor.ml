@@ -281,7 +281,7 @@ class editor () =
                 end)
             end;
             if page#view#misc#get_flag `REALIZED then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
-            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_bookmarks project);
+            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status project);
       with Not_found -> ()
 
     method scroll_to_definition ~page ~iter =
@@ -716,7 +716,7 @@ class editor () =
       end;
 
     method close page =
-      Project.save_bookmarks page#project;
+      Project.save_local_status page#project;
       if page#buffer#modified then (page#revert());
       page#buffer#set_modified false;
       remove_page#call page;

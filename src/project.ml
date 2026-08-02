@@ -33,9 +33,15 @@ exception Project_already_exists of string
 
 exception Cannot_rename of string
 
-let write_xml = ref (fun _ -> failwith "write_xml")
-let read_xml = ref (fun _ -> failwith "read_xml")
+let read_xml : (string -> t) ref = ref (fun _ -> failwith "read_xml")
 let from_local_xml : (t -> unit) ref = ref (fun _ -> failwith "from_local_xml")
+
+(* JSON wrappers: new persistence format. For now JSON embeds the XML content as a string to
+   perform a safe in-place migration while reusing the existing XML parser. Later replace with
+   a full ATD-generated JSON representation. *)
+let write_json : (t -> string) ref = ref (fun _ -> failwith "write_json")
+let read_json : (string -> t) ref = ref (fun _ -> failwith "read_json")
+let from_local_json : (t -> unit) ref = ref (fun _ -> failwith "from_local_json")
 
 let path_src p = p.root // default_dir_src
 let path_bak p = p.root // default_dir_bak
@@ -131,12 +137,12 @@ let set_runtime_build_task proj rconf task_string =
     with Not_found -> `NONE
 
 (** Returns the full filename of the project configuration file. *)
-let filename proj = Filename.concat proj.root (proj.name ^ default_extension)
+let fullpath proj = Filename.concat proj.root (proj.name ^ default_extension)
 let mk_old_filename filename = (Filename.chop_extension filename) ^ old_extension
 
 (** Returns the full filename of the project local configuration file. *)
-let filename_local proj = (filename proj) ^ ".local"
-let mk_old_filename_local proj = (Filename.chop_extension (filename proj)) ^ ".local" ^ old_extension
+let fullpath_local proj = (fullpath proj) ^ ".local"
+let mk_old_filename_local proj = (Filename.chop_extension (fullpath proj)) ^ ".local" ^ old_extension
 
 (** get_includes*)
 let get_includes =
@@ -195,31 +201,28 @@ let output_xml filename xml =
   let outchan = open_out_bin filename in
   lazy (output_string outchan xml) /*finally*/ lazy (close_out outchan);;
 
-let xml_of_open_files proj =
-  Xml.Element ("open_files", [],
-               (List.map (fun (x, scroll_off, off, active) -> Xml.Element ("filename", [
-                    "scroll", string_of_int scroll_off;
-                    "cursor", string_of_int off;
-                    "active", (string_of_bool active)
-                  ], [Xml.PCData x])) proj.open_files));;
+(* Convert current project state to ATD project_local value *)
+let project_local_of_proj proj =
+  let bookmarks =
+    List.map begin fun bm ->
+      let offset = Bookmark.apply bm begin
+          function
+          | `ITER iter -> GtkText.Iter.get_offset iter
+          | `OFFSET offset -> offset
+        end in
+      (bm.Oe.bm_filename, bm.Oe.bm_num, offset)
+    end proj.bookmarks
+  in
+  { Project_t.open_files = proj.open_files; bookmarks }
 
-let xml_of_bookmarks proj =
-  Xml.Element ("bookmarks", [],
-               List.map begin fun bm ->
-                 Xml.Element ("bookmark", [
-                     "num", string_of_int bm.Oe.bm_num;
-                     "offset", string_of_int (Bookmark.apply bm begin function
-                       | `ITER iter -> GtkText.Iter.get_offset iter
-                       | `OFFSET offset -> offset
-                       end)
-                   ], [Xml.PCData bm.Oe.bm_filename])
-               end proj.bookmarks);;
+let write_json_file filename json_str =
+  let json_str =  Yojson.Safe.prettify json_str in
+  Out_channel.with_open_bin filename (fun oc -> Out_channel.output_string oc json_str)
 
-let xml_of_local childs = Xml.Element ("local", [], childs);;
-
-let save_local filename proj =
-  let xml = Xml.to_string_fmt (xml_of_local [(xml_of_open_files proj); (xml_of_bookmarks proj)]) in
-  output_xml filename xml;;
+let save_local_status proj =
+  let filename = fullpath_local proj in
+  let project_local = project_local_of_proj proj in
+  Project_j.string_of_project_local project_local |> write_json_file filename;;
 
 let save_dot_merlin proj =
   let filename = proj.root // ".merlin" in
@@ -250,23 +253,22 @@ let save_dot_merlin proj =
 (** save. Creates [home], [home/src], [home/bak], [home/tmp] if not existing. *)
 let save ?editor proj =
   let active_filename =
-    match editor with None -> ""
-                    | Some editor ->
-                        proj.files <- List.map begin fun (file, (_scroll_offset, _offset)) ->
-                            file,
-                            match editor#get_page (`FILENAME file#filename) with
-                            | None -> 0, 0
-                            | Some page ->
-                                let scroll_top = page#view#get_scroll_top () in
-                                if page#load_complete then scroll_top, (page#buffer#get_iter `INSERT)#offset
-                                else page#scroll_offset, page#initial_offset
-                          end proj.files;
-                        let active_filename =
-                          match editor#get_page `ACTIVE with None -> "" | Some page -> page#get_filename
-                        in active_filename
+    match editor with
+    | None -> ""
+    | Some editor ->
+        proj.files <- List.map begin fun (file, (_scroll_offset, _offset)) ->
+            file,
+            match editor#get_page (`FILENAME file#filename) with
+            | None -> 0, 0
+            | Some page ->
+                let scroll_top = page#view#get_scroll_top () in
+                if page#load_complete then scroll_top, (page#buffer#get_iter `INSERT)#offset
+                else page#scroll_offset, page#initial_offset
+          end proj.files;
+        let active_filename =
+          match editor#get_page `ACTIVE with None -> "" | Some page -> page#get_filename
+        in active_filename
   in
-  let filename = filename proj in
-  let filename_local = filename_local proj in
   try
     if not (Sys.file_exists proj.root) then (Unix.mkdir proj.root 0o777);
     if not (Sys.file_exists (proj.root // default_dir_src)) then (Unix.mkdir (proj.root // default_dir_src) 0o777);
@@ -275,13 +277,14 @@ let save ?editor proj =
     proj.modified <- false;
     unload_path proj;
     proj.open_files <- List.rev_map begin fun (file, (scroll_offset, offset)) ->
-        let active = active_filename = file#filename in
+        let is_active = active_filename = file#filename in
         begin
           match proj.in_source_path file#filename with
-          | None ->
-              if Filename.is_implicit file#filename then (filename_unix_implicit file#filename) else file#filename
-          | Some rel -> filename_unix_implicit rel
-        end, scroll_offset, offset, active
+          | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
+          | None -> file#filename
+          | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
+          | Some rel -> rel
+        end, scroll_offset, offset, is_active
       end proj.files;
     (* output tools *)
     Project_tools.write proj;
@@ -291,32 +294,14 @@ let save ?editor proj =
     let files = proj.files in
     proj.root <- "";
     proj.files <- [];
-    (* output XML *)
-    let xml = Xml.to_string_fmt (!write_xml proj) in
-    output_xml filename xml;
-    save_local filename_local proj;
     (* restore non persistent values *)
     proj.root <- root;
     proj.files <- files;
     load_path proj;
+    (* Save project file and local status *)
+    write_json_file (fullpath proj) (!write_json proj);
+    save_local_status proj;
   with Unix.Unix_error (err, _, _) -> print_endline (Unix.error_message err);;
-
-(** save_bookmarks *)
-let save_bookmarks proj =
-  let filename = filename_local proj in
-  let xml =
-    if Sys.file_exists filename then begin
-      let parser = XmlParser.make () in
-      let xml = XmlParser.parse parser (XmlParser.SFile filename) in
-      let xml = Xml.map begin fun node ->
-          match Xml.tag node with
-          | "bookmarks" -> xml_of_bookmarks proj
-          | _ -> node
-        end xml in
-      xml_of_local xml;
-    end else (xml_of_local [xml_of_bookmarks proj])
-  in
-  output_xml filename (Xml.to_string_fmt xml);;
 
 (** remove_bookmark *)
 let remove_bookmark num proj =
@@ -332,7 +317,7 @@ let set_bookmark bookmark proj =
     | _ -> ()
   end;
   proj.bookmarks <- bookmark :: proj.bookmarks;
-  save_bookmarks proj;;
+  save_local_status proj;;
 
 (** find_bookmark *)
 let find_bookmark proj filename buffer iter =
@@ -415,15 +400,26 @@ let stop_file_watcher proj =
 (** load *)
 let load filename =
   let filename = if Sys.file_exists filename then filename else mk_old_filename filename in
-  let proj = !read_xml filename in
-  !from_local_xml proj;
+  let proj =
+    if Sys.file_exists filename then
+      try !read_json filename
+      with _ -> !read_xml filename
+    else
+      !read_xml filename
+  in
+  (* Try loading local data from JSON or XML (fallback). *)
+  begin try !from_local_json proj with _ ->
+    (try !from_local_xml proj with _ -> ())
+  end;
   (*  *)
   proj.root <- Filename.dirname filename;
   (*  *)
   if not (Sys.file_exists (proj.root // default_dir_tmp)) then (Unix.mkdir (proj.root // default_dir_tmp) 0o777);
   (*  *)
-  proj.open_files <- List.map begin fun (filename, scroll_offset, offset, active) ->
-      (if Filename.is_implicit filename then proj.root // default_dir_src // filename else filename), scroll_offset, offset, active
+  proj.open_files <-
+    List.map begin fun (filename, scroll_offset, offset, active) ->
+      (if Filename.is_implicit filename then proj.root // default_dir_src // filename else filename),
+      scroll_offset, offset, active
     end proj.open_files;
   (*  *)
   proj.search_path <- get_search_path proj;
@@ -455,7 +451,7 @@ let backup_file project (file : Editor_file.file) =
 (** rename_file. Updates project file on disk. Raise [Cannot_rename "..."] if [file] is read-only or
     the project file is read-only. *)
 let rename_file proj file new_name =
-  let is_writeable = File_util.is_writeable (filename proj) in
+  let is_writeable = File_util.is_writeable (fullpath proj) in
   if not is_writeable then (raise (Cannot_rename "Cannot rename: project file is read-only."))
   else if not is_writeable then (raise (Cannot_rename "Cannot rename: file is read-only."))
   else (file#rename new_name)
@@ -489,7 +485,10 @@ let default_target project =
 
 (** refresh *)
 let refresh proj =
-  let np = !read_xml (filename proj) in
+  let np =
+    try !read_json (fullpath proj)
+    with _ -> !read_xml (fullpath proj)
+  in
   proj.root <- np.root;
   proj.encoding <- np.encoding;
   proj.author <- np.author;

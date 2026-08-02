@@ -33,6 +33,7 @@ let distclean () =
   run (rm ^ " settings_t.* settings_j.*");
   run (rm ^ " merlin_t.* merlin_j.*");
   run (rm ^ " find_text_t.* find_text_j.*");
+  run (rm ^ " project_t.* project_j.*");
   run (rm ^ " icons"//"icons.*");
   remove_file "err_lexer.ml";
   remove_file "err_parser.ml";

@@ -1,0 +1,118 @@
+type target_type = [ Executable | Library | Plugin | Pack | External ]
+
+type external_task = {
+  ~name                    <ocaml default="\"\"" > : string;
+  ~always_run_in_project   <ocaml default="false"> : bool;
+  ~always_run_in_script    <ocaml default="false"> : bool;
+  ~readonly                <ocaml default="false"> : bool;
+  ~visible                 <ocaml default="true"> : bool;
+  ~env                     <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~env_replace             <ocaml default="false"> : bool;
+  ~dir                     <ocaml default="\"\"" > : string;
+  ~cmd                     <ocaml default="\"\"" > : string;
+  ~args                    <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~phase                   <ocaml default="None"> : string option;
+}
+
+type target = {
+  ~id                     <ocaml default="0"> : int;
+  ~name                   <ocaml default="\"\"" > : string;
+  ~descr                  <ocaml default="\"\"" > : string;
+  ~default                <ocaml default="false"> : bool;
+  ~byt                    <ocaml default="true"> : bool;
+  ~opt                    <ocaml default="false"> : bool;
+  ~libs                   <ocaml default="\"\"" > : string;
+  ~other_objects          <ocaml default="\"\"" > : string;
+  ~files                  <ocaml default="\"\"" > : string;
+  ~package                <ocaml default="\"\"" > : string;
+  ~includes               <ocaml default="\"\"" > : string;
+  ~thread                 <ocaml default="false"> : bool;
+  ~vmthread               <ocaml default="false"> : bool;
+  ~pp                     <ocaml default="\"\"" > : string;
+  ~inline                 <ocaml default="None"> : int option;
+  ~nodep                  <ocaml default="false"> : bool;
+  ~dontlinkdep            <ocaml default="false"> : bool;
+  ~dontaddopt             <ocaml default="false"> : bool;
+  ~cflags                 <ocaml default="\"\"" > : string;
+  ~lflags                 <ocaml default="\"\"" > : string;
+  ~target_type            <ocaml default="`Executable"> : target_type;
+  ~outname                <ocaml default="\"\"" > : string;
+  ~lib_install_path       <ocaml default="\"\"" > : string;
+  ~external_tasks         <ocaml default="[]"> : external_task list;
+  ~restrictions           <ocaml default="[]"> : string list;
+  ~dependencies           <ocaml default="[]"> : int list;
+  ~is_fl_package          <ocaml default="false"> : bool;
+  ~readonly               <ocaml default="false"> : bool;
+  ~visible                <ocaml default="true"> : bool;
+  ~subsystem              <ocaml default="None"> : string option;
+  ~node_collapsed         <ocaml default="false"> : bool;
+}
+
+type build_script_target = {
+  ~target_id <ocaml default="0"> : int;
+  ~show      <ocaml default="true"> : bool;
+}
+
+type build_script_arg_default = [ Flag of bool | Bool of bool | String of string ]
+
+type build_script_arg = {
+  ~id       <ocaml default="0"> : int;
+  ~type_    <ocaml default="\"String\""> : string; (* kept as string for simplicity *)
+  ~key      <ocaml default="\"\"" > : string;
+  ~pass     <ocaml default="\"key_value\""> : string;
+  ~command  <ocaml default="\"Show\""> : string;
+  ~task     <ocaml default="None"> : (int * string) option; (* target_id, task_name *)
+  ~mode     <ocaml default="\"add\""> : string;
+  ~default  <ocaml default="(`String \"\")"> : build_script_arg_default;
+  ~doc      <ocaml default="\"\"" > : string;
+}
+
+type build_script_command = {
+  ~name      <ocaml default="\"Install\""> : string;
+  ~descr     <ocaml default="\"\"" > : string;
+  ~target_id <ocaml default="0"> : int;
+  ~task_name <ocaml default="\"\"" > : string;
+}
+
+type build_script = {
+  ~filename  <ocaml default="\"_build.ml\""> : string;
+  ~targets   <ocaml default="[]"> : build_script_target list;
+  ~args      <ocaml default="[]"> : build_script_arg list;
+  ~commands  <ocaml default="[]"> : build_script_command list;
+}
+
+type rconf = {
+  ~id          <ocaml default="0"> : int;
+  ~target_id   <ocaml default="0"> : int;
+  ~name        <ocaml default="\"\"" > : string;
+  ~default     <ocaml default="false"> : bool;
+  ~build_task  <ocaml default="\"<NONE>\""> : string;
+  ~env         <ocaml default="[]"> : (bool * string) list;
+  ~env_replace <ocaml default="false"> : bool;
+  ~args        <ocaml default="[]"> : (bool * string) list;
+}
+
+type autocomp = {
+  ~enabled <ocaml default="true"> : bool;
+  ~delay   <ocaml default="1.0"> : float;
+  ~cflags  <ocaml default="\"\"" > : string;
+}
+
+type project = {
+  ~ocaml_home <ocaml default="\"\"" > : string;
+  ~ocamllib   <ocaml default="\"\"" > : string;
+  ~encoding   <ocaml default="None"> : string option;
+  ~name       <ocaml default="\"\"" > : string;
+  ~author     <ocaml default="\"\"" > : string;
+  ~description<ocaml default="\"\"" > : string;
+  ~version    <ocaml default="\"\"" > : string;
+  ~autocomp   <ocaml default="{enabled=true;delay=1.0;cflags=\"\"}"> : autocomp;
+  ~targets    <ocaml default="[]"> : target list;
+  ~executables<ocaml default="[]"> : rconf list;
+  ~build_script <ocaml default="{filename=\"_build.ml\";targets=[];args=[];commands=[]}"> : build_script;
+}
+
+type project_local = {
+  ~open_files <ocaml default="[]"> : (string * int * int * bool) list;
+  ~bookmarks <ocaml default="[]"> : (string * int * int) list;
+}
