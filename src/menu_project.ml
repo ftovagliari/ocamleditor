@@ -98,7 +98,7 @@ let state_changed_callback
   Gmisclib.Idle.add (fun () -> List.iter build_dep_menu#remove build_dep_menu#children);
   Gmisclib.Idle.add (fun () -> List.iter run_menu#remove run_menu#children);
   browser#with_current_project begin fun project ->
-    let current_project_filename = Project.filename project in
+    let current_project_filename = Project.fullpath project in
     List.iter  begin fun (filename, item) ->
       items.project_history_signal_locked <- true;
       item#set_active (filename = current_project_filename);

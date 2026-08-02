@@ -270,7 +270,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       end
 
     method revert () = Gaux.may file ~f:begin fun file ->
-        Project.save_bookmarks project;
+        Project.save_local_status project;
         let old_markers =
           try
             let bms = List.filter (fun bm -> bm.Oe.bm_filename = file#filename) project.Prj.bookmarks in
@@ -346,7 +346,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
                   bm.Oe.bm_marker <- Some marker;
                   view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
               end project.Prj.bookmarks;
-              Project.save_bookmarks project;
+              Project.save_local_status project;
               load#call `End;
               if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
               true
