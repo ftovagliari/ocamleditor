@@ -30,6 +30,7 @@
       "external_tasks": [
         {
           "name": "mkicons",
+          "always_run_in_project": true,
           "always_run_in_script": true,
           "dir": "..",
           "cmd": "ocaml",
@@ -148,6 +149,7 @@
       "external_tasks": [
         {
           "name": "prepare-build",
+          "always_run_in_project": true,
           "always_run_in_script": true,
           "dir": "..",
           "cmd": "ocaml",
@@ -303,6 +305,25 @@
       { "target_id": 28 },
       { "target_id": 13, "show": false },
       { "target_id": 27, "show": false }
+    ],
+    "commands": [
+      {
+        "name": "Distclean",
+        "descr": "distclean",
+        "target_id": 13,
+        "task_name": "distclean"
+      },
+      {
+        "descr": "Install OCamlEditor",
+        "target_id": 13,
+        "task_name": "Install OCamlEditor"
+      },
+      {
+        "name": "Uninstall",
+        "descr": "Uninstall OCamlEditor",
+        "target_id": 13,
+        "task_name": "Uninstall OCamlEditor"
+      }
     ]
   }
 }

@@ -138,7 +138,8 @@ let print_external_tasks ochan project =
           ksprintf print "  et_dir                   = %S;" et.et_dir;
           ksprintf print "  et_cmd                   = %S;" et.et_cmd;
           ksprintf print "  et_args                  = [%s];" (String.concat "; " args);
-          ksprintf print "  et_phase                 = %s;" (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
+          ksprintf print "  et_phase                 = %s;"
+            (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
           ksprintf print "  et_always_run_in_project = %b;" et.et_always_run_in_project;
           ksprintf print "  et_always_run_in_script  = %b;" et.et_always_run_in_script;
           ksprintf print "  et_readonly              = %b;" et.et_readonly;

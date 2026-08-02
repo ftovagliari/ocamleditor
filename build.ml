@@ -593,10 +593,13 @@ let launcher_filename = ocamleditor_user_home // "launcher.list"
 
 let get_application_dir name =
   let exe_dir = !! Sys.executable_name in
-  let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
-  let path = prefix // name in
+  let path = exe_dir // name in
   if Sys.file_exists path && Sys.is_directory path then path
-  else prefix // "share" // "ocamleditor" // name
+  else
+    let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
+    let path = prefix // name in
+    if Sys.file_exists path && Sys.is_directory path then path
+    else prefix // "share" // "ocamleditor" // name
 
 let application_icons = get_application_dir "icons"
 
@@ -3026,18 +3029,8 @@ open Arg
 open Task
 open Printf
 
-let arg_0_prefix = ref None
-let arg_1_prefix = ref None
 
 let cmd_line_args = [
-  `Uninstall, [
-    "-prefix", String (fun x -> arg_1_prefix := Some x),
-      (" Uninstallation prefix [default: see \"ocaml tools/uninstall.ml -help\"]");
-  ];
-  `Install, [
-    "-prefix", String (fun x -> arg_0_prefix := Some x),
-      (" Installation prefix [default: see \"ocaml tools/install.ml -help\"]");
-  ];
 ]
 
 let external_tasks = [
@@ -3079,7 +3072,7 @@ let external_tasks = [
     et_args                  = [true,"tools/mkrelease.ml"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
@@ -3093,7 +3086,7 @@ let external_tasks = [
     et_args                  = [true,"mkversion.ml"; true,"2.0.0-ocaml530"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
@@ -3107,7 +3100,7 @@ let external_tasks = [
     et_args                  = [true,"tools/prepare_build.ml"; true,"-generate-oebuild-script"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
@@ -3118,12 +3111,10 @@ let external_tasks = [
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/install.ml"; 
-                                command = `Install, (match !arg_0_prefix with Some _ -> "-prefix" | _ -> ""); 
-                                command = `Install, (match !arg_0_prefix with Some x -> sprintf "%s" x | _ -> "")];
+    et_args                  = [true,"tools/install.ml"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
@@ -3134,12 +3125,10 @@ let external_tasks = [
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/uninstall.ml"; 
-                                command = `Uninstall, (match !arg_1_prefix with Some _ -> "-prefix" | _ -> ""); 
-                                command = `Uninstall, (match !arg_1_prefix with Some x -> sprintf "%s" x | _ -> "")];
+    et_args                  = [true,"tools/uninstall.ml"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
@@ -3153,7 +3142,7 @@ let external_tasks = [
     et_args                  = [true,"tools/distclean.ml"];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });

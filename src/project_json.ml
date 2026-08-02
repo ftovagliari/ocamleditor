@@ -238,6 +238,8 @@ let read_json filename =
               ~dir:et.Project_t.dir
               ~cmd:et.Project_t.cmd
               ~args:et.Project_t.args
+              ~run_in_project:et.Project_t.always_run_in_project
+              ~run_in_script:et.Project_t.always_run_in_script
               ?phase:(match et.Project_t.phase with Some s -> Some (Task.phase_of_string s) | None -> None) ()
           end;
         tg.restrictions <- t_atd.Project_t.restrictions;
@@ -281,8 +283,58 @@ let read_json filename =
               Build_script.bst_show = bt.Project_t.show
             }
           end;
-        bs_args = [];
-        bs_commands = [] };
+        bs_args =
+          atd.Project_t.build_script.Project_t.args
+          |> List.map begin fun (ba : Project_t.build_script_arg) ->
+            let bsa_task =
+              match ba.Project_t.task with
+              | Some (target_id, task_name) ->
+                let target = proj.targets |> List.find_opt (fun t -> t.Target.id = target_id) in
+                let task = Prj.find_task proj task_name in
+                begin match target, task with
+                | Some target, Some task -> Some (target, task)
+                | _ -> None
+                end
+              | None -> None
+            in
+            { Build_script_args.
+              bsa_id = ba.Project_t.id;
+              bsa_type = Build_script_args.type_of_string ba.Project_t.type_;
+              bsa_key = ba.Project_t.key;
+              bsa_doc = ba.Project_t.doc;
+              bsa_default_override = true;
+              bsa_default =
+                begin match ba.Project_t.default with
+                | `Flag b -> `flag b
+                | `Bool b -> `bool b
+                | `String s -> `string s
+                end;
+              bsa_task;
+              bsa_mode =
+                (if ba.Project_t.mode = Build_script_args.string_of_add then `add
+                 else `replace ba.Project_t.mode);
+              bsa_cmd = Build_script_command.command_of_string ba.Project_t.command;
+              bsa_pass = Build_script_args.pass_of_string ba.Project_t.pass;
+            }
+          end;
+        bs_commands =
+          atd.Project_t.build_script.Project_t.commands
+          |> List.filter_map begin fun (bc : Project_t.build_script_command) ->
+            try
+              let target = proj.targets |> List.find_opt (fun t -> t.Target.id = bc.Project_t.target_id) in
+              let task = Prj.find_task proj bc.Project_t.task_name in
+              match target, task with
+              | Some target, Some task ->
+                Some { Build_script.
+                       bsc_name = Build_script.command_of_string bc.Project_t.name;
+                       bsc_descr = bc.Project_t.descr;
+                       bsc_target = target;
+                       bsc_task = task;
+                     }
+              | _ -> None
+            with _ -> None
+          end;
+      };
     proj
   with _ -> Project_xml_backcompat.read filename
 

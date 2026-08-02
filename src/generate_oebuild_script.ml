@@ -103,7 +103,6 @@ let _ =
   let dune_build_dir = Filename.concat (Sys.getcwd ()) "../../../src" in
   let is_dune_context = Sys.file_exists dune_build_dir && Sys.is_directory dune_build_dir in
   if is_dune_context then pushd dune_build_dir;
-  Printf.printf "==============================>%s - %s\n%!" (Sys.getcwd()) filename;
   Util.header := Buffer.contents (File_util.read (".."//"header"));
   create_script ();
   code_of_script();
