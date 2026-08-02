@@ -73,6 +73,7 @@ let install_fonts () =
 
 (** main *)
 let main () = begin
+  Unix.putenv "LC_MESSAGES" "C";
   install_fonts();
   let open Preferences in
   (* let _ = About.build_id := Build_id.timestamp in

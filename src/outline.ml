@@ -213,6 +213,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
 
     (** Toolbar buttons for various operations. *)
     val tool_refresh = GButton.tool_button ~packing:toolbar#insert ()
+    val tool_show_nested_defs = GButton.toggle_tool_button ~active:false ~packing:toolbar#insert ()
     val tool_sort_name = GButton.toggle_tool_button ~packing:toolbar#insert ()
     val tool_sort_kind = GButton.toggle_tool_button ~packing:toolbar#insert ()
     val tool_collapse_all = GButton.tool_button ~packing:toolbar#insert ()
@@ -220,13 +221,23 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
     val tool_follow_cursor = GButton.toggle_tool_button ~active:true ~packing:toolbar#insert ()
 
     initializer
+      toolbar#misc#set_name "oe_menubar";
+      tool_refresh#misc#set_name "menubar_button";
+      tool_sort_name#misc#set_name "menubar_button";
+      tool_collapse_all#misc#set_name "menubar_button";
+      tool_sort_kind#misc#set_name "menubar_button";
+      tool_show_nested_defs#misc#set_name "menubar_button";
+      tool_goto_cursor_position#misc#set_name "menubar_button";
+      tool_follow_cursor#misc#set_name "menubar_button";
       (* Set toolbar button icons *)
-      tool_refresh#set_label_widget (Gtk_util.label_icon "\u{f0453}")#coerce;
-      tool_collapse_all#set_label_widget (Gtk_util.label_icon "\u{f102}")#coerce;
-      tool_goto_cursor_position#set_label_widget (Gtk_util.label_icon "\u{f177}")#coerce;
-      tool_follow_cursor#set_label_widget (Gtk_util.label_icon "\u{21c6}")#coerce;
-      tool_sort_name#set_label_widget (Gtk_util.label_icon "\u{f05bd}")#coerce;
-      tool_sort_kind#set_label_widget (Gtk_util.label_icon "\u{f1385}")#coerce;
+      let mk_icon = Gtk_util.label_icon ~width:25 ~height:1 ~font_size:"medium" in
+      tool_refresh#set_label_widget (mk_icon "\u{f0453}")#coerce;
+      tool_collapse_all#set_label_widget (mk_icon "\u{f102}")#coerce;
+      tool_show_nested_defs#set_label_widget (mk_icon "\u{e681}")#coerce;
+      tool_goto_cursor_position#set_label_widget (mk_icon "\u{ea9b}")#coerce;
+      tool_follow_cursor#set_label_widget (mk_icon "\u{ebcb}")#coerce;
+      tool_sort_name#set_label_widget (mk_icon "\u{f05bd}")#coerce;
+      tool_sort_kind#set_label_widget (mk_icon "\u{f1385}")#coerce;
       self#update_preferences();
       Preferences.preferences#connect#changed ~callback:(fun _ -> self#update_preferences ()) |> ignore;
       self#set_follow_cursor true;
@@ -288,6 +299,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       (* Set tooltips *)
       tool_refresh#misc#set_tooltip_text "Refresh";
       tool_collapse_all#misc#set_tooltip_text "Collapse all";
+      tool_show_nested_defs#misc#set_tooltip_text "Show Nested Definitions";
       tool_goto_cursor_position#misc#set_tooltip_text "Go to cursor position";
       tool_follow_cursor#misc#set_tooltip_text "Follow cursor";
       tool_sort_name#misc#set_tooltip_text "Sort by name";
@@ -311,7 +323,17 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             outline#update ~force:true ()
           end);
 
-      (* Collapse all with smart re-activation of cursor following *)
+      tool_show_nested_defs#connect#clicked ~callback:begin fun () ->
+        Async.create ~name:"tool_show_nested_defs" begin fun () ->
+          let pref = Preferences.preferences#get in
+          pref.outline_show_nested_defs <- not tool_show_nested_defs#get_active;
+          Preferences.save ();
+        end
+        |> Async.start;
+        outline#update ~force:true ()
+      end |> ignore;
+
+      (*Collapse all with smart re-activation of cursor following *)
       tool_collapse_all#connect#clicked ~callback:begin fun () ->
         if tool_follow_cursor#get_active then begin
           Option.iter GMain.Timeout.remove timer_follow_cursor;
@@ -582,7 +604,12 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
                  ol.ol_start.line (ol.ol_start.col + 1) ol.ol_stop.line (ol.ol_stop.col + 1) else "")
         in
         model#set ~row ~column:col_markup markup;
-        if ol.ol_children <> [] then self#append_dummy row
+        if
+          ol.ol_children <> [] &&
+          (tool_show_nested_defs#get_active ||
+           ol.ol_kind <> "Method" &&
+           (ol.ol_kind <> "Value" || ol.ol_children |> List.for_all (fun c -> c.ol_kind <> "Value")))
+        then self#append_dummy row
 
     (** Appends a dummy placeholder node for lazy loading.
 
@@ -660,14 +687,14 @@ class search (view : GTree.view) =
           end)
   end
 
-(** Experimental outline view with fuzzy search capability.
+(*(** Experimental outline view with fuzzy search capability.
 
     Extends the basic outline view with keyboard-driven fuzzy search.
     Typing while the view has focus opens a search box that performs
     fuzzy matching against outline item names and navigates to the best match.
 
     @note This feature is experimental and not fully polished. *)
-class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
+  class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
   object (self)
     inherit view ~outline ~source_view ?packing ()
 
@@ -775,3 +802,4 @@ class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) 
           search_widget |> Option.iter (fun w -> w#destroy());
           search_widget <- None
   end
+*)

@@ -42,6 +42,7 @@ type settings = {
   ~odoc_font                       <ocaml default="\"Serif 9\"" mutable> : string;
 
   ~outline_show_types              <ocaml default="true" mutable> : bool;
+  ~outline_show_nested_defs        <ocaml default="false" mutable> : bool;
   ~outline_width                   <ocaml default="250" mutable> : int;
   ~outline_color_types             <ocaml default="{light=\"#877033\"; dark=\"#C0A661\"}" mutable> : string color;
   ~outline_color_nor_bg            <ocaml default="{light=\"#FFFFFF\"; dark=\"#1E1E1E\"}" mutable> : string color;

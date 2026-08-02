@@ -37,15 +37,17 @@ let get_project_source_filenames project =
       File_util.ls ~dir ~pattern:"*.ml" |> List.map (Filename.concat dir))
   |> List.concat
 
+module FS = Fuzzy_search.Make(Fuzzy_search.Letter)
+
 let filter pattern db =
-  let compare = Utils.Memo.fast ~f:(fun (a, b) -> FuzzyLetters.compare ~min_score:0.85 `Greedy a b) in
+  let compare = Utils.Memo.fast ~f:(fun (a, b) -> FS.compare ~min_score:0.85 Greedy a b) in
   Mutex.protect mx_name_db begin fun () ->
     db.table
     |> List.map (fun entry ->
         entry.values
         |> List.filter_map begin fun val_entry ->
-          let score, paths = compare (pattern, val_entry.name) in
-          if score > 0. then Some (score, val_entry) else None
+          let result = compare (pattern, val_entry.name) in
+          result |> Option.map (fun r -> r.FS.score, val_entry)
         end)
     |> List.concat
     |> List.sort (fun (a, _) (b, _) -> Stdlib.compare b a)

@@ -47,7 +47,9 @@ src/ocamleditorw
 src/.merlin
 src/merlin_?.ml*
 src/settings_?.ml*
+src/find_text_?.ml*
 
 *.ocaml-index
 _build
 src/icons/icons.ml
+.github/

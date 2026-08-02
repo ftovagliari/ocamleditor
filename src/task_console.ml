@@ -469,10 +469,13 @@ let views : (string * (view * GObj.widget)) list ref = ref []
 
 (** create *)
 let create ~editor task_kind task =
-  let console_id = sprintf "%s %s %s"
-      task.Task.et_name
-      task.Task.et_cmd
-      (String.concat " " (List.flatten (List.filter_map (fun (e, v) -> if e then Some (Shell.parse_args v) else None) task.Task.et_args))) in
+  let console_id =
+    task.Task.et_args
+    |> List.filter_map (fun (e, v) -> if e then Some (Shell.parse_args v) else None)
+    |> List.flatten
+    |> String.concat " "
+    |> sprintf "%s %s %s" task.Task.et_name task.Task.et_cmd
+  in
   try
     let (console, _) = List.assoc console_id !views in
     console#set_task task;
@@ -505,10 +508,10 @@ let create ~editor task_kind task =
       page#set_title task.Task.et_name;
       Gaux.may icon ~f:(fun icon -> page#set_icon (Some icon#pixbuf));
       if task.Task.et_visible then Messages.vmessages#append_page ~label_widget ~with_spinner:(task_kind <> `RUN) page#as_page;
-      ignore (page#connect#working_status_changed ~callback:begin fun active ->
-          (match set_active_func with None -> page#is_working#set | Some f -> f) active
-        end);
-      ignore (page#misc#connect#destroy ~callback:(fun () -> views := List.remove_assoc console_id !views));
+      page#connect#working_status_changed ~callback:begin fun active ->
+        (match set_active_func with None -> page#is_working#set | Some f -> f) active
+      end |> ignore;
+      page#misc#connect#destroy ~callback:(fun () -> views := List.remove_assoc console_id !views) |> ignore;
       views := (console_id, (page, page#vbox#coerce)) :: !views;
       page
     end

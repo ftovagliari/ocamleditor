@@ -59,7 +59,7 @@ let set_theme ?theme ~context () =
       style \"menubar-button\" {
         GtkButton::child-displacement-x = 1
         GtkButton::child-displacement-y = 1
-        GtkButton::inner-border = { 3, 3, 2, 2 }
+        GtkButton::inner-border = { 0, 0, 0, 0 }
         xthickness = 0
         ythickness = 0
       }
@@ -97,7 +97,7 @@ style \"oe-tooltip\"
   bg[NORMAL] = \"#FFE375\"
   fg[NORMAL] = \"#000000\"
 }
-widget \"*.menubar_button\" style \"menubar-button\"
+widget_class \"*<GtkToolButton>*<GtkButton>\" style \"menubar-button\"
 widget \"*.windowbutton\" style \"window-button\"
 widget \"*.menubar_button_arrow\" style \"menubar-button-arrow\"
 widget \"*.oe_menubar\" style:highest \"oe_menubar\"
