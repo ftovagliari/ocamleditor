@@ -36,7 +36,13 @@ let is_utf8, default_charset = locale_is_utf8, locale_charset
 
 let to_utf8 str =
   if Glib.Utf8.validate str then str else
-    Glib.Convert.convert ~from_codeset:default_charset ~to_codeset:"UTF-8" str
+    try
+      Glib.Convert.convert ~from_codeset:default_charset ~to_codeset:"UTF-8" str
+    with Glib.Convert.Error _ ->
+      (* Fallback: replace bytes outside ASCII with '?' to avoid exceptions when
+         conversion fails due to invalid byte sequences. This preserves display
+         albeit with lossy replacement. *)
+      String.init (String.length str) (fun i -> let c = str.[i] in if Char.code c <= 127 then c else '?')
 
 let from_utf8 = Glib.Convert.convert ~from_codeset:"UTF-8" ~to_codeset:default_charset
 
