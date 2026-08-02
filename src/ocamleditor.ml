@@ -106,7 +106,7 @@ let main () = begin
       Gaux.may splashscreen ~f:(fun w -> w#set_transient_for browser#window#as_window);
       Sys.chdir (Filename.dirname Sys.executable_name);
       Printf.printf "%s\n%!" (System_properties.to_string());
-      Project_xml.init();
+      Project_json.init();
     end |> ignore;
     browser#connect#after#startup ~callback:begin fun () ->
       Gmisclib.Idle.add ~prio:300 begin fun () ->

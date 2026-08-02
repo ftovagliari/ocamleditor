@@ -25,4 +25,4 @@ open Browser
 
 module Config = Oe_config
 module About = About
-module Projext_xml = Project_xml
+module Project_xml_backcompat = Project_xml_backcompat

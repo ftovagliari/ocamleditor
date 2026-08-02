@@ -33,7 +33,6 @@ exception Project_already_exists of string
 
 exception Cannot_rename of string
 
-let write_xml : (t -> Xml.xml) ref = ref (fun _ -> failwith "write_xml")
 let read_xml : (string -> t) ref = ref (fun _ -> failwith "read_xml")
 let from_local_xml : (t -> unit) ref = ref (fun _ -> failwith "from_local_xml")
 
