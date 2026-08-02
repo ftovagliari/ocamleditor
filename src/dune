@@ -47,6 +47,30 @@
   (run atdgen -j %{deps})))
 
 (rule
+ (targets project_t.ml project_t.mli)
+ (deps project.atd)
+ (action
+  (run atdgen -t %{deps})))
+
+(rule
+ (targets project_j.ml project_j.mli)
+ (deps project.atd)
+ (action
+  (run atdgen -j %{deps})))
+
+(rule
+ (targets find_text_t.ml find_text_t.mli)
+ (deps find_text.atd)
+ (action
+  (run atdgen -t %{deps})))
+
+(rule
+ (targets find_text_j.ml find_text_j.mli)
+ (deps find_text.atd)
+ (action
+  (run atdgen -j %{deps})))
+
+(rule
   (target oebuild_script.ml)
   (deps generate_oebuild_script.ml)
   (action
@@ -59,6 +83,8 @@
 
 (library
   (name ocamleditor_lib)
+  (wrapped false)
+  (modules (:standard \ ocamleditor))
   (libraries 
     common 
     icons 
@@ -81,13 +107,12 @@
   )
 )
 
-;; (executable
-;;   (name ocamleditor)
-;;   (public_name ocamleditor)
-;;   (modules ocamleditor)
-;;   (promote (until-clean))
-;;   (libraries ocamleditor_lib)
-;; )
+(executable
+  (name ocamleditor)
+  (public_name ocamleditor)
+  (modules ocamleditor)
+  (libraries ocamleditor_lib)
+)
 
 (env (dev (flags (:standard -warn-error -A))))
 
