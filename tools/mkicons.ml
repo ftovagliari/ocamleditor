@@ -21,11 +21,12 @@
 *)
 
 
-#use "./scripting.ml";;
+#cd "src"
+    #use "../tools/scripting.ml"
 
 open Printf
 
-let icons_dir = ".."//"src"//"icons"
+let icons_dir = "icons"
 
 let generate ochan path =
   let icons = icons_dir // path in

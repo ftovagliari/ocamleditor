@@ -94,24 +94,24 @@ let code_of_script () =
   with ex -> (finally());;
 
 let _ =
-  pushd "../../../src";
+  (* This script is invoked from two different contexts:
+     - By dune: CWD is _build/default/src/, so "../../../src" navigates to the real src/.
+       After generating oebuild_script.ml in src/, it is renamed back to _build/default/src/
+       where dune expects the declared target.
+     - By prepare_build.ml (old build system): CWD is already src/.
+       No navigation needed; oebuild_script.ml simply stays in src/. *)
+  let dune_build_dir = Filename.concat (Sys.getcwd ()) "../../../src" in
+  let is_dune_context = Sys.file_exists dune_build_dir && Sys.is_directory dune_build_dir in
+  if is_dune_context then pushd dune_build_dir;
   Printf.printf "==============================>%s - %s\n%!" (Sys.getcwd()) filename;
   Util.header := Buffer.contents (File_util.read (".."//"header"));
   create_script ();
   code_of_script();
-  let new_filename = ".."//"_build"//"default"//"src"//filename in
-  if Sys.file_exists new_filename then (Sys.remove new_filename);
-  Sys.rename filename new_filename;
-  Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) new_filename;
-  popd();
+  if is_dune_context then begin
+    let new_filename = ".."//"_build"//"default"//"src"//filename in
+    if Sys.file_exists new_filename then (Sys.remove new_filename);
+    Sys.rename filename new_filename;
+    Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) new_filename;
+    popd();
+  end;
   exit 0
-
-
-
-
-
-
-
-
-
-
