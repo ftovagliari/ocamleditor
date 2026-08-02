@@ -25,142 +25,7 @@ open Project
 open Printf
 open Utils
 open Oe
-
-(** write *)
-let write proj =
-  let open Prj in
-  Xml.Element ("project", [], [
-      Xml.Element ("ocaml_home", [], [Xml.PCData proj.ocaml_home]);
-      Xml.Element ("ocamllib", [], [Xml.PCData
-                                      (if proj.ocamllib_from_env then proj.ocamllib else "")]);
-      Xml.Element ("encoding", [], [Xml.PCData (match proj.encoding with None -> "" | Some x -> x)]);
-      Xml.Element ("name", [], [Xml.PCData proj.name]);
-      Xml.Element ("author", [], [Xml.PCData proj.author]);
-      (*Xml.Element ("description", [], [Xml.PCData proj.description]);*)
-      Xml.Element ("description", [],
-                   (List.map (fun x -> Xml.Element ("line", [], [Xml.PCData x])) (Utils.split "\n" proj.description)));
-      Xml.Element ("version", [], [Xml.PCData proj.version]);
-      Xml.Element ("autocomp", [
-          "enabled", string_of_bool proj.autocomp_enabled;
-          "delay", string_of_float proj.autocomp_delay;
-          "cflags", proj.autocomp_cflags], []);
-      Xml.Element ("targets", [], List.map begin fun t ->
-          Xml.Element ("target", [
-              "name", t.Target.name;
-              "default", string_of_bool t.Target.default;
-              "id", string_of_int t.Target.id;
-              "sub_targets", (String.concat "," (List.map (fun tg -> string_of_int tg.Target.id) t.Target.sub_targets));
-              "is_fl_package", string_of_bool t.Target.is_fl_package;
-              "subsystem", (match t.Target.subsystem with Some x -> Target.string_of_subsystem x | _ -> "");
-              "readonly", string_of_bool t.Target.readonly;
-              "visible", string_of_bool t.Target.visible;
-              "node_collapsed", string_of_bool t.Target.node_collapsed;
-            ], [
-                         Xml.Element ("descr", [], [Xml.PCData (t.Target.descr)]);
-                         Xml.Element ("byt", [], [Xml.PCData (string_of_bool t.Target.byt)]);
-                         Xml.Element ("opt", [], [Xml.PCData (string_of_bool t.Target.opt)]);
-                         Xml.Element ("libs", [], [Xml.PCData t.Target.libs]);
-                         Xml.Element ("other_objects", [], [Xml.PCData t.Target.other_objects]);
-                         Xml.Element ("files", [], [Xml.PCData t.Target.files]);
-                         Xml.Element ("package", [], [Xml.PCData t.Target.package]);
-                         Xml.Element ("includes", [], [Xml.PCData t.Target.includes]);
-                         Xml.Element ("thread", [], [Xml.PCData (string_of_bool t.Target.thread)]);
-                         Xml.Element ("vmthread", [], [Xml.PCData (string_of_bool t.Target.vmthread)]);
-                         Xml.Element ("pp", [], [Xml.PCData t.Target.pp]);
-                         Xml.Element ("inline", [], [Xml.PCData (match t.Target.inline with Some num -> string_of_int num | _ -> "")]);
-                         Xml.Element ("nodep", [], [Xml.PCData (string_of_bool t.Target.nodep)]);
-                         Xml.Element ("dontlinkdep", [], [Xml.PCData (string_of_bool t.Target.dontlinkdep)]);
-                         Xml.Element ("dontaddopt", [], [Xml.PCData (string_of_bool t.Target.dontaddopt)]);
-                         Xml.Element ("cflags", [], [Xml.PCData t.Target.cflags]);
-                         Xml.Element ("lflags", [], [Xml.PCData t.Target.lflags]);
-                         Xml.Element ("target_type", [], [Xml.PCData (Target.string_of_target_type t.Target.target_type)]);
-                         Xml.Element ("outname", [], [Xml.PCData t.Target.outname]);
-                         Xml.Element ("lib_install_path", [], [Xml.PCData t.Target.lib_install_path]);
-                         Xml.Element ("external_tasks", [],
-                                      List.map begin fun task ->
-                                        Xml.Element ("task", ["name", task.Task.et_name], [
-                                            Xml.Element ("always_run_in_project", [], [Xml.PCData (string_of_bool task.Task.et_always_run_in_project)]);
-                                            Xml.Element ("always_run_in_script", [], [Xml.PCData (string_of_bool task.Task.et_always_run_in_script)]);
-                                            Xml.Element ("readonly", [], [Xml.PCData (string_of_bool task.Task.et_readonly)]);
-                                            Xml.Element ("visible", [], [Xml.PCData (string_of_bool task.Task.et_visible)]);
-                                            Xml.Element ("env", ["replace", string_of_bool task.Task.et_env_replace],
-                                                         List.map (fun (e, v) -> Xml.Element ("var", ["enabled", string_of_bool e], [Xml.PCData v])) task.Task.et_env);
-                                            Xml.Element ("dir", [], [Xml.PCData (task.Task.et_dir)]);
-                                            Xml.Element ("cmd", [], [Xml.PCData (task.Task.et_cmd)]);
-                                            Xml.Element ("args", [],
-                                                         List.map (fun (e, v) -> Xml.Element ("arg", ["enabled", string_of_bool e], [Xml.PCData v])) task.Task.et_args);
-                                            Xml.Element ("phase", [], [Xml.PCData
-                                                                         (match task.Task.et_phase with Some x -> Task.string_of_phase x | _ -> "")]);
-                                          ])
-                                      end t.Target.external_tasks);
-                         Xml.Element ("restrictions", [], [Xml.PCData (String.concat "&" t.Target.restrictions)]);
-                         Xml.Element ("dependencies", [], [Xml.PCData (String.concat "," (List.map string_of_int t.Target.dependencies))]);
-                       ]
-            ) end proj.targets);
-      Xml.Element ("executables", [], List.map begin fun t ->
-          Xml.Element ("executable", [
-              "name", t.Rconf.name;
-              "default", string_of_bool t.Rconf.default;
-              "target_id", string_of_int t.Rconf.target_id;
-              "id", string_of_int t.Rconf.id], [
-                         Xml.Element ("build_task", [], [Xml.PCData (Target.string_of_task t.Rconf.build_task)]);
-                         Xml.Element ("env", ["replace", string_of_bool t.Rconf.env_replace],
-                                      List.map (fun (e, v) -> Xml.Element ("var", ["enabled", string_of_bool e], [Xml.PCData v])) t.Rconf.env
-                                     );
-                         Xml.Element ("args", [],
-                                      List.map (fun (e, v) -> Xml.Element ("arg", ["enabled", string_of_bool e], [Xml.PCData v])) t.Rconf.args);
-                       ])
-        end proj.executables);
-      Xml.Element ("build_script", ["filename", proj.build_script.Build_script.bs_filename],
-                   let targets =
-                     List.map begin fun target ->
-                       Xml.Element ("target", [
-                           "target_id", (string_of_int target.Build_script.bst_target.Target.id);
-                           "show", (string_of_bool target.Build_script.bst_show);
-                         ], [])
-                     end proj.build_script.Build_script.bs_targets
-                   in
-                   let args =
-                     proj.build_script.Build_script.bs_args |>
-                     List.map begin fun arg ->
-                       Xml.Element ("arg", [
-                           "id", (string_of_int arg.Build_script_args.bsa_id);
-                           "type", (Build_script_args.string_of_type arg.Build_script_args.bsa_type);
-                           "key", arg.Build_script_args.bsa_key;
-                           "pass", (Build_script_args.string_of_pass arg.Build_script_args.bsa_pass);
-                           "command", (Build_script_command.string_of_command arg.Build_script_args.bsa_cmd);
-                         ], [
-                                      Xml.Element ("task",
-                                                   (match arg.Build_script_args.bsa_task with Some (bc, et) -> [
-                                                         "target_id", string_of_int bc.Target.id;
-                                                         "task_name", et.Task.et_name;
-                                                       ] | None -> []), []);
-                                      Xml.Element ("mode", [], [Xml.PCData
-                                                                  (match arg.Build_script_args.bsa_mode with `add -> Build_script_args.string_of_add | `replace x -> x)]);
-                                      Xml.Element ("default", [
-                                          "type", (match arg.Build_script_args.bsa_default with `flag _ -> "flag" | `bool _ -> "bool" | `string _ -> "string");
-                                          "override", (string_of_bool arg.Build_script_args.bsa_default_override);
-                                        ], [Xml.PCData
-                                              (match arg.Build_script_args.bsa_default with `flag x -> string_of_bool x | `bool x -> string_of_bool x | `string x -> x)]);
-                                      Xml.Element ("doc", [], [Xml.PCData arg.Build_script_args.bsa_doc]);
-                                    ])
-                     end
-                   in
-                   let commands =
-                     List.map begin fun cmd ->
-                       Xml.Element ("command", [
-                           "name", (Build_script.string_of_command cmd.Build_script.bsc_name);
-                           "descr", cmd.Build_script.bsc_descr;
-                           "target_id", string_of_int cmd.Build_script.bsc_target.Target.id;
-                           "task_name", (cmd.Build_script.bsc_task.Task.et_name);
-                         ], [])
-                     end proj.build_script.Build_script.bs_commands
-                   in [
-                     Xml.Element ("targets", [], targets);
-                     Xml.Element ("args", [], args);
-                     Xml.Element ("commands", [], commands);
-                   ])
-    ]);;
+open Target
 
 let value xml =
   try String.concat "\n" (List.map Xml.pcdata (Xml.children xml)) with Xml.Not_element _ -> "";;
@@ -259,7 +124,7 @@ let xml_commands proj node =
 (** read *)
 let read filename =
   let open Prj in
-  let proj = create ~filename () in
+  let proj = Project.create ~filename () in
   let parser = XmlParser.make () in
   let xml = XmlParser.parse parser (XmlParser.SFile filename) in
   let get_offset xml = try int_of_string (Xml.attrib xml "offset") with Xml.No_attribute _ -> 0 in
@@ -461,7 +326,7 @@ let read filename =
 (** from_local_xml *)
 let from_local_xml proj =
   let open Prj in
-  let filename = Project.filename_local proj in
+  let filename = Project.fullpath_local proj in
   let filename = if Sys.file_exists filename then filename else Project.mk_old_filename_local proj in
   if Sys.file_exists filename then begin
     let parser = XmlParser.make () in
@@ -492,11 +357,6 @@ let from_local_xml proj =
       | _ -> ()
     end xml;
   end;;
-
-let init () =
-  Project.write_xml := write;
-  Project.read_xml := read;
-  Project.from_local_xml := from_local_xml;
 
 
 

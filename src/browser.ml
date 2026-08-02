@@ -268,7 +268,7 @@ class browser window =
 
     method dialog_project_properties ?page_num ?(show=true) () =
       self#with_current_project begin fun project ->
-        let id = Project.filename project in
+        let id = Project.fullpath project in
         let remove_from_cache () =
           cache_dialog_project_properties <- List.filter (fun (x, _) -> x <> id) cache_dialog_project_properties
         in
@@ -339,7 +339,7 @@ class browser window =
         Project_properties.create ~show:true ~editor ~new_project ~callback:begin fun proj ->
           self#project_close();
           Project.save ~editor new_project;
-          ignore (self#project_open (Project.filename proj));
+          ignore (self#project_open (Project.fullpath proj));
         end ()
       in
       window#set_modal true;
@@ -387,7 +387,7 @@ class browser window =
         in
         with_project begin fun proj ->
           ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
-          label_project_name#misc#set_tooltip_text (Project.filename proj);
+          label_project_name#misc#set_tooltip_text (Project.fullpath proj);
         end;
         Git.toplevel begin function
         | Some toplevel ->

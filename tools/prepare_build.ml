@@ -50,6 +50,11 @@ let prepare_build () =
     run (rm ^ " find_text_t.* find_text_j.*");
     run "atdgen -t find_text.atd";
     run "atdgen -j find_text.atd";
+    (* Clean project generated files (ATD outputs) before regenerating them during build. *)
+    run (rm ^ " project_t.* project_j.*");
+    run "atdgen -t project.atd";
+    run "atdgen -j project.atd";
+
     if not is_win32 then begin
       (* Disabled because on Windows it changes the file permissions of oe_config.ml
          forcing it to be recompiled for plugins.*)

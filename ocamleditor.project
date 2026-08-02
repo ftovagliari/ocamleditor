@@ -1,556 +1,308 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- OCamlEditor-2.0.0-ocaml530 XML Project -->
-<project>
-  <ocaml_home></ocaml_home>
-  <ocamllib></ocamllib>
-  <encoding>UTF-8</encoding>
-  <name>ocamleditor</name>
-  <author></author>
-  <description/>
-  <version>2.0.0-ocaml530</version>
-  <autocomp enabled="true" delay="0.764" cflags=""/>
-  <targets>
-    <target name="common" default="false" id="4" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files>common/common.ml</files>
-      <package></package>
-      <includes>common +unix +str</includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Library</target_type>
-      <outname>common/common</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies></dependencies>
-    </target>
-    <target name="icons" default="false" id="10" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files>icons/icons.ml</files>
-      <package>lablgtk2</package>
-      <includes>common icons</includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Library</target_type>
-      <outname>icons/icons</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks>
-        <task name="mkicons">
-          <always_run_in_project>true</always_run_in_project>
-          <always_run_in_script>true</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>../tools</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">mkicons.ml</arg>
-          </args>
-          <phase>Before_compile</phase>
-        </task>
-      </external_tasks>
-      <restrictions></restrictions>
-      <dependencies>4</dependencies>
-    </target>
-    <target name="oebuildlib" default="false" id="7" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files>oebuild/oebuild.ml oebuild/oebuild_dep_ext.ml</files>
-      <package></package>
-      <includes>common oebuild +unix +str</includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w y</cflags>
-      <lflags></lflags>
-      <target_type>Library</target_type>
-      <outname>oebuildlib</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>4</dependencies>
-    </target>
-    <target name="oebuild" default="false" id="5" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs>common</libs>
-      <other_objects></other_objects>
-      <files>oebuild/oebuild_tool.ml</files>
-      <package>str,unix</package>
-      <includes>common oebuild</includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w y</cflags>
-      <lflags></lflags>
-      <target_type>Executable</target_type>
-      <outname>oebuild/oebuild</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>7</dependencies>
-    </target>
-    <target name="gmisclib" default="false" id="8" sub_targets="" is_fl_package="true" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr>Miscellaneous widgets based on LablGtk2.</descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files>gmisclib/gmisclib.ml</files>
-      <package>lablgtk2</package>
-      <includes>gmisclib +unix</includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Library</target_type>
-      <outname>gmisclib</outname>
-      <lib_install_path>gmisclib</lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies></dependencies>
-    </target>
-    <target name="otherwidgets" default="false" id="9" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>true</opt>
-      <libs>gmisclib</libs>
-      <other_objects></other_objects>
-      <files>otherwidgets/otherwidgets.ml</files>
-      <package>lablgtk2</package>
-      <includes>icons common otherwidgets gmisclib</includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w -s-y -g</cflags>
-      <lflags>-w -s-y -g</lflags>
-      <target_type>Library</target_type>
-      <outname>otherwidgets</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>8</dependencies>
-    </target>
-    <target name="ocamleditor-lib" default="false" id="14" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>false</byt>
-      <opt>true</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files>ocamleditor_lib.ml</files>
-      <package>atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify</package>
-      <includes>gmisclib common icons otherwidgets oebuild </includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline>50</inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w -s-y-x-m -g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Library</target_type>
-      <outname>ocamleditor_lib</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>4,10,5,28,8,9,20</dependencies>
-    </target>
-    <target name="ocamleditor" default="true" id="12" sub_targets="" is_fl_package="false" subsystem="Console" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>false</byt>
-      <opt>true</opt>
-      <libs>ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib</libs>
-      <other_objects></other_objects>
-      <files>ocamleditor.ml</files>
-      <package>atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify</package>
-      <includes>gmisclib common icons otherwidgets oebuild</includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline>50</inline>
-      <nodep>true</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w -s-y-x-m -g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Executable</target_type>
-      <outname>ocamleditor</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>14,19,16,22</dependencies>
-    </target>
-    <target name="ocamleditor-bytecode" default="false" id="0" sub_targets="" is_fl_package="false" subsystem="Console" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>false</opt>
-      <libs>ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib</libs>
-      <other_objects></other_objects>
-      <files>ocamleditor.ml</files>
-      <package>atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify</package>
-      <includes>gmisclib common icons otherwidgets oebuild </includes>
-      <thread>true</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags>-w -s-y-x-m -g</cflags>
-      <lflags>-g</lflags>
-      <target_type>Executable</target_type>
-      <outname>ocamleditor</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions></restrictions>
-      <dependencies>4,10,7,5,8,9,20,17,18</dependencies>
-    </target>
-    <target name="prepare-build" default="false" id="20" sub_targets="" is_fl_package="false" subsystem="Console" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>false</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files></files>
-      <package></package>
-      <includes></includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags></cflags>
-      <lflags></lflags>
-      <target_type>External</target_type>
-      <outname></outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks>
-        <task name="prepare-build">
-          <always_run_in_project>true</always_run_in_project>
-          <always_run_in_script>true</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/prepare_build.ml</arg>
-          </args>
-          <phase>Compile</phase>
-        </task>
-      </external_tasks>
-      <restrictions></restrictions>
-      <dependencies></dependencies>
-    </target>
-    <target name="launcher" default="false" id="28" sub_targets="" is_fl_package="false" subsystem="" readonly="false" visible="true" node_collapsed="false">
-      <descr>Utility to open OCaml files from the file manager</descr>
-      <byt>false</byt>
-      <opt>true</opt>
-      <libs>common</libs>
-      <other_objects></other_objects>
-      <files>ocamleditor_launcher.ml</files>
-      <package>unix,str</package>
-      <includes>common</includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>true</dontaddopt>
-      <cflags>-compact</cflags>
-      <lflags>-compact</lflags>
-      <target_type>Executable</target_type>
-      <outname>ocamleditorw</outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks/>
-      <restrictions>OCAML(system&lt;&gt;mingw)</restrictions>
-      <dependencies></dependencies>
-    </target>
-    <target name="tools" default="false" id="13" sub_targets="" is_fl_package="false" subsystem="Console" readonly="false" visible="true" node_collapsed="false">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>false</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files></files>
-      <package></package>
-      <includes></includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags></cflags>
-      <lflags></lflags>
-      <target_type>External</target_type>
-      <outname></outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks>
-        <task name="mkrelease">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/mkrelease.ml</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-        <task name="mkversion">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>../tools</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">mkversion.ml</arg>
-            <arg enabled="true">2.0.0-ocaml530</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-        <task name="generate_oebuild_script">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/prepare_build.ml</arg>
-            <arg enabled="true">-generate-oebuild-script</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-        <task name="Install OCamlEditor">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/install.ml</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-        <task name="Uninstall OCamlEditor">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/uninstall.ml</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-        <task name="distclean">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>false</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/distclean.ml</arg>
-          </args>
-          <phase>Before_clean</phase>
-        </task>
-      </external_tasks>
-      <restrictions></restrictions>
-      <dependencies></dependencies>
-    </target>
-    <target name="FINDLIB-TOOLS" default="false" id="27" sub_targets="" is_fl_package="false" subsystem="" readonly="true" visible="true" node_collapsed="true">
-      <descr></descr>
-      <byt>true</byt>
-      <opt>false</opt>
-      <libs></libs>
-      <other_objects></other_objects>
-      <files></files>
-      <package></package>
-      <includes></includes>
-      <thread>false</thread>
-      <vmthread>false</vmthread>
-      <pp></pp>
-      <inline></inline>
-      <nodep>false</nodep>
-      <dontlinkdep>false</dontlinkdep>
-      <dontaddopt>false</dontaddopt>
-      <cflags></cflags>
-      <lflags></lflags>
-      <target_type>External</target_type>
-      <outname></outname>
-      <lib_install_path></lib_install_path>
-      <external_tasks>
-        <task name="install">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>true</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/findlib.ml</arg>
-            <arg enabled="true">install</arg>
-          </args>
-          <phase></phase>
-        </task>
-        <task name="uninstall">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>true</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/findlib.ml</arg>
-            <arg enabled="true">uninstall</arg>
-          </args>
-          <phase></phase>
-        </task>
-        <task name="reinstall">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>true</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/findlib.ml</arg>
-            <arg enabled="true">reinstall</arg>
-          </args>
-          <phase></phase>
-        </task>
-        <task name="print">
-          <always_run_in_project>false</always_run_in_project>
-          <always_run_in_script>false</always_run_in_script>
-          <readonly>true</readonly>
-          <visible>true</visible>
-          <env replace="false"/>
-          <dir>..</dir>
-          <cmd>ocaml</cmd>
-          <args>
-            <arg enabled="true">tools/findlib.ml</arg>
-            <arg enabled="true">print</arg>
-          </args>
-          <phase></phase>
-        </task>
-      </external_tasks>
-      <restrictions></restrictions>
-      <dependencies></dependencies>
-    </target>
-  </targets>
-  <executables>
-    <executable name="ocamleditor-bytecode" default="false" target_id="0" id="0">
-      <build_task>&lt;COMPILE&gt;</build_task>
-      <env replace="false">
-        <var enabled="true">OCAMLEDITORPARAM=debug=2,record_backtrace=1</var>
-        <var enabled="true">DEBUG_UNDO=0</var>
-      </env>
-      <args/>
-    </executable>
-    <executable name="ocamleditor" default="true" target_id="12" id="1">
-      <build_task>&lt;COMPILE&gt;</build_task>
-      <env replace="false"/>
-      <args/>
-    </executable>
-  </executables>
-  <build_script filename="build.ml">
-    <targets>
-      <target target_id="4" show="false"/>
-      <target target_id="10" show="false"/>
-      <target target_id="7" show="false"/>
-      <target target_id="5" show="true"/>
-      <target target_id="8" show="true"/>
-      <target target_id="9" show="false"/>
-      <target target_id="14" show="true"/>
-      <target target_id="12" show="true"/>
-      <target target_id="0" show="true"/>
-      <target target_id="20" show="false"/>
-      <target target_id="28" show="true"/>
-      <target target_id="13" show="false"/>
-      <target target_id="27" show="false"/>
-    </targets>
-    <args>
-      <arg id="0" type="String" key="-prefix" pass="-key value" command="install">
-        <task target_id="13" task_name="Install OCamlEditor"/>
-        <mode>&lt;ADD&gt;</mode>
-        <default type="string" override="false">/usr/local</default>
-        <doc>Installation prefix</doc>
-      </arg>
-      <arg id="1" type="String" key="-prefix" pass="-key value" command="uninstall">
-        <task target_id="13" task_name="Uninstall OCamlEditor"/>
-        <mode>&lt;ADD&gt;</mode>
-        <default type="string" override="false">/usr/local</default>
-        <doc>Uninstallation prefix</doc>
-      </arg>
-    </args>
-    <commands>
-      <command name="Distclean" descr="distclean" target_id="13" task_name="distclean"/>
-      <command name="Install" descr="Install OCamlEditor" target_id="13" task_name="Install OCamlEditor"/>
-      <command name="Uninstall" descr="Uninstall OCamlEditor" target_id="13" task_name="Uninstall OCamlEditor"/>
-    </commands>
-  </build_script>
-</project>
+{
+  "encoding": [ "Some", "UTF-8" ],
+  "name": "ocamleditor",
+  "version": "2.0.0-ocaml530",
+  "autocomp": { "delay": 0.764 },
+  "targets": [
+    {
+      "id": 4,
+      "name": "common",
+      "opt": true,
+      "files": "common/common.ml",
+      "includes": "common +unix +str",
+      "thread": true,
+      "cflags": "-g",
+      "lflags": "-g",
+      "target_type": "Library",
+      "outname": "common/common"
+    },
+    {
+      "id": 10,
+      "name": "icons",
+      "opt": true,
+      "files": "icons/icons.ml",
+      "package": "lablgtk2",
+      "includes": "common icons",
+      "cflags": "-g",
+      "lflags": "-g",
+      "target_type": "Library",
+      "outname": "icons/icons",
+      "external_tasks": [
+        {
+          "name": "mkicons",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/mkicons.ml" ] ],
+          "phase": [ "Some", "Before_compile" ]
+        }
+      ],
+      "dependencies": [ 4 ]
+    },
+    {
+      "id": 7,
+      "name": "oebuildlib",
+      "opt": true,
+      "files": "oebuild/oebuild.ml oebuild/oebuild_dep_ext.ml",
+      "includes": "common oebuild +unix +str",
+      "thread": true,
+      "cflags": "-w y",
+      "target_type": "Library",
+      "outname": "oebuildlib",
+      "dependencies": [ 4 ]
+    },
+    {
+      "id": 5,
+      "name": "oebuild",
+      "opt": true,
+      "libs": "common",
+      "files": "oebuild/oebuild_tool.ml",
+      "package": "str,unix",
+      "includes": "common oebuild",
+      "thread": true,
+      "cflags": "-w y",
+      "outname": "oebuild/oebuild",
+      "dependencies": [ 7 ]
+    },
+    {
+      "id": 8,
+      "name": "gmisclib",
+      "descr": "Miscellaneous widgets based on LablGtk2.",
+      "opt": true,
+      "files": "gmisclib/gmisclib.ml",
+      "package": "lablgtk2",
+      "includes": "gmisclib +unix",
+      "cflags": "-g",
+      "lflags": "-g",
+      "target_type": "Library",
+      "outname": "gmisclib",
+      "lib_install_path": "gmisclib",
+      "is_fl_package": true
+    },
+    {
+      "id": 9,
+      "name": "otherwidgets",
+      "opt": true,
+      "libs": "gmisclib",
+      "files": "otherwidgets/otherwidgets.ml",
+      "package": "lablgtk2",
+      "includes": "icons common otherwidgets gmisclib",
+      "cflags": "-w -s-y -g",
+      "lflags": "-w -s-y -g",
+      "target_type": "Library",
+      "outname": "otherwidgets",
+      "dependencies": [ 8 ]
+    },
+    {
+      "id": 14,
+      "name": "ocamleditor-lib",
+      "byt": false,
+      "opt": true,
+      "files": "ocamleditor_lib.ml",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "includes": "gmisclib common icons otherwidgets oebuild ",
+      "thread": true,
+      "inline": [ "Some", 50 ],
+      "cflags": "-w -s-y-x-m -g",
+      "lflags": "-g",
+      "target_type": "Library",
+      "outname": "ocamleditor_lib",
+      "dependencies": [ 4, 10, 5, 28, 8, 9, 20 ]
+    },
+    {
+      "id": 12,
+      "name": "ocamleditor",
+      "default": true,
+      "byt": false,
+      "opt": true,
+      "libs": "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
+      "files": "ocamleditor.ml",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "includes": "gmisclib common icons otherwidgets oebuild",
+      "thread": true,
+      "inline": [ "Some", 50 ],
+      "nodep": true,
+      "cflags": "-w -s-y-x-m -g",
+      "lflags": "-g",
+      "outname": "ocamleditor",
+      "dependencies": [ 14, 19, 16, 22 ],
+      "subsystem": [ "Some", "Console" ]
+    },
+    {
+      "name": "ocamleditor-bytecode",
+      "libs": "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
+      "files": "ocamleditor.ml",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "includes": "gmisclib common icons otherwidgets oebuild ",
+      "thread": true,
+      "cflags": "-w -s-y-x-m -g",
+      "lflags": "-g",
+      "outname": "ocamleditor",
+      "dependencies": [ 4, 10, 7, 5, 8, 9, 20, 17, 18 ],
+      "subsystem": [ "Some", "Console" ]
+    },
+    {
+      "id": 20,
+      "name": "prepare-build",
+      "target_type": "External",
+      "external_tasks": [
+        {
+          "name": "prepare-build",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/prepare_build.ml" ] ],
+          "phase": [ "Some", "Compile" ]
+        }
+      ],
+      "subsystem": [ "Some", "Console" ]
+    },
+    {
+      "id": 28,
+      "name": "launcher",
+      "descr": "Utility to open OCaml files from the file manager",
+      "byt": false,
+      "opt": true,
+      "libs": "common",
+      "files": "ocamleditor_launcher.ml",
+      "package": "unix,str",
+      "includes": "common",
+      "dontaddopt": true,
+      "cflags": "-compact",
+      "lflags": "-compact",
+      "outname": "ocamleditorw",
+      "restrictions": [ "OCAML(system<>mingw)" ]
+    },
+    {
+      "id": 13,
+      "name": "tools",
+      "target_type": "External",
+      "external_tasks": [
+        {
+          "name": "mkrelease",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/mkrelease.ml" ] ],
+          "phase": [ "Some", "Before_clean" ]
+        },
+        {
+          "name": "mkversion",
+          "always_run_in_script": true,
+          "dir": "../tools",
+          "cmd": "ocaml",
+          "args": [ [ true, "mkversion.ml" ], [ true, "2.0.0-ocaml530" ] ],
+          "phase": [ "Some", "Before_clean" ]
+        },
+        {
+          "name": "generate_oebuild_script",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [
+            [ true, "tools/prepare_build.ml" ],
+            [ true, "-generate-oebuild-script" ]
+          ],
+          "phase": [ "Some", "Before_clean" ]
+        },
+        {
+          "name": "Install OCamlEditor",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/install.ml" ] ],
+          "phase": [ "Some", "Before_clean" ]
+        },
+        {
+          "name": "Uninstall OCamlEditor",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/uninstall.ml" ] ],
+          "phase": [ "Some", "Before_clean" ]
+        },
+        {
+          "name": "distclean",
+          "always_run_in_script": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/distclean.ml" ] ],
+          "phase": [ "Some", "Before_clean" ]
+        }
+      ],
+      "subsystem": [ "Some", "Console" ]
+    },
+    {
+      "id": 27,
+      "name": "FINDLIB-TOOLS",
+      "target_type": "External",
+      "external_tasks": [
+        {
+          "name": "install",
+          "readonly": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/findlib.ml" ], [ true, "install" ] ]
+        },
+        {
+          "name": "uninstall",
+          "readonly": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/findlib.ml" ], [ true, "uninstall" ] ]
+        },
+        {
+          "name": "reinstall",
+          "readonly": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/findlib.ml" ], [ true, "reinstall" ] ]
+        },
+        {
+          "name": "print",
+          "readonly": true,
+          "dir": "..",
+          "cmd": "ocaml",
+          "args": [ [ true, "tools/findlib.ml" ], [ true, "print" ] ]
+        }
+      ],
+      "readonly": true,
+      "node_collapsed": true
+    }
+  ],
+  "executables": [
+    {
+      "name": "ocamleditor-bytecode",
+      "build_task": "<COMPILE>",
+      "env": [
+        [ true, "OCAMLEDITORPARAM=debug=2,record_backtrace=1" ],
+        [ true, "DEBUG_UNDO=0" ]
+      ]
+    },
+    {
+      "id": 1,
+      "target_id": 12,
+      "name": "ocamleditor",
+      "default": true,
+      "build_task": "<COMPILE>"
+    }
+  ],
+  "build_script": {
+    "filename": "build.ml",
+    "targets": [
+      { "target_id": 4, "show": false },
+      { "target_id": 10, "show": false },
+      { "target_id": 7, "show": false },
+      { "target_id": 5 },
+      { "target_id": 8 },
+      { "target_id": 9, "show": false },
+      { "target_id": 14 },
+      { "target_id": 12 },
+      {},
+      { "target_id": 20, "show": false },
+      { "target_id": 28 },
+      { "target_id": 13, "show": false },
+      { "target_id": 27, "show": false }
+    ]
+  }
+}

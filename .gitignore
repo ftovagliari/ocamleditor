@@ -53,3 +53,6 @@ src/find_text_?.ml*
 _build
 src/icons/icons.ml
 .github/
+# Ignore generated ATD files for project
+src/project_j.*
+src/project_t.*
