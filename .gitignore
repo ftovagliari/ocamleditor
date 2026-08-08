@@ -56,3 +56,4 @@ src/icons/icons.ml
 # Ignore generated ATD files for project
 src/project_j.*
 src/project_t.*
+ocamleditor.local.json

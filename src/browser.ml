@@ -257,12 +257,15 @@ class browser window =
       dialog#set_current_folder (Filename.dirname project_home) |> ignore;
       match dialog#run () with
       | `OK ->
-          List.iter begin fun filename ->
-            let filename, save = if filename ^^^ Prj.old_extension then (Filename.chop_extension filename) ^ Prj.default_extension, true else filename, false in
-            let proj = self#project_open filename in
-            Quick_file_chooser.add_roots ~roots:[Filename.dirname filename] ~filter:Dialog_find_file.filter;
-            if save then (Project.save ~editor proj);
-          end dialog#get_filenames;
+          begin
+            match dialog#get_filenames with
+            | [ filename ] ->
+                let is_save = filename ^^^ Prj.old_extension in
+                let proj = self#project_open filename in
+                Quick_file_chooser.add_roots ~roots:[Filename.dirname filename] ~filter:Dialog_find_file.filter;
+                if is_save then (Project.save ~editor proj);
+            | _ -> ()
+          end;
           dialog#destroy()
       | _ -> dialog#destroy()
 
@@ -339,7 +342,8 @@ class browser window =
         Project_properties.create ~show:true ~editor ~new_project ~callback:begin fun proj ->
           self#project_close();
           Project.save ~editor new_project;
-          ignore (self#project_open (Project.fullpath proj));
+          let filename = Project.fullpath proj in
+          self#project_open filename |> ignore
         end ()
       in
       window#set_modal true;

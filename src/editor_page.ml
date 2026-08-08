@@ -304,65 +304,68 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       match file with
       | None -> false
       | Some file ->
-          begin
-            try
-              view#misc#hide();
-              load#call `Begin;
-              buffer#insert file#read;
-              (* Initial cursor position and syntax highlighting *)
-              Gmisclib.Idle.add begin fun () ->
-                if scroll then begin
-                  let where = buffer#get_iter (`OFFSET scroll_offset) in
-                  self#view#scroll_to_iter ~use_align:(self#view#scroll_to_iter where) ~xalign:1.0 where |> ignore;
-                  let where = buffer#get_iter (`OFFSET offset) in
-                  buffer#place_cursor ~where;
-                end;
-                Colorize.colorize_buffer ocaml_view;
-                view#misc#show();
-                view#misc#grab_focus();
+          try
+            view#misc#hide();
+            load#call `Begin;
+            buffer#insert file#read;
+            (* Initial cursor position and syntax highlighting *)
+            Gmisclib.Idle.add begin fun () ->
+              if scroll then begin
+                let where = buffer#get_iter (`OFFSET scroll_offset) in
+                self#view#scroll_to_iter ~use_align:(self#view#scroll_to_iter where) ~xalign:1.0 where |> ignore;
+                let where = buffer#get_iter (`OFFSET offset) in
+                buffer#place_cursor ~where;
               end;
-              buffer#set_modified false;
-              if not buffer#undo#is_enabled then (buffer#undo#enable());
-              load_complete <- true;
-              buffer#save_buffer ~filename:buffer#orig_filename () |> ignore;
-              (*buffer#set_last_edit_time (Unix.gettimeofday());*)
-              last_autosave_time <- buffer#last_edit_time;
-              (*  *)
-              self#view#matching_delim ();
-              Gmisclib.Idle.add ~prio:300 (fun () -> self#compile_buffer ?join:None ());
-              (* Bookmarks: offsets to marks *)
-              let redraw = ref false in
-              List.iter begin fun bm ->
-                if bm.Oe.bm_filename = file#filename then
-                  let mark = (Bookmark.offset_to_mark (self#buffer :> GText.buffer) bm) in
-                  let callback =
-                    if bm.Oe.bm_num >= Bookmark.limit then Some (fun _ ->
-                        editor#bookmark_remove ~num:bm.Oe.bm_num;
-                        redraw := true;
-                        true)
-                    else None
-                  in
-                  let marker = Gutter.create_marker ~mark ?pixbuf:(Bookmark.icon bm.Oe.bm_num) ?callback () in
-                  bm.Oe.bm_marker <- Some marker;
-                  view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
-              end project.Prj.bookmarks;
-              Project.save_local_status project;
-              load#call `End;
-              if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
-              true
-            with Glib.Convert.Error (_, message) -> begin
-                let message = if project.Prj.encoding <> Some "UTF-8" then (ksprintf Convert.to_utf8
-                                                                              "Cannot convert file\n\n%s\n\nfrom %s codeset to UTF-8.\n\n%s"
-                                                                              file#filename
-                                                                              (match project.Prj.encoding with None -> "Default" | Some x -> x)
-                                                                              message) else message
+              Colorize.colorize_buffer ocaml_view;
+              view#misc#show();
+              view#misc#grab_focus();
+            end;
+            buffer#set_modified false;
+            if not buffer#undo#is_enabled then (buffer#undo#enable());
+            load_complete <- true;
+            buffer#save_buffer ~filename:buffer#orig_filename () |> ignore;
+            (*buffer#set_last_edit_time (Unix.gettimeofday());*)
+            last_autosave_time <- buffer#last_edit_time;
+            (*  *)
+            self#view#matching_delim ();
+            Gmisclib.Idle.add ~prio:300 (fun () -> self#compile_buffer ?join:None ());
+            (* Bookmarks: offsets to marks *)
+            let redraw = ref false in
+            List.iter begin fun bm ->
+              if bm.Oe.bm_filename = file#filename then
+                let mark = (Bookmark.offset_to_mark (self#buffer :> GText.buffer) bm) in
+                let callback =
+                  if bm.Oe.bm_num >= Bookmark.limit then Some (fun _ ->
+                      editor#bookmark_remove ~num:bm.Oe.bm_num;
+                      redraw := true;
+                      true)
+                  else None
                 in
-                let dialog = GWindow.message_dialog ~title:"Text file contains invalid characters."
-                    ~message_type:`ERROR ~message ~buttons:GWindow.Buttons.ok () in
-                (match dialog#run () with _ -> dialog#destroy())
-              end;
-              false;
-          end
+                let marker = Gutter.create_marker ~mark ?pixbuf:(Bookmark.icon bm.Oe.bm_num) ?callback () in
+                bm.Oe.bm_marker <- Some marker;
+                view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
+            end project.Prj.bookmarks;
+            Project.save_local_status project;
+            load#call `End;
+            if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
+            true
+          with Glib.Convert.Error (_, message) -> begin
+              let message =
+                if project.Prj.encoding <> Some "UTF-8" then begin
+                  ksprintf Convert.to_utf8
+                    "Cannot convert file\n\n%s\n\nfrom %s codeset to UTF-8.\n\n%s"
+                    file#filename
+                    (match project.Prj.encoding with None -> "Default" | Some x -> x)
+                    message
+                end else message
+              in
+              let dialog =
+                GWindow.message_dialog ~title:"Text file contains invalid characters."
+                  ~message_type:`ERROR ~message ~buttons:GWindow.Buttons.ok ()
+              in
+              (match dialog#run () with _ -> dialog#destroy())
+            end;
+            false
 
     method compile_buffer ?join () =
       let filename = self#get_filename in
@@ -371,7 +374,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       && (filename ^^^ ".ml" || filename ^^^ ".mli") then begin
         buffer#sync_autocomp_time ();
         Autocomp.compile_buffer ~project ~editor ~page:self ?join ();
-      end else begin
       end
 
     method tooltip ((*(x, y) as*) location) =

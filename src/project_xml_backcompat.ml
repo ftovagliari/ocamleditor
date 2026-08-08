@@ -327,7 +327,7 @@ let read filename =
 let from_local_xml proj =
   let open Prj in
   let filename = Project.fullpath_local proj in
-  let filename = if Sys.file_exists filename then filename else Project.mk_old_filename_local proj in
+  let filename = if Sys.file_exists filename then filename else fullpath_local_old proj in
   if Sys.file_exists filename then begin
     let parser = XmlParser.make () in
     let xml = XmlParser.parse parser (XmlParser.SFile filename) in

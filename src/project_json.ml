@@ -4,15 +4,10 @@ open Utils
 open Oe
 open Target
 
-(** from_local_json - Load .project.local file with JSON->XML fallback for backward compatibility *)
 let from_local_json proj =
   let open Prj in
   let filename = Project.fullpath_local proj in
-  let filename =
-    if Sys.file_exists filename
-    then filename
-    else Project.mk_old_filename_local proj
-  in
+  let filename = if Sys.file_exists filename then filename else fullpath_local_old proj in
   if Sys.file_exists filename then begin
     try
       let ic = open_in filename in
@@ -23,16 +18,18 @@ let from_local_json proj =
       let content = Bytes.to_string content in
       let project_local = Project_j.project_local_of_string content in
       proj.open_files <- project_local.Project_t.open_files;
-      project_local.Project_t.bookmarks
-      |> List.iter begin fun (bm_filename, bm_num, offset) ->
-        let bm = {
-          bm_filename = bm_filename;
-          bm_loc = Offset offset;
-          bm_num = bm_num;
-          bm_marker = None;
-        } in
-        Project.set_bookmark bm proj
-      end
+      let bms =
+        project_local.Project_t.bookmarks
+        |> List.map begin fun (bm_filename, bm_num, offset) ->
+          {
+            bm_filename = bm_filename;
+            bm_loc = Offset offset;
+            bm_num = bm_num;
+            bm_marker = None;
+          }
+        end
+      in
+      proj.bookmarks <- bms;
     with _ ->
       (* Fallback to XML parsing if JSON parsing fails *)
       Project_xml_backcompat.from_local_xml proj
@@ -289,12 +286,12 @@ let read_json filename =
             let bsa_task =
               match ba.Project_t.task with
               | Some (target_id, task_name) ->
-                let target = proj.targets |> List.find_opt (fun t -> t.Target.id = target_id) in
-                let task = Prj.find_task proj task_name in
-                begin match target, task with
-                | Some target, Some task -> Some (target, task)
-                | _ -> None
-                end
+                  let target = proj.targets |> List.find_opt (fun t -> t.Target.id = target_id) in
+                  let task = Prj.find_task proj task_name in
+                  begin match target, task with
+                  | Some target, Some task -> Some (target, task)
+                  | _ -> None
+                  end
               | None -> None
             in
             { Build_script_args.
@@ -325,12 +322,12 @@ let read_json filename =
               let task = Prj.find_task proj bc.Project_t.task_name in
               match target, task with
               | Some target, Some task ->
-                Some { Build_script.
-                       bsc_name = Build_script.command_of_string bc.Project_t.name;
-                       bsc_descr = bc.Project_t.descr;
-                       bsc_target = target;
-                       bsc_task = task;
-                     }
+                  Some { Build_script.
+                         bsc_name = Build_script.command_of_string bc.Project_t.name;
+                         bsc_descr = bc.Project_t.descr;
+                         bsc_target = target;
+                         bsc_task = task;
+                       }
               | _ -> None
             with _ -> None
           end;

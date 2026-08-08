@@ -137,12 +137,16 @@ let set_runtime_build_task proj rconf task_string =
     with Not_found -> `NONE
 
 (** Returns the full filename of the project configuration file. *)
-let fullpath proj = Filename.concat proj.root (proj.name ^ default_extension)
-let mk_old_filename filename = (Filename.chop_extension filename) ^ old_extension
+let fullpath proj =
+  Filename.concat proj.root (proj.name ^ Prj.default_extension)
+let fullpath_old proj =
+  Filename.concat proj.root (proj.name ^ Prj.old_extension)
 
 (** Returns the full filename of the project local configuration file. *)
-let fullpath_local proj = (fullpath proj) ^ ".local"
-let mk_old_filename_local proj = (Filename.chop_extension (fullpath proj)) ^ ".local" ^ old_extension
+let fullpath_local proj =
+  Filename.concat proj.root (proj.name ^ Prj.default_local_extension)
+let fullpath_local_old proj =
+  Filename.concat proj.root (proj.name ^ Prj.old_local_extension)
 
 (** get_includes*)
 let get_includes =
@@ -219,8 +223,37 @@ let write_json_file filename json_str =
   let json_str =  Yojson.Safe.prettify json_str in
   Out_channel.with_open_bin filename (fun oc -> Out_channel.output_string oc json_str)
 
-let save_local_status proj =
+let save_local_status ?editor proj =
+  let active_filename =
+    match editor with
+    | None -> ""
+    | Some editor ->
+        proj.files <- List.map begin fun (file, (_scroll_offset, _offset)) ->
+            file,
+            match editor#get_page (`FILENAME file#filename) with
+            | None -> 0, 0
+            | Some page ->
+                let scroll_top = page#view#get_scroll_top () in
+                if page#load_complete then scroll_top, (page#buffer#get_iter `INSERT)#offset
+                else page#scroll_offset, page#initial_offset
+          end proj.files;
+        let active_filename =
+          match editor#get_page `ACTIVE with None -> "" | Some page -> page#get_filename
+        in active_filename
+  in
+  proj.open_files <- List.rev_map begin fun (file, (scroll_offset, offset)) ->
+      let is_active = active_filename = file#filename in
+      begin
+        match proj.in_source_path file#filename with
+        | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
+        | None -> file#filename
+        | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
+        | Some rel -> rel
+      end, scroll_offset, offset, is_active
+    end proj.files;
   let filename = fullpath_local proj in
+  let old_filename = fullpath_local_old proj in
+  if Sys.file_exists old_filename then Sys.remove old_filename;
   let project_local = project_local_of_proj proj in
   Project_j.string_of_project_local project_local |> write_json_file filename;;
 
@@ -252,23 +285,6 @@ let save_dot_merlin proj =
 
 (** save. Creates [home], [home/src], [home/bak], [home/tmp] if not existing. *)
 let save ?editor proj =
-  let active_filename =
-    match editor with
-    | None -> ""
-    | Some editor ->
-        proj.files <- List.map begin fun (file, (_scroll_offset, _offset)) ->
-            file,
-            match editor#get_page (`FILENAME file#filename) with
-            | None -> 0, 0
-            | Some page ->
-                let scroll_top = page#view#get_scroll_top () in
-                if page#load_complete then scroll_top, (page#buffer#get_iter `INSERT)#offset
-                else page#scroll_offset, page#initial_offset
-          end proj.files;
-        let active_filename =
-          match editor#get_page `ACTIVE with None -> "" | Some page -> page#get_filename
-        in active_filename
-  in
   try
     if not (Sys.file_exists proj.root) then (Unix.mkdir proj.root 0o777);
     if not (Sys.file_exists (proj.root // default_dir_src)) then (Unix.mkdir (proj.root // default_dir_src) 0o777);
@@ -276,31 +292,16 @@ let save ?editor proj =
     if not (Sys.file_exists (proj.root // default_dir_tmp)) then (Unix.mkdir (proj.root // default_dir_tmp) 0o777);
     proj.modified <- false;
     unload_path proj;
-    proj.open_files <- List.rev_map begin fun (file, (scroll_offset, offset)) ->
-        let is_active = active_filename = file#filename in
-        begin
-          match proj.in_source_path file#filename with
-          | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
-          | None -> file#filename
-          | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
-          | Some rel -> rel
-        end, scroll_offset, offset, is_active
-      end proj.files;
     (* output tools *)
     Project_tools.write proj;
     save_dot_merlin proj;
-    (*  *)
-    let root = proj.root in
-    let files = proj.files in
-    proj.root <- "";
-    proj.files <- [];
-    (* restore non persistent values *)
-    proj.root <- root;
-    proj.files <- files;
     load_path proj;
     (* Save project file and local status *)
-    write_json_file (fullpath proj) (!write_json proj);
-    save_local_status proj;
+    let filename = fullpath proj in
+    let old_filename = fullpath_old proj in
+    if Sys.file_exists old_filename then Sys.remove old_filename;
+    write_json_file filename (!write_json proj);
+    save_local_status ?editor proj;
   with Unix.Unix_error (err, _, _) -> print_endline (Unix.error_message err);;
 
 (** remove_bookmark *)
@@ -308,7 +309,7 @@ let remove_bookmark num proj =
   proj.bookmarks <- List.filter (fun x -> x.Oe.bm_num <> num) proj.bookmarks;;
 
 (** set_bookmark *)
-let set_bookmark bookmark proj =
+let set_bookmark bookmark proj = 
   begin
     match List.find_opt (fun x -> x.Oe.bm_num = bookmark.Oe.bm_num) proj.bookmarks with
     | Some bookmark ->
@@ -399,7 +400,6 @@ let stop_file_watcher proj =
 
 (** load *)
 let load filename =
-  let filename = if Sys.file_exists filename then filename else mk_old_filename filename in
   let proj =
     if Sys.file_exists filename then
       try !read_json filename
@@ -423,11 +423,6 @@ let load filename =
     end proj.open_files;
   (*  *)
   proj.search_path <- get_search_path proj;
-  (* Remove old version filenames *)
-  let old = mk_old_filename filename in
-  if Sys.file_exists old then (Sys.remove old);
-  let old = mk_old_filename_local proj in
-  if Sys.file_exists old then (Sys.remove old);
   (* Delete obsolete bookmarks *)
   proj.bookmarks <- proj.bookmarks |> List.filter (fun bm -> bm.Oe.bm_num <= Bookmark.limit);
   save_dot_merlin proj;
@@ -451,7 +446,8 @@ let backup_file project (file : Editor_file.file) =
 (** rename_file. Updates project file on disk. Raise [Cannot_rename "..."] if [file] is read-only or
     the project file is read-only. *)
 let rename_file proj file new_name =
-  let is_writeable = File_util.is_writeable (fullpath proj) in
+  let filename = fullpath proj in
+  let is_writeable = File_util.is_writeable filename in
   if not is_writeable then (raise (Cannot_rename "Cannot rename: project file is read-only."))
   else if not is_writeable then (raise (Cannot_rename "Cannot rename: file is read-only."))
   else (file#rename new_name)
@@ -486,8 +482,9 @@ let default_target project =
 (** refresh *)
 let refresh proj =
   let np =
-    try !read_json (fullpath proj)
-    with _ -> !read_xml (fullpath proj)
+    let filename = fullpath proj in
+    try !read_json filename
+    with _ -> !read_xml filename
   in
   proj.root <- np.root;
   proj.encoding <- np.encoding;
