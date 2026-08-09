@@ -104,6 +104,8 @@ let _ = App_config.ensure_ocamleditor_user_home ()
 let _ = Unix.putenv "TERM" ""
 let getenv_ocamllib = try Some (Sys.getenv "OCAMLLIB") with Not_found -> None
 
+let bookmark_limit = 10
+
 (** Commands *)
 let find_command name =
   let basename = name in

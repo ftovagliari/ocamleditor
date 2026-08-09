@@ -521,7 +521,7 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
   let mode : [`all | `group | `single] = `single in
   let f tasks =
     try
-      Project.stop_file_watcher editor#project;
+      Project.Index.stop_watcher editor#project;
       tasks
       |> List.fold_left begin fun acc (task_kind, task) ->
         let console =
@@ -541,10 +541,10 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
         Some console
       end None
       |> ignore;
-      Project.start_file_watcher editor#project;
+      Project.Index.start_watcher editor#project;
       at_exit()
     with Exit ->
-      Project.start_file_watcher editor#project;
+      Project.Index.start_watcher editor#project;
       at_exit();
       raise Exit
   in

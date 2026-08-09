@@ -271,7 +271,7 @@ class browser window =
 
     method dialog_project_properties ?page_num ?(show=true) () =
       self#with_current_project begin fun project ->
-        let id = Project.fullpath project in
+        let id = Project.Path.fullname project in
         let remove_from_cache () =
           cache_dialog_project_properties <- List.filter (fun (x, _) -> x <> id) cache_dialog_project_properties
         in
@@ -342,7 +342,7 @@ class browser window =
         Project_properties.create ~show:true ~editor ~new_project ~callback:begin fun proj ->
           self#project_close();
           Project.save ~editor new_project;
-          let filename = Project.fullpath proj in
+          let filename = Project.Path.fullname proj in
           self#project_open filename |> ignore
         end ()
       in
@@ -391,7 +391,7 @@ class browser window =
         in
         with_project begin fun proj ->
           ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
-          label_project_name#misc#set_tooltip_text (Project.fullpath proj);
+          label_project_name#misc#set_tooltip_text (Project.Path.fullname proj);
         end;
         Git.toplevel begin function
         | Some toplevel ->
@@ -744,7 +744,7 @@ class browser window =
             match page#file with None -> () | Some file ->
               let offset = page#initial_offset in
               let scroll_offset = page#view#get_scroll_top () in
-              self#with_current_project (fun project -> Project.add_file project ~scroll_offset ~offset file);
+              self#with_current_project (fun project -> Project.File.add project ~scroll_offset ~offset file);
           end;
           Gaux.may menu ~f:begin fun menu ->
             menu.window_signal_locked <- true;
@@ -768,7 +768,7 @@ class browser window =
       (* Update Window menu with files removed from the editor *)
       ignore (editor#connect#remove_page ~callback:begin fun page ->
           self#with_current_project begin fun project ->
-            Project.remove_file project page#get_filename;
+            Project.File.remove project page#get_filename;
             self#set_title ();
             Gaux.may menu ~f:begin fun menu ->
               try

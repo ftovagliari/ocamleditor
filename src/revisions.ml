@@ -343,7 +343,7 @@ class widget ~page ?packing () =
       match Oe_config.git_version with
       | None -> ()
       | _ ->
-          let root = Filename.dirname (Project.path_src project) in
+          let root = Filename.dirname (Project.Path.src project) in
           match Utils.filename_relative root page#get_filename with
           | Some rel ->
               let sep = "\x1F" in
@@ -373,8 +373,8 @@ class widget ~page ?packing () =
           | _ -> ()
 
     method private read_local_backups () =
-      let src = Project.path_src project in
-      let bak = Project.path_bak project in
+      let src = Project.Path.src project in
+      let bak = Project.Path.bak project in
       match Utils.filename_relative src page#get_filename with
       | Some rel ->
           let pos = String.rindex rel '.' in

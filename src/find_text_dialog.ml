@@ -92,7 +92,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
   button_path#add label#coerce;
   ignore (button_path#connect#clicked ~callback:begin fun () ->
       let dialog = GWindow.file_chooser_dialog ~action:`SELECT_FOLDER ~position:`CENTER ~title:"Select folder..." () in
-      dialog#set_current_folder (Project.path_src project) |> ignore;
+      dialog#set_current_folder (Project.Path.src project) |> ignore;
       dialog#add_button_stock `OK `OK;
       dialog#add_button_stock `CANCEL `CANCEL;
       match dialog#run () with

@@ -252,7 +252,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
           with _ -> ()
 
     method backup () = Gaux.may file ~f:begin fun (file : Editor_file.file) ->
-        Project.backup_file project file
+        Project.File.backup project file
       end
 
     method save () = Gaux.may file ~f:begin fun file ->
@@ -335,7 +335,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
               if bm.Oe.bm_filename = file#filename then
                 let mark = (Bookmark.offset_to_mark (self#buffer :> GText.buffer) bm) in
                 let callback =
-                  if bm.Oe.bm_num >= Bookmark.limit then Some (fun _ ->
+                  if bm.Oe.bm_num >= Oe_config.bookmark_limit then Some (fun _ ->
                       editor#bookmark_remove ~num:bm.Oe.bm_num;
                       redraw := true;
                       true)

@@ -326,8 +326,8 @@ let read filename =
 (** from_local_xml *)
 let from_local_xml proj =
   let open Prj in
-  let filename = Project.fullpath_local proj in
-  let filename = if Sys.file_exists filename then filename else fullpath_local_old proj in
+  let filename = Project.Path.fullname_local proj in
+  let filename = if Sys.file_exists filename then filename else Project.Path.fullname_local_old proj in
   if Sys.file_exists filename then begin
     let parser = XmlParser.make () in
     let xml = XmlParser.parse parser (XmlParser.SFile filename) in
@@ -351,7 +351,7 @@ let from_local_xml proj =
               bm_num      = (get_int "num" xml);
               bm_marker   = None;
             } in
-            Project.set_bookmark bm proj
+            Project.Bookmark.set proj bm
           end node;
 
       | _ -> ()

@@ -232,7 +232,7 @@ class editor () =
           with Not_found -> None
         in
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
-        Project.remove_bookmark num project;
+        Project.Bookmark.remove project num;
         page#view#draw_gutter();
       end
 
@@ -248,7 +248,7 @@ class editor () =
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
         let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ?pixbuf:(Bookmark.icon num) ?callback () in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
-        Project.set_bookmark bm project;
+        Project.Bookmark.set project bm;
         page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
         page#view#draw_gutter();
       end

@@ -90,7 +90,7 @@ let replace_compiler_artifact ~project tmp_dir relpath ext =
   let file_ext = relpath ^ ext in
   let tmp_ext = tmp_dir // file_ext in
   if Sys.file_exists tmp_ext then begin
-    let src_ext = Project.path_src project // file_ext in
+    let src_ext = Project.Path.src project // file_ext in
     try
       if Sys.file_exists src_ext then Sys.remove src_ext;
       Sys.rename tmp_ext src_ext

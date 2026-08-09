@@ -87,7 +87,7 @@ class buffer =
                 match file with
                 | Some file ->
                     begin
-                      match Project.tmp_of_abs project file#filename with
+                      match Project.Path.tmp_of_abs project file#filename with
                       | None -> create_tmp_filename ()
                       | (Some (tmp, relname) as temp) -> tmp // relname, temp
                     end;

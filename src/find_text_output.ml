@@ -315,7 +315,7 @@ class widget
                     (* Search  *)
                     self#find_in_path (*begin
                                         match *)self#options.path(* with
-                                                                    | Project_source -> Project.path_src project
+                                                                    | Project_source -> Project.Path.src project
                                                                     | Specified path -> path
                                                                     | Only_open_files -> assert false
                                                                     end*)
@@ -434,7 +434,7 @@ class widget
           self#find_in_path'
             ~recursive:self#options.recursive
             ?pattern:(Gaux.may_map self#options.pattern ~f:File_util.Regexp.unix_regexp)
-            [Project.path_src project]
+            [Project.Path.src project]
       | Specified spec_path ->
           self#find_in_path'
             ~recursive:self#options.recursive
