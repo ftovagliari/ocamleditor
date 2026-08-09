@@ -153,19 +153,30 @@ let compare_with_head page continue_with =
         ~continue_with:begin fun _ ->
           let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
           try (* TODO Crashed here
-                 at parsing.ml:143
-                 #1  0x000056469f749302 in camlStdlib__Parsing.loop_521 () at parsing.ml:143
-                 #2  0x000056469f749075 in camlStdlib__Parsing.yyparse_515 () at parsing.ml:165
-                 #3  0x000056469f6194f7 in camlOdiff.parse_from_lexbuf_281 () at lib/odiff_parser.ml:310
-                 #4  0x000056469f619ebb in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
-                 #5  0x000056469f619ebb in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
-                 #6  0x000056469f1d5f84 in camlGlobal_diff.fun_1904 () at global_diff.ml:153
+                 Program terminated with signal SIGSEGV, Segmentation fault.
+                 #0  camlStdlib.$5e_139 () at stdlib.ml:213
+                 213	stdlib.ml: No such file or directory.
+                 [Current thread is 1 (Thread 0x7ff1726af6c0 (LWP 122497))]
+                 (gdb) bt
+                 #0  camlStdlib.$5e_139 () at stdlib.ml:213
+                 #1  0x00005614bcf7fa12 in camlStdlib__Parsing.loop_521 () at parsing.ml:143
+                 #2  0x00005614bcf7f785 in camlStdlib__Parsing.yyparse_515 () at parsing.ml:165
+                 #3  0x00005614bce52957 in camlOdiff.parse_from_lexbuf_281 () at lib/odiff_parser.ml:310
+                 #4  0x00005614bce5331b in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
+                 #5  0x00005614bce5331b in camlOdiff.try_finalize_636 () at lib/odiff.ml:126
+                 #6  0x00005614bc9f0c75 in camlGlobal_diff.fun_1917 () at global_diff.ml:164
+                 #7  0x00005614bcb088d2 in camlSpawn.final_821 () at common/spawn.ml:102
+                 #8  0x00005614bcb08afb in camlSpawn.fun_1008 () at common/spawn.ml:119
+                 #9  0x00005614bcf50da7 in camlThread.fun_769 () at thread.ml:48
+                 #10 0x00005614bd02b560 in <signal handler called> ()
+                 #11 0x00005614bd005090 in caml_callback_exn (closure=<optimized out>, closure@entry=140676152760832, arg=<optimized out>, arg@entry=1) at runtime/callback.c:208
+                 #12 0x00005614bcff70de in caml_thread_start (v=<optimized out>) at st_stubs.c:648
+                 #13 0x00007ff1d4b851f5 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+                 #14 0x00007ff1d4c058ec in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
               *)
             continue_with (Odiff.strings_diffs (Buffer.contents buf) text)
           with ex ->
-            Printf.eprintf "%s\n%s\n%s\n%!" __LOC__
-              (Printexc.to_string ex) (Printexc.get_backtrace());
-            Printf.printf "%s\n------\n%s%!" (Buffer.contents buf) text;
+            Printf.eprintf "%s, %s (%s)\n%!" __LOC__ (Printexc.to_string ex) filename;
         end |> ignore
   | _ -> ()
 

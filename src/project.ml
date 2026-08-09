@@ -35,10 +35,6 @@ exception Cannot_rename of string
 
 let read_xml : (string -> t) ref = ref (fun _ -> failwith "read_xml")
 let from_local_xml : (t -> unit) ref = ref (fun _ -> failwith "from_local_xml")
-
-(* JSON wrappers: new persistence format. For now JSON embeds the XML content as a string to
-   perform a safe in-place migration while reusing the existing XML parser. Later replace with
-   a full ATD-generated JSON representation. *)
 let write_json : (t -> string) ref = ref (fun _ -> failwith "write_json")
 let read_json : (string -> t) ref = ref (fun _ -> failwith "read_json")
 let from_local_json : (t -> unit) ref = ref (fun _ -> failwith "from_local_json")
@@ -309,7 +305,7 @@ let remove_bookmark num proj =
   proj.bookmarks <- List.filter (fun x -> x.Oe.bm_num <> num) proj.bookmarks;;
 
 (** set_bookmark *)
-let set_bookmark bookmark proj = 
+let set_bookmark bookmark proj =
   begin
     match List.find_opt (fun x -> x.Oe.bm_num = bookmark.Oe.bm_num) proj.bookmarks with
     | Some bookmark ->

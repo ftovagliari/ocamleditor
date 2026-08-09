@@ -332,6 +332,8 @@ let read_json filename =
             with _ -> None
           end;
       };
+    (* Translate ocamllib: "" -> 'ocamlc -where' *)
+    set_ocaml_home ~ocamllib:proj.ocamllib proj;
     proj
   with _ -> Project_xml_backcompat.read filename
 
