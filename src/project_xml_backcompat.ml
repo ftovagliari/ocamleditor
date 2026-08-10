@@ -270,6 +270,14 @@ let read filename =
                             task.Task.et_args <-
                               List.rev (Xml.fold (fun acc arg ->
                                   (attrib arg "enabled" bool_of_string true, value arg) :: acc) [] tp);
+                        | "outputs" ->
+                            task.Task.et_outputs <-
+                              List.rev (Xml.fold (fun acc out ->
+                                  (attrib out "enabled" bool_of_string true, value out) :: acc) [] tp);
+                        | "deps" ->
+                            task.Task.et_deps <-
+                              List.rev (Xml.fold (fun acc dep ->
+                                  (attrib dep "enabled" bool_of_string true, value dep) :: acc) [] tp);
                         | "phase" -> task.Task.et_phase <-
                               (match value tp with "" -> None | x -> Some (Task.phase_of_string x))
                         | _ -> ()

@@ -49,6 +49,8 @@ let rec atd_of_task (t : Task.t) : Project_t.external_task =
     dir = t.Task.et_dir;
     cmd = t.Task.et_cmd;
     args = t.Task.et_args;
+    outputs = t.Task.et_outputs;
+    deps = t.Task.et_deps;
     phase = (match t.Task.et_phase with
         | Some p -> Some (Task.string_of_phase p)
         | None -> None);
@@ -214,6 +216,8 @@ let target_of_atd (t_atd : Project_t.target) =
         ~dir:et.Project_t.dir
         ~cmd:et.Project_t.cmd
         ~args:et.Project_t.args
+        ~outputs:et.Project_t.outputs
+        ~deps:et.Project_t.deps
         ~run_in_project:et.Project_t.always_run_in_project
         ~run_in_script:et.Project_t.always_run_in_script
         ?phase:(match et.Project_t.phase with Some s -> Some (Task.phase_of_string s) | None -> None) ()

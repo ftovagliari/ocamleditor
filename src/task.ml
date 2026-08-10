@@ -32,6 +32,12 @@ type t = {
   mutable et_dir                   : string; (* Working directory: relative to the project source directory (actually: Sys.getcwd()) *)
   mutable et_cmd                   : string;
   mutable et_args                  : (bool * string) list;
+  (* Files produced by this task, relative to the project source directory.
+     A task that declares outputs can be expressed as a build rule; one that
+     does not can only be run on demand. *)
+  mutable et_outputs               : (bool * string) list;
+  (* Files this task reads, relative to the project source directory. *)
+  mutable et_deps                  : (bool * string) list;
   mutable et_phase                 : phase option;
   mutable et_always_run_in_project : bool;
   mutable et_always_run_in_script  : bool;
@@ -64,7 +70,8 @@ let phase_of_string = function
   | "After_compile" -> After_compile
   | _ -> failwith "phase_of_string"
 
-let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?phase ?(run_in_project=false) ?(run_in_script=true)
+let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?(outputs=[]) ?(deps=[])
+    ?phase ?(run_in_project=false) ?(run_in_script=true)
     ?(readonly=false) ?(visible=true) () = {
   et_name                  = name;
   et_env                   = env;
@@ -72,12 +79,17 @@ let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?phase ?(run_in_proje
   et_dir                   = dir;
   et_cmd                   = cmd;
   et_args                  = args;
+  et_outputs               = outputs;
+  et_deps                  = deps;
   et_phase                 = phase;
   et_always_run_in_project = run_in_project;
   et_always_run_in_script  = run_in_script;
   et_readonly              = readonly;
   et_visible               = visible;
 }
+
+(** The values of an (enabled, value) list whose flag is set. *)
+let enabled entries = List.filter_map (fun (e, v) -> if e then Some v else None) entries
 
 module LogBuilder = Log.Make(struct
     let channel = stderr

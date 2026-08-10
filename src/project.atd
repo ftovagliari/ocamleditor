@@ -11,6 +11,8 @@ type external_task = {
   ~dir                     <ocaml default="\"\"" > : string;
   ~cmd                     <ocaml default="\"\"" > : string;
   ~args                    <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~outputs                 <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~deps                    <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
   ~phase                   <ocaml default="None"> : string option;
 }
 
