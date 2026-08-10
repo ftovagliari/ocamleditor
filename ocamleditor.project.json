@@ -148,12 +148,111 @@
       "target_type": "External",
       "external_tasks": [
         {
-          "name": "prepare-build",
+          "name": "err_lexer.ml",
           "always_run_in_project": true,
           "always_run_in_script": true,
-          "dir": "..",
+          "dir": ".",
+          "cmd": "ocamllex",
+          "args": [ [ true, "err_lexer.mll" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "err_parser.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "ocamlyacc",
+          "args": [ [ true, "err_parser.mly" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "settings_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "settings.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "settings_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "settings.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "merlin_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "merlin.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "merlin_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "merlin.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "find_text_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "find_text.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "find_text_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "find_text.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "project_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "project.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "project_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "project.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "oebuild_script.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
           "cmd": "ocaml",
-          "args": [ [ true, "tools/prepare_build.ml" ] ],
+          "args": [
+            [ true, "-I" ], [ true, "common" ],
+            [ true, "-I" ], [ true, "+unix" ],
+            [ true, "-I" ], [ true, "+str" ],
+            [ true, "str.cma" ],
+            [ true, "unix.cma" ],
+            [ true, "utils.cmo" ],
+            [ true, "file_util.cmo" ],
+            [ true, "generate_oebuild_script.ml" ]
+          ],
           "phase": [ "Some", "Compile" ]
         }
       ],

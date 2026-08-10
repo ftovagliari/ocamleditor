@@ -3050,12 +3050,12 @@ let external_tasks = [
   });
   
   1, (fun command -> {
-    et_name                  = "prepare-build";
+    et_name                  = "err_lexer.ml";
     et_env                   = [];
     et_env_replace           = false;
-    et_dir                   = "..";
-    et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/prepare_build.ml"];
+    et_dir                   = ".";
+    et_cmd                   = "ocamllex";
+    et_args                  = [true,"err_lexer.mll"];
     et_phase                 = Some Compile;
     et_always_run_in_project = true;
     et_always_run_in_script  = true;
@@ -3064,6 +3064,146 @@ let external_tasks = [
   });
   
   2, (fun command -> {
+    et_name                  = "err_parser.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "ocamlyacc";
+    et_args                  = [true,"err_parser.mly"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  3, (fun command -> {
+    et_name                  = "settings_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"settings.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  4, (fun command -> {
+    et_name                  = "settings_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"settings.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  5, (fun command -> {
+    et_name                  = "merlin_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"merlin.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  6, (fun command -> {
+    et_name                  = "merlin_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"merlin.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  7, (fun command -> {
+    et_name                  = "find_text_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"find_text.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  8, (fun command -> {
+    et_name                  = "find_text_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"find_text.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  9, (fun command -> {
+    et_name                  = "project_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"project.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  10, (fun command -> {
+    et_name                  = "project_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"project.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  11, (fun command -> {
+    et_name                  = "oebuild_script.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "ocaml";
+    et_args                  = [true,"-I"; true,"common"; true,"-I"; true,"+unix"; true,"-I"; true,"+str"; true,"str.cma"; true,"unix.cma"; true,"utils.cmo"; true,"file_util.cmo"; true,"generate_oebuild_script.ml"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  12, (fun command -> {
     et_name                  = "mkrelease";
     et_env                   = [];
     et_env_replace           = false;
@@ -3077,7 +3217,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  3, (fun command -> {
+  13, (fun command -> {
     et_name                  = "mkversion";
     et_env                   = [];
     et_env_replace           = false;
@@ -3091,7 +3231,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  4, (fun command -> {
+  14, (fun command -> {
     et_name                  = "generate_oebuild_script";
     et_env                   = [];
     et_env_replace           = false;
@@ -3105,7 +3245,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  5, (fun command -> {
+  15, (fun command -> {
     et_name                  = "Install OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
@@ -3119,7 +3259,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  6, (fun command -> {
+  16, (fun command -> {
     et_name                  = "Uninstall OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
@@ -3133,7 +3273,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  7, (fun command -> {
+  17, (fun command -> {
     et_name                  = "distclean";
     et_env                   = [];
     et_env_replace           = false;
@@ -3147,7 +3287,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  8, (fun command -> {
+  18, (fun command -> {
     et_name                  = "install";
     et_env                   = [];
     et_env_replace           = false;
@@ -3161,7 +3301,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  9, (fun command -> {
+  19, (fun command -> {
     et_name                  = "uninstall";
     et_env                   = [];
     et_env_replace           = false;
@@ -3175,7 +3315,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  10, (fun command -> {
+  20, (fun command -> {
     et_name                  = "reinstall";
     et_env                   = [];
     et_env_replace           = false;
@@ -3189,7 +3329,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  11, (fun command -> {
+  21, (fun command -> {
     et_name                  = "print";
     et_env                   = [];
     et_env_replace           = false;
@@ -3206,9 +3346,9 @@ let external_tasks = [
 
 
 let general_commands = [
-  `Distclean, (7, "distclean");
-  `Install, (5, "Install OCamlEditor");
-  `Uninstall, (6, "Uninstall OCamlEditor");
+  `Distclean, (17, "distclean");
+  `Install, (15, "Install OCamlEditor");
+  `Uninstall, (16, "Uninstall OCamlEditor");
 ]
 
 
@@ -3510,7 +3650,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [1];
+    external_tasks       = [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3570,7 +3710,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [2; 3; 4; 5; 6; 7];
+    external_tasks       = [12; 13; 14; 15; 16; 17];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3600,7 +3740,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [8; 9; 10; 11];
+    external_tasks       = [18; 19; 20; 21];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
