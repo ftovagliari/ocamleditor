@@ -21,37 +21,76 @@
 *)
 [@@@warning "-48"]
 
-let create (vbox : GPack.box) =
-  (* Command Line Arguments *)
-  let expander_args = GBin.expander ~expanded:true ~packing:vbox#add ~show:true () in
-  let label         = GMisc.label ~markup:"Command Line Arguments" ~xalign:0.0 () in
-  (*let _ = GMisc.label ~markup:"<small>Use \" to quote and \\\" inside quoted arguments</small>" ~xalign:0.0 ~packing:abox#pack () in*)
-  let entry_args    = Entry_list_args.create ~packing:expander_args#add () in
-  (* Environment Variables *)
-  let expander_env  = GBin.expander ~packing:vbox#add () in
-  let lbox          = GPack.hbox ~spacing:8 () in
-  let _             = GMisc.label ~markup:"Environment Variables" ~xalign:0.0 ~packing:lbox#add () in
-  let help          = GMisc.label ~markup:"(<small><tt>NAME=VALUE</tt></small>)" ~xalign:1.0 ~packing:lbox#pack () in
-  let entry_env     = Entry_list_env.create ~packing:expander_env#add () in
-  expander_args#set_label_widget label#coerce;
-  expander_env#set_label_widget lbox#coerce;
-  let callback () =
-    help#misc#hide();
-    expander_env#set_expanded false;
-    let args = expander_args#expanded in
-    let env = expander_env#expanded in
-    vbox#set_child_packing ~expand:args ~fill:args expander_args#coerce;
-    vbox#set_child_packing ~expand:env ~fill:env expander_env#coerce;
+(* Vertical space is scarce, so at most one expander is open at a time and the
+   open one gets the extra space. Each item pairs an expander with a callback
+   that syncs its decorations to its expanded state. *)
+let link_expanders (vbox : GPack.box) items =
+  let items = Array.of_list items in
+  let sync () =
+    Array.iter begin fun (expander, on_sync) ->
+      let expanded = expander#expanded in
+      vbox#set_child_packing ~expand:expanded ~fill:expanded expander#coerce;
+      on_sync expanded
+    end items
   in
-  ignore (expander_args#connect#after#activate ~callback);
-  ignore (expander_env#connect#after#activate ~callback:begin fun () ->
-      help#misc#show();
-      expander_args#set_expanded false;
-      let env = expander_env#expanded in
-      let args = expander_args#expanded in
-      vbox#set_child_packing ~expand:env ~fill:env expander_env#coerce;
-      vbox#set_child_packing ~expand:args ~fill:args expander_args#coerce;
-    end);
-  callback();
+  Array.iteri begin fun i (expander, _) ->
+    ignore (expander#connect#after#activate ~callback:begin fun () ->
+        if expander#expanded then
+          Array.iteri (fun j (other, _) -> if j <> i then other#set_expanded false) items;
+        sync ()
+      end)
+  end items;
+  sync ()
+
+(* An expander holding a plain (enabled, value) list, with an optional hint
+   shown only while it is open. *)
+let add_list_expander (vbox : GPack.box) ?help ?(expanded=false) ~title () =
+  let expander = GBin.expander ~expanded ~packing:vbox#add ~show:true () in
+  let lbox     = GPack.hbox ~spacing:8 () in
+  let _        = GMisc.label ~markup:title ~xalign:0.0 ~packing:lbox#add () in
+  let hint     = Option.map (fun markup -> GMisc.label ~markup ~xalign:1.0 ~packing:lbox#pack ()) help in
+  let entry    = Entry_list_args.create ~packing:expander#add () in
+  expander#set_label_widget lbox#coerce;
+  let on_sync expanded =
+    match hint with
+    | Some label -> if expanded then label#misc#show () else label#misc#hide ()
+    | None -> ()
+  in
+  expander, entry, on_sync
+
+let add_env_expander (vbox : GPack.box) =
+  let expander = GBin.expander ~packing:vbox#add () in
+  let lbox     = GPack.hbox ~spacing:8 () in
+  let _        = GMisc.label ~markup:"Environment Variables" ~xalign:0.0 ~packing:lbox#add () in
+  let hint     = GMisc.label ~markup:"(<small><tt>NAME=VALUE</tt></small>)" ~xalign:1.0 ~packing:lbox#pack () in
+  let entry    = Entry_list_env.create ~packing:expander#add () in
+  expander#set_label_widget lbox#coerce;
+  let on_sync expanded = if expanded then hint#misc#show () else hint#misc#hide () in
+  expander, entry, on_sync
+
+let args_title = "Command Line Arguments"
+let path_hint  = "(<small>relative to the project source path</small>)"
+
+let create (vbox : GPack.box) =
+  let expander_args, entry_args, sync_args = add_list_expander vbox ~expanded:true ~title:args_title () in
+  let expander_env, entry_env, sync_env = add_env_expander vbox in
+  link_expanders vbox [expander_args, sync_args; expander_env, sync_env];
   entry_args, entry_env
+
+(* As [create], plus the two lists that let a task declare what it produces and
+   reads, which is what makes it expressible as a build rule. *)
+let create_task (vbox : GPack.box) =
+  let expander_args, entry_args, sync_args = add_list_expander vbox ~expanded:true ~title:args_title () in
+  let expander_out, entry_out, sync_out =
+    add_list_expander vbox ~help:path_hint ~title:"Rule Outputs" () in
+  let expander_deps, entry_deps, sync_deps =
+    add_list_expander vbox ~help:path_hint ~title:"Rule Dependencies" () in
+  let expander_env, entry_env, sync_env = add_env_expander vbox in
+  link_expanders vbox [
+    expander_args, sync_args;
+    expander_out,  sync_out;
+    expander_deps, sync_deps;
+    expander_env,  sync_env;
+  ];
+  entry_args, entry_env, entry_out, entry_deps
 
