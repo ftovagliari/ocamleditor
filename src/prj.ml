@@ -48,7 +48,6 @@ type t = {
   mutable in_source_path     : string -> string option;
   mutable source_paths       : string list;
   mutable can_compile_native : bool;
-  mutable symbols            : Oe.symbol_cache;
   mutable build_script       : Build_script.t;
   mutable bookmarks          : Oe.bookmark list;
   mutable file_watcher       : Inotify.watch option;

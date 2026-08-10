@@ -122,12 +122,6 @@ let create ~filename () =
     in_source_path     = Utils.filename_relative (root // default_dir_src);
     source_paths       = (try File_util.readtree (root // default_dir_src) with Sys_error _ -> []);
     can_compile_native = true;
-    symbols            = {
-      Oe.syt_table = [];
-      syt_ts       = Hashtbl.create 7;
-      syt_odoc     = Hashtbl.create 7;
-      syt_critical = Mutex.create()
-    };
     build_script       = {
       Build_script.bs_filename = Build_script.default_filename;
       bs_targets               = [];
