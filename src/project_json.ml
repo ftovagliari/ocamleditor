@@ -213,6 +213,7 @@ let target_of_atd (t_atd : Project_t.target) =
     t_atd.Project_t.external_tasks
     |> List.map begin fun (et : Project_t.external_task) ->
       Task.create ~name:et.Project_t.name ~env:et.Project_t.env
+        ~env_replace:et.Project_t.env_replace
         ~dir:et.Project_t.dir
         ~cmd:et.Project_t.cmd
         ~args:et.Project_t.args
@@ -220,6 +221,8 @@ let target_of_atd (t_atd : Project_t.target) =
         ~deps:et.Project_t.deps
         ~run_in_project:et.Project_t.always_run_in_project
         ~run_in_script:et.Project_t.always_run_in_script
+        ~readonly:et.Project_t.readonly
+        ~visible:et.Project_t.visible
         ?phase:(match et.Project_t.phase with Some s -> Some (Task.phase_of_string s) | None -> None) ()
     end;
   tg.restrictions <- t_atd.Project_t.restrictions;

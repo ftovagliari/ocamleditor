@@ -132,8 +132,7 @@ let print_external_tasks ochan project =
           ksprintf print "\n  %d, (fun command -> {" index;
           ksprintf print "  et_name                  = %S;" et.et_name;
           ksprintf print "  et_env                   = [%s];"
-            (String.concat ";" (List.map (sprintf "%S")
-                                  (List.filter_map (fun (x, y) -> if x then Some y else None) et.et_env)));
+            (String.concat "; " (List.map (sprintf "true,%S") (Task.enabled et.et_env)));
           ksprintf print "  et_env_replace           = %b;" et.et_env_replace;
           ksprintf print "  et_dir                   = %S;" et.et_dir;
           ksprintf print "  et_cmd                   = %S;" et.et_cmd;
