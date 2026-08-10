@@ -252,6 +252,43 @@ let project ~browser ~group ~flags items =
         Gaux.may (GWindow.toplevel editor) ~f:(fun w -> dialog#set_transient_for w#as_window);
       end));
 
+  (* Generate dune files *)
+  let project_dune = GMenu.image_menu_item ~label:"Generate dune Files" ~packing:menu#add () in
+  ignore (project_dune#connect#activate ~callback:begin fun () ->
+      browser#with_current_project begin fun project ->
+        let summary =
+          try
+            let outcome = Project_dune.write project in
+            let listing label = function
+              | [] -> []
+              | files -> [sprintf "%s:\n  %s" label (String.concat "\n  " files)]
+            in
+            let diagnostics =
+              outcome.Project_dune.oc_diagnostics
+              |> List.filter (fun d -> d.Project_dune.dg_severity <> `INFO)
+              |> List.map begin fun d ->
+                sprintf "  %s: %s%s"
+                  (Project_dune.string_of_severity d.Project_dune.dg_severity)
+                  (if d.Project_dune.dg_file <> "" then d.Project_dune.dg_file ^ ": " else "")
+                  d.Project_dune.dg_message
+              end
+            in
+            let parts =
+              listing "Updated" outcome.Project_dune.oc_changed
+              @ listing "Removed" outcome.Project_dune.oc_removed
+              @ (match diagnostics with
+                  | [] -> []
+                  | _ -> [sprintf "Not expressible in dune:\n%s" (String.concat "\n" diagnostics)])
+            in
+            match parts with
+            | [] -> "The dune files are already up to date."
+            | parts -> String.concat "\n\n" parts
+          with ex -> sprintf "Cannot generate the dune files.\n\n%s" (Printexc.to_string ex)
+        in
+        Dialog.info ~title:"Generate dune Files" ~message:summary editor
+      end
+    end);
+
   (* Project Refresh *)
   let project_refresh = GMenu.image_menu_item ~label:"Refresh" ~packing:menu#add () in
   project_refresh#set_image (GMisc.image ~pixbuf:(??? Icons.refresh16)(*~stock:`REFRESH*) ~icon_size:`MENU ())#coerce;
