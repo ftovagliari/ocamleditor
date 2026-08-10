@@ -39,13 +39,16 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = toolbar#set_icon_size `MENU in
   let sw                = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:hbox#add () in
   let button_detach     = GButton.tool_button ~label:"Detach" ~packing:toolbar#insert () in
-  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon "\u{eb23} ")#coerce in
+  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon "\u{eb23}")#coerce in
+  let _                 = button_detach#misc#set_name "menubarbutton" in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_stop       = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_stop#set_icon_widget (Gtk_util.label_icon ~color:"red" "\u{f04d}")#coerce in
+  let _                 = button_stop#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Kill Process" button_stop#coerce in
   let button_run        = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_run#misc#set_name "menubarbutton" in
   let _                 = button_run#set_icon_widget begin match task_kind with
       | `OTHER | `RUN ->
           tooltips#set_tip ~text:"Start" button_run#coerce;
@@ -60,17 +63,21 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_clear      = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_clear#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Clear Messages" button_clear#coerce in
-  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf} ")#coerce in
+  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf}")#coerce in
   let button_incr_font  = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_incr_font#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Increase Font Size" button_incr_font#coerce in
-  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4} ")#coerce in
+  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4}")#coerce in
   let button_decr_font  = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_decr_font#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Decrease Font Size" button_decr_font#coerce in
-  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3} ")#coerce in
+  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3}")#coerce in
   let button_wrap       = GButton.toggle_tool_button ~packing:toolbar#insert () in
+  let _                 = button_wrap#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Word Wrap" button_wrap#coerce in
-  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80} ")#coerce in
+  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80}")#coerce in
   (*  *)
   let view              = GText.view ~editable:(task_kind = `RUN) ~cursor_visible:true ~packing:sw#add () in
   let _                 = view#set_right_margin 2 in

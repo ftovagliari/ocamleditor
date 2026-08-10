@@ -32,88 +32,95 @@ let set_find_text_output_font_condensed context =
     with Not_found -> None
 
 let get_style_outline (pref : Settings_t.settings) =
-  let style_outline, apply_outline =
-    let open Preferences in
-    let base_color = ?? (pref.outline_color_nor_bg) in
-    let even, odd =
-      match pref.outline_color_alt_rows with
-      | None -> base_color, base_color
-      | Some x -> base_color, (ColorOps.name (ColorOps.set_value x (`NAME base_color)))
-    in
-    sprintf "
+  let open Preferences in
+  let base_color = ?? (pref.outline_color_nor_bg) in
+  let even, odd =
+    match pref.outline_color_alt_rows with
+    | None -> base_color, base_color
+    | Some x -> base_color, (ColorOps.name (ColorOps.set_value x (`NAME base_color)))
+  in
+  sprintf "
           style \"outline-treestyle\" {
             GtkTreeView::even-row-color = \"%s\"
             GtkTreeView::odd-row-color = \"%s\"
           }" even odd,
-    "widget \"*.outline_treeview\" style \"outline-treestyle\"";
-  in style_outline, apply_outline
+  "widget \"*.outline_treeview\" style \"outline-treestyle\""
 
 let set_theme ?theme ~context () =
   let pref = Preferences.preferences#get in
-  let style_smallbutton, apply_smallbutton = "\
-      style \"oe_menubar\" {
-        ythickness = 0
-        GtkMenuBar::shadow-type = none
-        GtkMenuBar::internal-padding = 0
-      }
-      style \"menubar-button\" {
-        GtkButton::child-displacement-x = 1
-        GtkButton::child-displacement-y = 1
-        GtkButton::inner-border = { 0, 0, 0, 0 }
-        xthickness = 0
-        ythickness = 0
-      }
-      style \"menubar-button-arrow\" {
-        GtkButton::child-displacement-x = 1
-        GtkButton::child-displacement-y = 1
-        GtkButton::inner-border = { 3, 3, 2, 2 }
-        xthickness = 0
-        ythickness = 0
-      }
-      style \"window-button\" {
-        GtkButton::child-displacement-x = 0
-        GtkButton::child-displacement-y = 0
-        GtkButton::inner-border = { 6,6,6,6 }
-        xthickness = 0
-        ythickness = 0
-      }
-      style \"gitbutton\" {
-        GtkButton::image-spacing = 8
-        xthickness = 0
-        ythickness = 0
-      }
-      style \"oe-statusbar\" {
-        fg[NORMAL] = @selected_fg_color
-      }
-      style \"small-button\" {
-        GtkButton::child-displacement-x = 0
-        GtkButton::child-displacement-y = 0
-        GtkButton::inner-border = { 0, 0, 0, 0 }
-        xthickness = 0
-        ythickness = 0
-      }", "widget \"*.smallbutton\" style \"small-button\"
-style \"oe-tooltip\"
-{
-  bg[NORMAL] = \"#FFE375\"
-  fg[NORMAL] = \"#000000\"
+  let styles = {|
+style "oe-tooltip" {
+  bg[NORMAL] = "#FFE375"
+  fg[NORMAL] = "#000000"
 }
-widget_class \"*<GtkToolButton>*<GtkButton>\" style \"menubar-button\"
-widget \"*.windowbutton\" style \"window-button\"
-widget \"*.menubar_button_arrow\" style \"menubar-button-arrow\"
-widget \"*.oe_menubar\" style:highest \"oe_menubar\"
-#widget \"gtk-tooltip*\" style \"oe-tooltip\"
-widget \"*.gitbutton\" style:highest \"gitbutton\"
-widget \"*.statusbar.*\" style:highest \"oe-statusbar\"
-                                               "
-  in
-  let style_targetlist, apply_targetlist =
+style "oe_menubar" {
+  ythickness = 0
+  GtkMenuBar::shadow-type = none
+  GtkMenuBar::internal-padding = 0
+}
+style "menubar-button" {
+  GtkButton::child-displacement-x = 1
+  GtkButton::child-displacement-y = 1
+  GtkButton::inner-border = { 0, 0, 0, 0 }
+  xthickness = 0
+  ythickness = 5
+}
+style "outline-button" {
+  GtkButton::child-displacement-x = 1
+  GtkButton::child-displacement-y = 1
+  GtkButton::inner-border = { 0, 0, 0, 0 }
+  xthickness = 0
+  ythickness = 0
+}
+style "menubar-button-arrow" {
+  GtkButton::child-displacement-x = 1
+  GtkButton::child-displacement-y = 1
+  GtkButton::inner-border = { 3, 3, 2, 2 }
+  xthickness = 0
+  ythickness = 0
+}
+style "window-button" {
+  GtkButton::child-displacement-x = 0
+  GtkButton::child-displacement-y = 0
+  GtkButton::inner-border = { 6,6,6,6 }
+  xthickness = 0
+  ythickness = 0
+}
+style "gitbutton" {
+  GtkButton::image-spacing = 8
+  xthickness = 0
+  ythickness = 0
+}
+style "oe-statusbar" {
+  fg[NORMAL] = @selected_fg_color
+}
+style "small-button" {
+  GtkButton::child-displacement-x = 0
+  GtkButton::child-displacement-y = 0
+  GtkButton::inner-border = { 0, 0, 0, 0 }
+  xthickness = 0
+  ythickness = 0
+}
+  |} in
+  let patterns = {|
+widget "*.smallbutton" style "small-button"
+widget "*.menubarbutton.*" style "menubar-button"
+widget "*.outlinebutton.*" style "outline-button"
+widget "*.windowbutton" style "window-button"
+widget "*.menubar_button_arrow" style "menubar-button-arrow"
+widget "*.oe_menubar" style:highest "oe_menubar"
+#widget "gtk-tooltip*" style "oe-tooltip"
+widget "*.gitbutton" style:highest "gitbutton"
+widget "*.statusbar.*" style:highest "oe-statusbar"
+  |} in
+  let styles_targetlist, patterns_targetlist =
     let open Preferences in
     match Oe_config.targetlist_alternating_row_colors with
     | None -> "", ""
     | Some x ->
         let base_color = (?? (pref.editor_bg_color_user)) in
-        sprintf "
-                                               style \"targetlist-treestyle\" {
+        sprintf "\
+         style \"targetlist-treestyle\" {
             GtkTreeView::even-row-color = \"%s\"
             GtkTreeView::odd-row-color = \"%s\"
           }" base_color (ColorOps.name (ColorOps.set_value x (`NAME base_color))),
@@ -133,11 +140,11 @@ widget \"*.statusbar.*\" style:highest \"oe-statusbar\"
         end;
     | x -> sprintf "gtk-font-name = \"%s\"" x
   in
-  let style_outline, apply_outline = get_style_outline pref in
+  let styles_outline, patterns_outline = get_style_outline pref in
   let rc =
     String.concat "\n" [
-      style_smallbutton; style_outline; style_targetlist;
-      apply_smallbutton; apply_outline; apply_targetlist;
+      styles; styles_outline; styles_targetlist;
+      patterns; patterns_outline; patterns_targetlist;
       "gtk-button-images = 0";
       "gtk-double-click-time = 500";
       "gtk-double-click-distance = 10";

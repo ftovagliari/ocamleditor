@@ -52,6 +52,12 @@ let xml_bs_targets proj node =
       with Exit -> acc
     end [] node);;
 
+let set_runtime_build_task = fun (proj : Prj.t) rconf task_string ->
+  rconf.Rconf.build_task <- try
+      let target = List.find (fun b -> b.Target.id = rconf.Rconf.target_id) proj.targets in
+      Target.task_of_string target task_string
+    with Not_found -> `NONE
+
 (** xml_bs_args *)
 let xml_bs_args proj node =
   let open Prj in

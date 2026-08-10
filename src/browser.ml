@@ -224,20 +224,19 @@ class browser window =
       let active_exists = ref false in
       let i = ref 0 in
       let _ =
-        List.map (begin fun (filename, scroll_offset, offset, active) ->
-            let filename = List.fold_left (//) "" (filename_split filename) in
-            incr i;
-            active_exists := !active_exists || active;
-            let active = active || (List.length proj.open_files = !i && not !active_exists) in
-            editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
-          end) proj.open_files
+        List.map begin fun (filename, scroll_offset, offset, active) ->
+          let filename = List.fold_left (//) "" (filename_split filename) in
+          incr i;
+          active_exists := !active_exists || active;
+          let active = active || (List.length proj.open_files = !i && not !active_exists) in
+          editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
+        end proj.open_files
       in
       editor#set_history_switch_page_locked false;
       proj.open_files <- [];
       proj.modified <- false;
       self#update_git_status();
       proj
-
 
     method dialog_project_open () =
       let project_home =
@@ -803,7 +802,8 @@ class browser window =
               List.iter (fun (_, i) -> menu.project#remove (i :> GMenu.menu_item)) menu.project_history;
               menu.project_history <- []
             end;
-            let project_names = List.map (fun x -> x, Filename.chop_extension (Filename.basename x)) history.File_history.content in
+            let project_names =
+              List.map (fun x -> x, Project.Path.name x) history.File_history.content in
             let project_names = List.sort (fun (_, x1) (_, x2) ->
                 compare (String.lowercase_ascii x1) (String.lowercase_ascii x2)) project_names in
             List.iter begin fun (filename, label) ->

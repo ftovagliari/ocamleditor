@@ -65,6 +65,12 @@ module Path = struct
   let fullname_local proj = Filename.concat proj.root (proj.name ^ Prj.default_local_extension)
   let fullname_local_old proj = Filename.concat proj.root (proj.name ^ Prj.old_local_extension)
 
+  let name fullname =
+    let name = Filename.basename fullname in
+    if Filename.check_suffix name Prj.default_extension then
+      Filename.chop_suffix name Prj.default_extension
+    else fullname
+
 end
 
 (** set_ocaml_home *)
@@ -98,7 +104,7 @@ let create ~filename () =
     ocamllib           = ocamllib;
     ocamllib_from_env  = from_env;
     encoding           = Some "UTF-8";
-    name               = Filename.chop_extension (Filename.basename filename);
+    name               = Path.name filename;
     modified           = true;
     author             = "";
     description        = "";
@@ -491,17 +497,9 @@ let clear_cache proj =
   Log.println `TRACE "%s\n%!" cmd;
   Sys.command cmd;;
 
-(** clean_tmp *)
 let clean_tmp proj =
   let path = Path.tmp proj in
   Array.iter begin fun filename ->
     try Sys.remove (path // filename)
     with _ -> ()
   end (Sys.readdir path)
-
-let set_runtime_build_task [@deprecated ""] = fun proj rconf task_string ->
-  rconf.Rconf.build_task <- try
-      let target = List.find (fun b -> b.Target.id = rconf.Rconf.target_id) proj.targets in
-      Target.task_of_string target task_string
-    with Not_found -> `NONE
-
