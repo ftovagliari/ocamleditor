@@ -709,7 +709,7 @@ class editor () =
         | Some page -> fun p -> p = page
       in
       let modified, close = List.partition (fun p -> p#buffer#modified && (not (except p))) pages in
-      List.iter (fun p -> if not (except p) then (GtkThread2.sync self#close p)) close;
+      List.iter (fun p -> if not (except p) then (GtkThread.sync self#close p)) close;
       if modified <> [] then begin
         let pages = List.rev_map (fun p -> true, p) modified in
         self#dialog_save_modified ~close:true ~callback:ignore pages

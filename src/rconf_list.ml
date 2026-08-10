@@ -103,7 +103,7 @@ class view ~target_list ~editor ~project ~page ?packing () =
 
     method private append rcs =
       List.iter begin fun rconf ->
-        GtkThread2.sync begin fun () ->
+        GtkThread.sync begin fun () ->
           let rconf = {rconf with Rconf.id = rconf.Rconf.id} in
           let row = model#append () in
           model#set ~row ~column:col_data rconf;

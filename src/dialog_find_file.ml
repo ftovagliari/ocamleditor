@@ -155,10 +155,10 @@ let create ?(all=true) ~(editor : Editor.editor) ~roots () =
     if changed then Some (??? Icons.save_14) else (if opened then Some (pixbuf_open_in_editor ()) else None)
   in
   let update_icons () =
-    GtkThread2.sync quick_file_chooser#reset_icons ();
+    GtkThread.sync quick_file_chooser#reset_icons ();
     let filenames = List.map (fun p -> p#get_filename) editor#pages in
     List.iter begin fun filename ->
-      GtkThread2.sync begin fun () ->
+      GtkThread.sync begin fun () ->
         match quick_file_chooser#get_path ~filename with
         | Some path ->
             let row = quick_file_chooser#model#get_iter path in

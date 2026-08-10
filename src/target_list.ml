@@ -238,7 +238,7 @@ class view ~editor ~project ?packing () =
             !exists
           end;
           if not !exists then begin
-            GtkThread2.sync begin fun () ->
+            GtkThread.sync begin fun () ->
               let target = {target with id = target.id} in
               target.external_tasks <- List.map (fun et ->
                   {et with Task.et_name = et.Task.et_name}) target.external_tasks;
@@ -252,9 +252,9 @@ class view ~editor ~project ?packing () =
                   try (List.find (fun t -> t.id = tg.id) project.Prj.targets) :: acc with Not_found -> acc
                 end target.Target.sub_targets []
               in
-              GtkThread2.sync (fun () -> ignore (self#append ~parent:row children)) ();
+              GtkThread.sync (fun () -> ignore (self#append ~parent:row children)) ();
               List.iter begin fun task ->
-                GtkThread2.sync (fun () -> ignore (self#append_task ~parent:row ~task)) ()
+                GtkThread.sync (fun () -> ignore (self#append_task ~parent:row ~task)) ()
               end target.external_tasks;
               (*view#selection#select_iter row*)
               if target.node_collapsed then view#collapse_row (model#get_path row);

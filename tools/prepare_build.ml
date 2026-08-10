@@ -27,7 +27,6 @@
 open Printf
 
 let required_ocaml_version = "5.3.0"
-let use_modified_gtkThread = ref false
 let record_backtrace = ref true
 
 let exe = if is_win32 then ".exe" else ""
@@ -39,7 +38,6 @@ let prepare_build () =
   if Sys.ocaml_version < required_ocaml_version then begin
     eprintf "You are using OCaml-%s but version %s is required." Sys.ocaml_version required_ocaml_version;
   end else begin
-    cp ~echo:true (if !use_modified_gtkThread then "gtkThreadModified.ml" else "gtkThreadOriginal.ml") "gtkThread2.ml";
     run "ocamllex err_lexer.mll";
     run "ocamlyacc err_parser.mly";
     run "atdgen -t settings.atd";
@@ -76,7 +74,4 @@ let _ = main ~default_target:prepare_build ~targets:[
     "-generate-oebuild-script", generate_oebuild_script, " (undocumented)";
   ]~options:[
     "-record-backtrace",       Bool (fun x -> record_backtrace := x), " Turn recording of exception backtraces on or off";
-    "-use-modified-gtkThread", Set use_modified_gtkThread, " Set this flag if you have Lablgtk-2.14.2 or earlier
-                            for using the included modified version of gtkThread.ml
-                            to reduce CPU consumption";
   ] ()

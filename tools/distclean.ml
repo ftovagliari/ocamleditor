@@ -39,6 +39,7 @@ let distclean () =
   remove_file "err_parser.ml";
   remove_file "err_parser.mli";
   remove_file "oebuild_script.ml";
+  remove_file "gtkThread2.ml"; (* transitional: artifact of the pre-2.x build *)
   remove_file "ocamleditor.opt.exe.manifest";
   remove_file "resource.res";
   remove_file "build_id.ml";

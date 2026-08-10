@@ -31,7 +31,6 @@ src/stdlib_pp/stdlib_pp.opt
 src/stdlib_pp/stdlib_pp.ml
 src/ocamleditor
 src/ocamleditor.opt
-src/gtkThread2.ml
 src/oebuild_script.ml
 _oasis
 setup.data

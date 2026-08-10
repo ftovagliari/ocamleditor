@@ -133,7 +133,7 @@ let main () = begin
         end |> ignore;
         splashscreen#present();
   end;
-  GtkThread2.main ();
+  GtkThread.main ();
 end
 
 let _ = Printexc.print main ()

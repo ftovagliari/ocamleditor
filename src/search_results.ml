@@ -430,9 +430,9 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
       results <- [];
       canceled <- false;
       view_lines#misc#set_sensitive true;
-      GtkThread2.sync model_lines#clear ();
-      GtkThread2.sync model_files#clear ();
-      GtkThread2.sync label_message#set_label "Searching...";
+      GtkThread.sync model_lines#clear ();
+      GtkThread.sync model_files#clear ();
+      GtkThread.sync label_message#set_label "Searching...";
 
     method prev_file () =
       let path = match view_files#selection#get_selected_rows with
