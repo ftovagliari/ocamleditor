@@ -98,7 +98,7 @@ let _ =
      - By dune: CWD is _build/default/src/, so "../../../src" navigates to the real src/.
        After generating oebuild_script.ml in src/, it is renamed back to _build/default/src/
        where dune expects the declared target.
-     - By prepare_build.ml (old build system): CWD is already src/.
+     - By the "oebuild_script.ml" external build task (oebuild): CWD is already src/.
        No navigation needed; oebuild_script.ml simply stays in src/. *)
   let dune_build_dir = Filename.concat (Sys.getcwd ()) "../../../src" in
   let is_dune_context = Sys.file_exists dune_build_dir && Sys.is_directory dune_build_dir in
