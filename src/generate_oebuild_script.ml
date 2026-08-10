@@ -21,6 +21,17 @@
 *)
 
 
+(* This file is a toplevel script, not a library module: it is run as
+   "ocaml -I +unix -I +str str.cma unix.cma generate_oebuild_script.ml" with the
+   working directory set to the project source directory.
+
+   The two modules it needs are loaded from source rather than linked as
+   precompiled objects, so that the invocation is identical whatever build system
+   runs it. Passing utils.cmo/file_util.cmo instead would require knowing where
+   that build system puts its artifacts. *)
+#mod_use "common/utils.ml"
+#mod_use "common/file_util.ml"
+
 open Utils
 open Printf
 

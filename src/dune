@@ -72,19 +72,39 @@
 
 (rule
   (target oebuild_script.ml)
-  (deps generate_oebuild_script.ml)
+  ; The script inlines these sources verbatim, so it must be re-run when any of
+  ; them changes. Declaring only generate_oebuild_script.ml, as this rule used
+  ; to, meant editing task.ml never regenerated oebuild_script.ml.
+  (deps
+    generate_oebuild_script.ml
+    ../header
+    common/utils.ml
+    common/file_util.ml
+    common/argc.ml
+    common/log.ml
+    common/shell.ml
+    common/ocaml_config.ml
+    common/app_config.ml
+    common/spawn.ml
+    task.ml
+    build_script_command.ml
+    oebuild/oebuild_util.ml
+    oebuild/oebuild_table.ml
+    oebuild/oebuild_dag.ml
+    oebuild/oebuild_dep.ml
+    oebuild/oebuild_dep_dag.ml
+    oebuild/oebuild_parallel.ml
+    oebuild/oebuild.ml
+    build_script_util.ml)
   (action
-    (progn
-      (run echo "-------------- BEGIN generate_oebuild_script.ml ---------------")
-      (run ocaml -I common/.common.objs/byte -I +unix -I +str str.cma unix.cma common/.common.objs/byte/utils.cmo common/.common.objs/byte/file_util.cmo %{deps})
-      (run echo "-------------- END generate_oebuild_script.ml ---------------")
-    )
-  ))
+    (run ocaml -I +unix -I +str str.cma unix.cma generate_oebuild_script.ml)))
 
 (library
   (name ocamleditor_lib)
   (wrapped false)
-  (modules (:standard \ ocamleditor))
+  ; ocamleditor and ocamleditor_launcher are executables, and
+  ; generate_oebuild_script is a toplevel script run by a rule, not a module.
+  (modules (:standard \ ocamleditor ocamleditor_launcher generate_oebuild_script))
   (libraries 
     common 
     icons 
@@ -101,8 +121,8 @@
     unix 
     xml-light 
     yojson 
-    compiler-libs.common 
-    ocamldoc 
+    compiler-libs.common
+    odoc-parser
     inotify
   )
 )

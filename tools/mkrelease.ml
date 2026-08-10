@@ -33,7 +33,7 @@ let mkrelease () =
     pushd "..";
     kprintf run "ocaml build.ml -verbose 0 build oebuild oeproc";
     pushd "src";
-    kprintf run "ocaml -I common -I +unix -I +str str.cma unix.cma utils.cmo file_util.cmo generate_oebuild_script.ml %s" redirect_stdout;
+    kprintf run "ocaml -I +unix -I +str str.cma unix.cma generate_oebuild_script.ml %s" redirect_stdout;
     popd();
     kprintf run "ocaml build.ml distclean %s" redirect_stdout;
     let name = Filename.basename (Sys.getcwd ()) in
