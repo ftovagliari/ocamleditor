@@ -128,7 +128,19 @@ let main () = begin
     | None -> start None
     | Some splashscreen ->
         splashscreen#misc#connect#after#show ~callback:begin fun () ->
-          GMain.Timeout.add ~ms:100 ~callback:(fun () -> start (Some splashscreen); false) |> ignore;
+          (* [start] runs inside a GLib source, so an exception escaping it is
+             caught by the C wrapper and reduced to "GSourceFunc: callback raised
+             an exception", with no indication of what failed and the splash
+             screen left on screen. Report it ourselves. *)
+          GMain.Timeout.add ~ms:100 ~callback:begin fun () ->
+            begin
+              try start (Some splashscreen)
+              with ex ->
+                Printf.eprintf "Startup failed: %s\n%s\n%!"
+                  (Printexc.to_string ex) (Printexc.get_backtrace ())
+            end;
+            false
+          end |> ignore;
           (*Gmisclib.Idle.add ~prio:300 (fun () -> start (Some splashscreen));*)
         end |> ignore;
         splashscreen#present();

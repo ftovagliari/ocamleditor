@@ -1,0 +1,7 @@
+; Project-wide build policy. This lives here rather than in src/dune because it
+; is not derived from any target, and src/dune is meant to become generated from
+; the project model.
+;
+; The tree still carries several hundred warnings; making them fatal would stop
+; the build outright.
+(env (dev (flags (:standard -warn-error -A))))
