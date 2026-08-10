@@ -27,7 +27,6 @@
 open Printf
 
 let required_ocaml_version = "5.3.0"
-let record_backtrace = ref true
 
 let exe = if is_win32 then ".exe" else ""
 
@@ -53,13 +52,6 @@ let prepare_build () =
     run "atdgen -t project.atd";
     run "atdgen -j project.atd";
 
-    if not is_win32 then begin
-      (* Disabled because on Windows it changes the file permissions of oe_config.ml
-         forcing it to be recompiled for plugins.*)
-      substitute ~filename:"oe_config.ml" ~regexp:true
-        ["let _ = Printexc\\.record_backtrace \\(\\(true\\)\\|\\(false\\)\\)$",
-         (sprintf "let _ = Printexc.record_backtrace %b" !record_backtrace)];
-    end;
     (try generate_oebuild_script() with Failure msg -> raise (Script_error ("generate_oebuild_script()", 2)));
     (*  *)
     (* let chan = open_out_bin "../src/build_id.ml" in
@@ -72,6 +64,4 @@ let prepare_build () =
 
 let _ = main ~default_target:prepare_build ~targets:[
     "-generate-oebuild-script", generate_oebuild_script, " (undocumented)";
-  ]~options:[
-    "-record-backtrace",       Bool (fun x -> record_backtrace := x), " Turn recording of exception backtraces on or off";
-  ] ()
+  ]~options:[] ()
