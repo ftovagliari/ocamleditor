@@ -152,7 +152,7 @@ let compare_with_head page continue_with =
         ~process_in:(Spawn.loop (fun ic -> Buffer.add_string buf (input_line ic); Buffer.add_char buf '\n'))
         ~continue_with:begin fun _ ->
           let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
-          try (* TODO Crashed here
+          try (* TODO Crashed here -- coredumpctl debug ~/.opam/5.3.0/bin/ocamleditor
                  Program terminated with signal SIGSEGV, Segmentation fault.
                  #0  camlStdlib.$5e_139 () at stdlib.ml:213
                  213	stdlib.ml: No such file or directory.

@@ -213,7 +213,7 @@ module Restr = struct
         let value = Str.matched_group 4 restriction in
         Some (comparison operator (ocaml_variable property) value)
     | restriction when Str.string_match Oebuild.re_fl_pkg_exist restriction 0 ->
-        let packages = Str.split Oebuild.re_comma (Str.matched_group 2 restriction) in
+        let packages = Str.split (Utils.regexp "[ ,]+") (Str.matched_group 2 restriction) in
         Some (Sexp.L (Sexp.A "and" ::
                       List.map (fun p -> comparison "=" (sprintf "%%{lib-available:%s}" p) "true")
                         packages))
@@ -269,7 +269,7 @@ let render proj =
                        dg_task = task; dg_message = message } :: !diagnostics
     end fmt
   in
-  let src = proj.Prj.root // Prj.default_dir_src in
+  let src = Project.Path.src proj in
   let targets = proj.Prj.targets in
   (* A stanza may only be published if the project declares a package. *)
   let packages =
@@ -296,7 +296,7 @@ let render proj =
   let libraries_of tg =
     let name = dune_name tg in
     let from_packages =
-      Str.split Oebuild.re_comma tg.Target.package
+      Str.split (Utils.regexp "[ ,]+") tg.Target.package
       |> List.filter_map begin fun package ->
         match rewrite_library package with
         | Some rewritten ->

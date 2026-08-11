@@ -175,7 +175,9 @@
           "dir": ".",
           "cmd": "ocamlyacc",
           "args": [ [ true, "err_parser.mly" ] ],
-          "outputs": [ [ true, "err_parser.ml" ], [ true, "err_parser.mli" ] ],
+          "outputs": [
+            [ true, "err_parser.ml" ], [ true, "err_parser.mli" ]
+          ],
           "deps": [ [ true, "err_parser.mly" ] ],
           "phase": [ "Some", "Compile" ]
         },
@@ -186,7 +188,9 @@
           "dir": ".",
           "cmd": "atdgen",
           "args": [ [ true, "-t" ], [ true, "settings.atd" ] ],
-          "outputs": [ [ true, "settings_t.ml" ], [ true, "settings_t.mli" ] ],
+          "outputs": [
+            [ true, "settings_t.ml" ], [ true, "settings_t.mli" ]
+          ],
           "deps": [ [ true, "settings.atd" ] ],
           "phase": [ "Some", "Compile" ]
         },
@@ -197,7 +201,9 @@
           "dir": ".",
           "cmd": "atdgen",
           "args": [ [ true, "-j" ], [ true, "settings.atd" ] ],
-          "outputs": [ [ true, "settings_j.ml" ], [ true, "settings_j.mli" ] ],
+          "outputs": [
+            [ true, "settings_j.ml" ], [ true, "settings_j.mli" ]
+          ],
           "deps": [ [ true, "settings.atd" ] ],
           "phase": [ "Some", "Compile" ]
         },
@@ -230,7 +236,9 @@
           "dir": ".",
           "cmd": "atdgen",
           "args": [ [ true, "-t" ], [ true, "find_text.atd" ] ],
-          "outputs": [ [ true, "find_text_t.ml" ], [ true, "find_text_t.mli" ] ],
+          "outputs": [
+            [ true, "find_text_t.ml" ], [ true, "find_text_t.mli" ]
+          ],
           "deps": [ [ true, "find_text.atd" ] ],
           "phase": [ "Some", "Compile" ]
         },
@@ -241,7 +249,9 @@
           "dir": ".",
           "cmd": "atdgen",
           "args": [ [ true, "-j" ], [ true, "find_text.atd" ] ],
-          "outputs": [ [ true, "find_text_j.ml" ], [ true, "find_text_j.mli" ] ],
+          "outputs": [
+            [ true, "find_text_j.ml" ], [ true, "find_text_j.mli" ]
+          ],
           "deps": [ [ true, "find_text.atd" ] ],
           "phase": [ "Some", "Compile" ]
         },
