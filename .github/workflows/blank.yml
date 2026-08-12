@@ -22,10 +22,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure OCaml and Opam
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v4
         with:
-          opam-local-packages: |
-            ocamleditor.opam
+          opam-local-packages: ocamleditor.opam
 
       - name: Install dependencies
         run: opam install . --deps-only
