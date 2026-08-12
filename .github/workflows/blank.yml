@@ -1,10 +1,6 @@
-# This is a basic workflow to help you get started with Actions
+name: Build and Install
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "master" branch
   push:
     branches: [ "github-actions" ]
   pull_request:
@@ -28,10 +24,7 @@ jobs:
       - name: Configure OCaml and Opam
         uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: 5.3.0
+          opam-file: ocamleditor.opam
 
       - name: Install dependencies
-        run: |
-          echo `pwd`
-          ocaml build.ml ocamleditor
-      # opam install . --deps-only
+        run: opam install . --deps-only
