@@ -267,21 +267,21 @@ class editor () =
         | Some page ->
             if not (page#view#misc#get_flag `REALIZED) then (self#goto_view page#view);
             Gmisclib.Idle.add ~prio:300 begin fun () ->
-              ignore (Bookmark.apply bm begin function
-                | `OFFSET _ ->
-                    let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
-                    self#bookmark_goto ~num;
-                    -1
-                | `ITER it ->
-                    let where = new GText.iter it in
-                    page#view#scroll_lazy where;
-                    page#buffer#place_cursor ~where;
-                    page#view#misc#grab_focus();
-                    -1
-                end)
+              Bookmark.apply bm begin function
+              | `OFFSET _ ->
+                  let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
+                  self#bookmark_goto ~num;
+                  -1
+              | `ITER it ->
+                  let where = new GText.iter it in
+                  page#view#scroll_lazy where;
+                  page#buffer#place_cursor ~where;
+                  page#view#misc#grab_focus();
+                  -1
+              end |> ignore;
             end;
             if page#view#misc#get_flag `REALIZED then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
-            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status project);
+            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status ~editor:self project);
       with Not_found -> ()
 
     method scroll_to_definition ~page ~iter =
@@ -618,12 +618,12 @@ class editor () =
                     let _ = notebook#append_page ~tab_label:ebox#coerce page#coerce in
                     notebook#set_tab_reorderable page#coerce true;
                     self#set_tab_pos ~page Preferences.preferences#get.tab_pos;
+                    pages <- page :: pages;
                     if active then begin
                       self#load_page page;
                       notebook#goto_page (notebook#page_num page#coerce);
                       switch_page#call page;
                     end;
-                    pages <- page :: pages;
                     add_page#call page;
                     page
                   end
@@ -716,11 +716,10 @@ class editor () =
       end;
 
     method close page =
-      Project.save_local_status page#project;
       if page#buffer#modified then (page#revert());
       page#buffer#set_modified false;
-      remove_page#call page;
       pages <- List.filter ((<>) page) pages;
+      remove_page#call page;
       (* Location history and autosave *)
       begin
         match page#file with
@@ -909,49 +908,53 @@ class editor () =
           end;
         end);
       (* Remove Page: editor goes to the last active page *)
-      ignore (self#connect#remove_page ~callback:begin fun removed ->
-          match self#get_page `ACTIVE with
-          | Some cur when not history_switch_page_locked && cur#get_oid = removed#get_oid ->
-              let rec find_page () =
-                let history = get_history project in
-                match history with
-                | last :: tl ->
+      self#connect#remove_page ~callback:begin fun removed ->
+        Project.save_local_status ~editor:self project;
+        match self#get_page `ACTIVE with
+        | Some cur when not history_switch_page_locked && cur#get_oid = removed#get_oid ->
+            let rec find_page () =
+              let history = get_history project in
+              match history with
+              | last :: tl ->
+                  begin
+                    let finally () = replace_history project tl in
                     begin
-                      let finally () = replace_history project tl in
-                      begin
-                        match List.find_opt (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
-                        | None -> finally(); find_page()
-                        | _ ->
-                            notebook#goto_page (notebook#page_num last);
-                            finally()
-                      end;
+                      match List.find_opt (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
+                      | None -> finally(); find_page()
+                      | _ ->
+                          notebook#goto_page (notebook#page_num last);
+                          finally()
                     end;
-                | _ -> ()
-              in
-              find_page()
-          | _ -> ()
-        end);
+                  end;
+              | _ -> ()
+            in
+            find_page()
+        | _ -> ()
+      end |> ignore;
+      self#connect#add_page ~callback:begin fun page ->
+        Project.save_local_status ~editor:self project;
+      end |> ignore;
       (* Replace marks with offsets in location history *)
-      ignore (self#connect#remove_page ~callback:begin fun page ->
-          Location_history.iter location_history ~f:begin function
-          | loc when loc.Location_history.filename = page#get_filename ->
-              if not page#buffer#modified (* i.e. saved *) then begin
-                match loc.Location_history.mark with
-                | Some mark when (not (GtkText.Mark.get_deleted mark)) ->
-                    let iter = page#buffer#get_iter_at_mark (`MARK mark) in
-                    loc.Location_history.offset <- iter#offset;
-                    loc.Location_history.mark <- None;
-                | Some _ -> loc.Location_history.mark <- None;
-                | _ -> ()
-              end else begin
-                (* If the buffer is not saved, location is unmeaningful; it only
-                   records the file name. *)
-                loc.Location_history.mark <- None;
-                loc.Location_history.offset <- 0;
-              end
-          | _ -> ()
-          end
-        end);
+      self#connect#remove_page ~callback:begin fun page ->
+        Location_history.iter location_history ~f:begin function
+        | loc when loc.Location_history.filename = page#get_filename ->
+            if not page#buffer#modified (* i.e. saved *) then begin
+              match loc.Location_history.mark with
+              | Some mark when (not (GtkText.Mark.get_deleted mark)) ->
+                  let iter = page#buffer#get_iter_at_mark (`MARK mark) in
+                  loc.Location_history.offset <- iter#offset;
+                  loc.Location_history.mark <- None;
+              | Some _ -> loc.Location_history.mark <- None;
+              | _ -> ()
+            end else begin
+              (* If the buffer is not saved, location is unmeaningful; it only
+                 records the file name. *)
+              loc.Location_history.mark <- None;
+              loc.Location_history.offset <- 0;
+            end
+        | _ -> ()
+        end;
+      end |> ignore;
       Margin_fold.init_editor self;
       Global_diff.init_editor self
   end

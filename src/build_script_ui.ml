@@ -143,7 +143,7 @@ class widget ~project ?packing () =
         bs_commands = List.filter_map Fun.id [cmd_distclean#get(); cmd_install#get(); cmd_uninstall#get()];
       };
       Build_script_printer.print ~minify:false ~project ~filename:(match tmp with Some x -> x | _ -> filename) ();
-      Project.save project
+      Project.save project (* NB Save project file without passing the editor *)
 
     method apply () =
       let filename = entry_filename#text in

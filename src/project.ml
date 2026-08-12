@@ -328,37 +328,34 @@ let project_local_of_proj proj =
   in
   { Project_t.editor_view_state = proj.editor_view_state; bookmarks }
 
-let save_local_status ?editor proj =
+let save_local_status ~editor proj =
   let editor_view_state =
-    match editor with
-    | None -> []
-    | Some editor ->
-        let active_page = editor#get_page `ACTIVE in
-        editor#pages
-        |> List.filter_map (fun page -> match page#file with Some file -> Some (page, file) | _ -> None)
-        |> List.map begin fun (page, file) ->
-          let scroll_top = page#view#get_scroll_top () in
-          let is_active =
-            active_page <> None &&
-            page#get_filename = (Option.get active_page)#get_filename in
-          if page#load_complete then
-            file, scroll_top, (page#buffer#get_iter `INSERT)#offset, is_active
-          else
-            file, page#scroll_offset, page#initial_offset, is_active
-        end
-        |> List.map begin fun (file, scroll_offset, offset, is_active) ->
-          begin
-            (* Normalizes the file path based on project membership.
-               - If inside the project: returns the absolute source path.
-               - If outside: cleans and keeps implicit/relative paths in Unix format,
-                 or leaves absolute paths unchanged. *)
-            match proj.in_source_path file#filename with
-            | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
-            | None -> file#filename
-            | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
-            | Some rel -> rel
-          end, scroll_offset, offset, is_active
-        end;
+    let active_page = editor#get_page `ACTIVE in
+    editor#pages
+    |> List.filter_map (fun page -> match page#file with Some file -> Some (page, file) | _ -> None)
+    |> List.map begin fun (page, file) ->
+      let scroll_top = page#view#get_scroll_top () in
+      let is_active =
+        active_page <> None &&
+        page#get_filename = (Option.get active_page)#get_filename in
+      if page#load_complete then
+        file, scroll_top, (page#buffer#get_iter `INSERT)#offset, is_active
+      else
+        file, page#scroll_offset, page#initial_offset, is_active
+    end
+    |> List.map begin fun (file, scroll_offset, offset, is_active) ->
+      begin
+        (* Normalizes the file path based on project membership.
+           - If inside the project: returns the absolute source path.
+           - If outside: cleans and keeps implicit/relative paths in Unix format,
+             or leaves absolute paths unchanged. *)
+        match proj.in_source_path file#filename with
+        | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
+        | None -> file#filename
+        | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
+        | Some rel -> rel
+      end, scroll_offset, offset, is_active
+    end;
   in
   proj.editor_view_state <- editor_view_state;
   let filename = Path.fullname_local proj in
@@ -385,7 +382,7 @@ let save ?editor proj =
     let old_filename = Path.fullname_old proj in
     if Sys.file_exists old_filename then Sys.remove old_filename;
     write_json_file filename (!write_json proj);
-    save_local_status ?editor proj;
+    editor |> Option.iter (fun editor -> save_local_status ~editor proj);
   with Unix.Unix_error (err, _, _) -> print_endline (Unix.error_message err);;
 
 module File = struct
@@ -424,8 +421,7 @@ module Bookmark = struct
           remove proj bookmark.Oe.bm_num;
       | _ -> ()
     end;
-    proj.bookmarks <- bookmark :: proj.bookmarks;
-    save_local_status proj;;
+    proj.bookmarks <- bookmark :: proj.bookmarks
 
   let find proj filename buffer iter =
     List.find_opt begin fun bm ->
