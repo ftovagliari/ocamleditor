@@ -24,7 +24,7 @@ jobs:
       - name: Configure OCaml and Opam
         uses: ocaml/setup-ocaml@v3
         with:
-          opam-local-packages: ocamleditor.opam
+          opam-local-packages: "ocamleditor: ocamleditor.opam"
 
       - name: Install dependencies
         run: opam install . --deps-only
