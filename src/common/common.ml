@@ -32,6 +32,8 @@ open Manual_reset_event
 open Async
 open Deque
 
+this is an error
+
 module Log = Log.Make(struct
     let channel = stdout
     let verbosity = `DEBUG
