@@ -35,8 +35,7 @@ type t = {
   mutable author             : string;
   mutable description        : string;
   mutable version            : string;
-  mutable files              : (Editor_file.file * (int * int)) list; (* Currently open files in the editor (non-persistent) (filename, scrollTopOffset, cursorOffset) *)
-  mutable open_files         : (string * int * int * bool) list; (* filename, scroll top offset, current offset, active *)
+  mutable editor_view_state  : (string * int * int * bool) list; (* filename, scroll top offset, current offset, active *)
   mutable targets            : Target.t list;
   mutable executables        : Rconf.t list;
   mutable autocomp_enabled   : bool;

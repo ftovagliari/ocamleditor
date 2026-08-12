@@ -228,12 +228,12 @@ class browser window =
           let filename = List.fold_left (//) "" (filename_split filename) in
           incr i;
           active_exists := !active_exists || active;
-          let active = active || (List.length proj.open_files = !i && not !active_exists) in
+          let active = active || (List.length proj.editor_view_state = !i && not !active_exists) in
           editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
-        end proj.open_files
+        end proj.editor_view_state
       in
       editor#set_history_switch_page_locked false;
-      proj.open_files <- [];
+      proj.editor_view_state <- [];
       proj.modified <- false;
       self#update_git_status();
       proj
@@ -737,37 +737,30 @@ class browser window =
       menu <- Some menu_items;
       List.iter menubar#append menu_items.menu_items;
       (* Update Window menu with files added to the editor *)
-      ignore (editor#connect#add_page ~callback:begin fun page ->
-          begin
-            if outline_visible#get then page#show_outline();
-            match page#file with None -> () | Some file ->
-              let offset = page#initial_offset in
-              let scroll_offset = page#view#get_scroll_top () in
-              self#with_current_project (fun project -> Project.File.add project ~scroll_offset ~offset file);
-          end;
-          Gaux.may menu ~f:begin fun menu ->
-            menu.window_signal_locked <- true;
-            let basename = Filename.basename page#get_filename in
-            let label = sprintf "%s%s" basename (if page#buffer#modified then "*" else "") in
-            let group = menu.window_radio_group in
-            let item = GMenu.radio_menu_item ?group ~active:true
-                ~label ~packing:(menu.window#insert ~pos:menu.window_n_childs) ()
-            in
-            menu.window_n_childs <- menu.window_n_childs + 1;
-            let _ = item#connect#toggled ~callback:begin fun () ->
-                if not menu.window_signal_locked then begin
-                  ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None page#get_filename)
-                end
-              end in
-            menu.window_pages <- (page#misc#get_oid, item) :: menu.window_pages;
-            menu.window_signal_locked <- false;
-            menu.window_radio_group <- Some item#group;
-          end;
-        end);
+      editor#connect#add_page ~callback:begin fun page ->
+        if outline_visible#get then page#show_outline();
+        Gaux.may menu ~f:begin fun menu ->
+          menu.window_signal_locked <- true;
+          let basename = Filename.basename page#get_filename in
+          let label = sprintf "%s%s" basename (if page#buffer#modified then "*" else "") in
+          let group = menu.window_radio_group in
+          let item = GMenu.radio_menu_item ?group ~active:true
+              ~label ~packing:(menu.window#insert ~pos:menu.window_n_childs) ()
+          in
+          menu.window_n_childs <- menu.window_n_childs + 1;
+          let _ = item#connect#toggled ~callback:begin fun () ->
+              if not menu.window_signal_locked then begin
+                ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None page#get_filename)
+              end
+            end in
+          menu.window_pages <- (page#misc#get_oid, item) :: menu.window_pages;
+          menu.window_signal_locked <- false;
+          menu.window_radio_group <- Some item#group;
+        end;
+      end |> ignore;
       (* Update Window menu with files removed from the editor *)
       ignore (editor#connect#remove_page ~callback:begin fun page ->
           self#with_current_project begin fun project ->
-            Project.File.remove project page#get_filename;
             self#set_title ();
             Gaux.may menu ~f:begin fun menu ->
               try

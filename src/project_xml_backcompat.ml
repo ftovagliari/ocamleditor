@@ -149,9 +149,9 @@ let read filename =
         proj.autocomp_enabled <- (attrib node "enabled" bool_of_string true);
         proj.autocomp_delay <- (float_of_string (Xml.attrib node "delay"));
         proj.autocomp_cflags <- (Xml.attrib node "cflags");
-    | "open_files" | "load_files" -> (* backward compatibility with 1.7.2 *)
+    | "editor_view_state" | "load_files" -> (* backward compatibility with 1.7.2 *)
         let files = Xml.fold (fun acc x -> ((value x), 0, (get_offset x), (get_active x)) :: acc) [] node in
-        proj.open_files <- List.rev files;
+        proj.editor_view_state <- List.rev files;
     | "executables" | "runtime" (* Backward compatibility with 1.7.5 *) ->
         let runtime = Xml.fold begin fun acc tnode ->
             let config  = {
@@ -354,9 +354,9 @@ let from_local_xml proj =
     let get_active xml = try bool_of_string (Xml.attrib xml "active") with Xml.No_attribute _ -> false in
     Xml.iter begin fun node ->
       match Xml.tag node with
-      | "open_files" ->
+      | "editor_view_state" ->
           let files = Xml.fold (fun acc x -> ((value x), (get_int "scroll" x), (get_cursor x), (get_active x)) :: acc) [] node in
-          proj.open_files <- List.rev files;
+          proj.editor_view_state <- List.rev files;
       | "bookmarks" ->
           Xml.iter begin fun xml ->
             let bm = {

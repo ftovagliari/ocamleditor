@@ -109,8 +109,7 @@ let create ~filename () =
     author             = "";
     description        = "";
     version            = "1.0.0";
-    files              = [];
-    open_files         = [];
+    editor_view_state  = [];
     targets            = [];
     executables        = [];
     autocomp_enabled   = true;
@@ -298,11 +297,11 @@ let load filename =
   (*  *)
   if not (Sys.file_exists (proj.root // default_dir_tmp)) then (Unix.mkdir (proj.root // default_dir_tmp) 0o777);
   (*  *)
-  proj.open_files <-
+  proj.editor_view_state <-
     List.map begin fun (filename, scroll_offset, offset, active) ->
       (if Filename.is_implicit filename then proj.root // default_dir_src // filename else filename),
       scroll_offset, offset, active
-    end proj.open_files;
+    end proj.editor_view_state;
   (*  *)
   proj.search_path <- get_search_path proj;
   (* Delete obsolete bookmarks *)
@@ -327,36 +326,41 @@ let project_local_of_proj proj =
       (bm.Oe.bm_filename, bm.Oe.bm_num, offset)
     end proj.bookmarks
   in
-  { Project_t.open_files = proj.open_files; bookmarks }
+  { Project_t.editor_view_state = proj.editor_view_state; bookmarks }
 
 let save_local_status ?editor proj =
-  let active_filename =
+  let editor_view_state =
     match editor with
-    | None -> ""
+    | None -> []
     | Some editor ->
-        proj.files <- List.map begin fun (file, (_scroll_offset, _offset)) ->
-            file,
-            match editor#get_page (`FILENAME file#filename) with
-            | None -> 0, 0
-            | Some page ->
-                let scroll_top = page#view#get_scroll_top () in
-                if page#load_complete then scroll_top, (page#buffer#get_iter `INSERT)#offset
-                else page#scroll_offset, page#initial_offset
-          end proj.files;
-        let active_filename =
-          match editor#get_page `ACTIVE with None -> "" | Some page -> page#get_filename
-        in active_filename
+        let active_page = editor#get_page `ACTIVE in
+        editor#pages
+        |> List.filter_map (fun page -> match page#file with Some file -> Some (page, file) | _ -> None)
+        |> List.map begin fun (page, file) ->
+          let scroll_top = page#view#get_scroll_top () in
+          let is_active =
+            active_page <> None &&
+            page#get_filename = (Option.get active_page)#get_filename in
+          if page#load_complete then
+            file, scroll_top, (page#buffer#get_iter `INSERT)#offset, is_active
+          else
+            file, page#scroll_offset, page#initial_offset, is_active
+        end
+        |> List.map begin fun (file, scroll_offset, offset, is_active) ->
+          begin
+            (* Normalizes the file path based on project membership.
+               - If inside the project: returns the absolute source path.
+               - If outside: cleans and keeps implicit/relative paths in Unix format,
+                 or leaves absolute paths unchanged. *)
+            match proj.in_source_path file#filename with
+            | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
+            | None -> file#filename
+            | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
+            | Some rel -> rel
+          end, scroll_offset, offset, is_active
+        end;
   in
-  proj.open_files <- List.rev_map begin fun (file, (scroll_offset, offset)) ->
-      let is_active = active_filename = file#filename in
-      begin
-        match proj.in_source_path file#filename with
-        | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
-        | None -> file#filename
-        | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
-        | Some rel -> rel
-      end, scroll_offset, offset, is_active
-    end proj.files;
+  proj.editor_view_state <- editor_view_state;
   let filename = Path.fullname_local proj in
   let old_filename = Path.fullname_local_old proj in
   if Sys.file_exists old_filename then Sys.remove old_filename;
@@ -404,16 +408,6 @@ module File = struct
     if not is_writeable then (raise (Cannot_rename "Cannot rename: project file is read-only."))
     else if not file#is_writeable then (raise (Cannot_rename "Cannot rename: file is read-only."))
     else (file#rename new_name)
-
-  (** Adds filename to the open file list. *)
-  let add proj ~scroll_offset ~offset file =
-    if not (List.mem_assoc file proj.files) then begin
-      proj.files <- (file, (scroll_offset, offset)) :: proj.files;
-    end
-
-  (** Removes filename from the open file list. *)
-  let remove proj filename =
-    proj.files <- List.filter (fun (f, _) -> f#filename <> filename) proj.files
 
 end
 
