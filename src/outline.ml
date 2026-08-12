@@ -122,8 +122,7 @@ class model ~(buffer : Ocaml_text.buffer) () =
     method private start_timer () =
       match timer_id with
       | None ->
-          self#update() |> ignore;
-          timer_id <- Some (GMain.Timeout.add ~ms:300 ~callback:(fun () -> self#update(); true));
+          timer_id <- Some (GMain.Timeout.add ~ms:200 ~callback:(fun () -> self#update(); true));
       | _ -> ()
 
     (** Stops the refresh timer and resets timestamps. *)
@@ -313,14 +312,14 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             Option.iter tool_sort_kind#misc#handler_block !sig_sort_kind;
             tool_sort_kind#set_active false;
             Option.iter tool_sort_kind#misc#handler_unblock !sig_sort_kind;
-            outline#update ~force:true ()
+            self#refresh ()
           end);
       sig_sort_kind :=
         Some (tool_sort_kind#connect#clicked ~callback:begin fun () ->
             Option.iter tool_sort_name#misc#handler_block !sig_sort_name;
             tool_sort_name#set_active false;
             Option.iter tool_sort_name#misc#handler_unblock !sig_sort_name;
-            outline#update ~force:true ()
+            self#refresh ()
           end);
 
       tool_show_nested_defs#connect#clicked ~callback:begin fun () ->
@@ -330,7 +329,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
           Preferences.save ();
         end
         |> Async.start;
-        outline#update ~force:true ()
+        self#refresh ()
       end |> ignore;
 
       (*Collapse all with smart re-activation of cursor following *)
@@ -350,7 +349,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
         view#collapse_all()
       end |> ignore;
 
-      tool_refresh#connect#clicked ~callback:(fun () -> outline#update ~force:true ()) |> ignore;
+      tool_refresh#connect#clicked ~callback:self#refresh |> ignore;
 
       (* Cleanup on destroy *)
       view#misc#connect#destroy ~callback:begin fun _ ->
