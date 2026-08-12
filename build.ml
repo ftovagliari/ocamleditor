@@ -593,10 +593,13 @@ let launcher_filename = ocamleditor_user_home // "launcher.list"
 
 let get_application_dir name =
   let exe_dir = !! Sys.executable_name in
-  let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
-  let path = prefix // name in
+  let path = exe_dir // name in
   if Sys.file_exists path && Sys.is_directory path then path
-  else prefix // "share" // "ocamleditor" // name
+  else
+    let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
+    let path = prefix // name in
+    if Sys.file_exists path && Sys.is_directory path then path
+    else prefix // "share" // "ocamleditor" // name
 
 let application_icons = get_application_dir "icons"
 
@@ -856,6 +859,12 @@ type t = {
   mutable et_dir                   : string; (* Working directory: relative to the project source directory (actually: Sys.getcwd()) *)
   mutable et_cmd                   : string;
   mutable et_args                  : (bool * string) list;
+  (* Files produced by this task, relative to the project source directory.
+     A task that declares outputs can be expressed as a build rule; one that
+     does not can only be run on demand. *)
+  mutable et_outputs               : (bool * string) list;
+  (* Files this task reads, relative to the project source directory. *)
+  mutable et_deps                  : (bool * string) list;
   mutable et_phase                 : phase option;
   mutable et_always_run_in_project : bool;
   mutable et_always_run_in_script  : bool;
@@ -888,7 +897,8 @@ let phase_of_string = function
   | "After_compile" -> After_compile
   | _ -> failwith "phase_of_string"
 
-let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?phase ?(run_in_project=false) ?(run_in_script=true)
+let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?(outputs=[]) ?(deps=[])
+    ?phase ?(run_in_project=false) ?(run_in_script=true)
     ?(readonly=false) ?(visible=true) () = {
   et_name                  = name;
   et_env                   = env;
@@ -896,12 +906,17 @@ let create ~name ~env ?(env_replace=false) ~dir ~cmd ~args ?phase ?(run_in_proje
   et_dir                   = dir;
   et_cmd                   = cmd;
   et_args                  = args;
+  et_outputs               = outputs;
+  et_deps                  = deps;
   et_phase                 = phase;
   et_always_run_in_project = run_in_project;
   et_always_run_in_script  = run_in_script;
   et_readonly              = readonly;
   et_visible               = visible;
 }
+
+(** The values of an (enabled, value) list whose flag is set. *)
+let enabled entries = List.filter_map (fun (e, v) -> if e then Some v else None) entries
 
 module LogBuilder = Log.Make(struct
     let channel = stderr
@@ -3026,18 +3041,8 @@ open Arg
 open Task
 open Printf
 
-let arg_0_prefix = ref None
-let arg_1_prefix = ref None
 
 let cmd_line_args = [
-  `Uninstall, [
-    "-prefix", String (fun x -> arg_1_prefix := Some x),
-      (" Uninstallation prefix [default: see \"ocaml tools/uninstall.ml -help\"]");
-  ];
-  `Install, [
-    "-prefix", String (fun x -> arg_0_prefix := Some x),
-      (" Installation prefix [default: see \"ocaml tools/install.ml -help\"]");
-  ];
 ]
 
 let external_tasks = [
@@ -3049,6 +3054,8 @@ let external_tasks = [
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/mkicons.ml"];
+    et_outputs               = [true,"icons/icons.ml"];
+    et_deps                  = [true,"../tools/mkicons.ml"; true,"../tools/scripting.ml"; true,"common/shell.ml"; true,"common/utils.ml"; true,"icons/light"; true,"icons/dark"; true,"icons/svg"];
     et_phase                 = Some Before_compile;
     et_always_run_in_project = true;
     et_always_run_in_script  = true;
@@ -3057,12 +3064,14 @@ let external_tasks = [
   });
   
   1, (fun command -> {
-    et_name                  = "prepare-build";
+    et_name                  = "err_lexer.ml";
     et_env                   = [];
     et_env_replace           = false;
-    et_dir                   = "..";
-    et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/prepare_build.ml"];
+    et_dir                   = ".";
+    et_cmd                   = "ocamllex";
+    et_args                  = [true,"err_lexer.mll"];
+    et_outputs               = [true,"err_lexer.ml"];
+    et_deps                  = [true,"err_lexer.mll"];
     et_phase                 = Some Compile;
     et_always_run_in_project = true;
     et_always_run_in_script  = true;
@@ -3071,100 +3080,270 @@ let external_tasks = [
   });
   
   2, (fun command -> {
+    et_name                  = "err_parser.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "ocamlyacc";
+    et_args                  = [true,"err_parser.mly"];
+    et_outputs               = [true,"err_parser.ml"; true,"err_parser.mli"];
+    et_deps                  = [true,"err_parser.mly"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  3, (fun command -> {
+    et_name                  = "settings_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"settings.atd"];
+    et_outputs               = [true,"settings_t.ml"; true,"settings_t.mli"];
+    et_deps                  = [true,"settings.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  4, (fun command -> {
+    et_name                  = "settings_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"settings.atd"];
+    et_outputs               = [true,"settings_j.ml"; true,"settings_j.mli"];
+    et_deps                  = [true,"settings.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  5, (fun command -> {
+    et_name                  = "merlin_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"merlin.atd"];
+    et_outputs               = [true,"merlin_t.ml"; true,"merlin_t.mli"];
+    et_deps                  = [true,"merlin.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  6, (fun command -> {
+    et_name                  = "merlin_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"merlin.atd"];
+    et_outputs               = [true,"merlin_j.ml"; true,"merlin_j.mli"];
+    et_deps                  = [true,"merlin.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  7, (fun command -> {
+    et_name                  = "find_text_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"find_text.atd"];
+    et_outputs               = [true,"find_text_t.ml"; true,"find_text_t.mli"];
+    et_deps                  = [true,"find_text.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  8, (fun command -> {
+    et_name                  = "find_text_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"find_text.atd"];
+    et_outputs               = [true,"find_text_j.ml"; true,"find_text_j.mli"];
+    et_deps                  = [true,"find_text.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  9, (fun command -> {
+    et_name                  = "project_t.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-t"; true,"project.atd"];
+    et_outputs               = [true,"project_t.ml"; true,"project_t.mli"];
+    et_deps                  = [true,"project.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  10, (fun command -> {
+    et_name                  = "project_j.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "atdgen";
+    et_args                  = [true,"-j"; true,"project.atd"];
+    et_outputs               = [true,"project_j.ml"; true,"project_j.mli"];
+    et_deps                  = [true,"project.atd"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  11, (fun command -> {
+    et_name                  = "oebuild_script.ml";
+    et_env                   = [];
+    et_env_replace           = false;
+    et_dir                   = ".";
+    et_cmd                   = "ocaml";
+    et_args                  = [true,"-I"; true,"+unix"; true,"-I"; true,"+str"; true,"str.cma"; true,"unix.cma"; true,"generate_oebuild_script.ml"];
+    et_outputs               = [true,"oebuild_script.ml"];
+    et_deps                  = [true,"generate_oebuild_script.ml"; true,"../header"; true,"common/utils.ml"; true,"common/file_util.ml"; true,"common/argc.ml"; true,"common/log.ml"; true,"common/shell.ml"; true,"common/ocaml_config.ml"; true,"common/app_config.ml"; true,"common/spawn.ml"; true,"task.ml"; true,"build_script_command.ml"; true,"oebuild/oebuild_util.ml"; true,"oebuild/oebuild_table.ml"; true,"oebuild/oebuild_dag.ml"; true,"oebuild/oebuild_dep.ml"; true,"oebuild/oebuild_dep_dag.ml"; true,"oebuild/oebuild_parallel.ml"; true,"oebuild/oebuild.ml"; true,"build_script_util.ml"];
+    et_phase                 = Some Compile;
+    et_always_run_in_project = true;
+    et_always_run_in_script  = true;
+    et_readonly              = false;
+    et_visible               = true;
+  });
+  
+  12, (fun command -> {
     et_name                  = "mkrelease";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/mkrelease.ml"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  3, (fun command -> {
+  13, (fun command -> {
     et_name                  = "mkversion";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "../tools";
     et_cmd                   = "ocaml";
     et_args                  = [true,"mkversion.ml"; true,"2.0.0-ocaml530"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  4, (fun command -> {
+  14, (fun command -> {
     et_name                  = "generate_oebuild_script";
     et_env                   = [];
     et_env_replace           = false;
-    et_dir                   = "..";
+    et_dir                   = ".";
     et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/prepare_build.ml"; true,"-generate-oebuild-script"];
+    et_args                  = [true,"-I"; true,"+unix"; true,"-I"; true,"+str"; true,"str.cma"; true,"unix.cma"; true,"generate_oebuild_script.ml"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  5, (fun command -> {
+  15, (fun command -> {
     et_name                  = "Install OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/install.ml"; 
-                                command = `Install, (match !arg_0_prefix with Some _ -> "-prefix" | _ -> ""); 
-                                command = `Install, (match !arg_0_prefix with Some x -> sprintf "%s" x | _ -> "")];
+    et_args                  = [true,"tools/install.ml"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  6, (fun command -> {
+  16, (fun command -> {
     et_name                  = "Uninstall OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/uninstall.ml"; 
-                                command = `Uninstall, (match !arg_1_prefix with Some _ -> "-prefix" | _ -> ""); 
-                                command = `Uninstall, (match !arg_1_prefix with Some x -> sprintf "%s" x | _ -> "")];
+    et_args                  = [true,"tools/uninstall.ml"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  7, (fun command -> {
+  17, (fun command -> {
     et_name                  = "distclean";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/distclean.ml"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = Some Before_clean;
     et_always_run_in_project = false;
-    et_always_run_in_script  = false;
+    et_always_run_in_script  = true;
     et_readonly              = false;
     et_visible               = true;
   });
   
-  8, (fun command -> {
+  18, (fun command -> {
     et_name                  = "install";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/findlib.ml"; true,"install"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = None;
     et_always_run_in_project = false;
     et_always_run_in_script  = false;
@@ -3172,13 +3351,15 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  9, (fun command -> {
+  19, (fun command -> {
     et_name                  = "uninstall";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/findlib.ml"; true,"uninstall"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = None;
     et_always_run_in_project = false;
     et_always_run_in_script  = false;
@@ -3186,13 +3367,15 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  10, (fun command -> {
+  20, (fun command -> {
     et_name                  = "reinstall";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/findlib.ml"; true,"reinstall"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = None;
     et_always_run_in_project = false;
     et_always_run_in_script  = false;
@@ -3200,13 +3383,15 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  11, (fun command -> {
+  21, (fun command -> {
     et_name                  = "print";
     et_env                   = [];
     et_env_replace           = false;
     et_dir                   = "..";
     et_cmd                   = "ocaml";
     et_args                  = [true,"tools/findlib.ml"; true,"print"];
+    et_outputs               = [];
+    et_deps                  = [];
     et_phase                 = None;
     et_always_run_in_project = false;
     et_always_run_in_script  = false;
@@ -3217,9 +3402,9 @@ let external_tasks = [
 
 
 let general_commands = [
-  `Distclean, (7, "distclean");
-  `Install, (5, "Install OCamlEditor");
-  `Uninstall, (6, "Uninstall OCamlEditor");
+  `Distclean, (17, "distclean");
+  `Install, (15, "Install OCamlEditor");
+  `Uninstall, (16, "Uninstall OCamlEditor");
 ]
 
 
@@ -3417,7 +3602,7 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor_lib.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify";
+    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
     required_libraries   = "";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3447,9 +3632,9 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify";
+    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
     search_path          = "gmisclib common icons otherwidgets oebuild"; (* -I *)
-    required_libraries   = "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
+    required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";
     linker_flags         = "-g";
     thread               = true;
@@ -3477,9 +3662,9 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = false;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify";
+    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
-    required_libraries   = "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
+    required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";
     linker_flags         = "-g";
     thread               = true;
@@ -3521,7 +3706,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [1];
+    external_tasks       = [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3581,7 +3766,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [2; 3; 4; 5; 6; 7];
+    external_tasks       = [12; 13; 14; 15; 16; 17];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3611,7 +3796,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [8; 9; 10; 11];
+    external_tasks       = [18; 19; 20; 21];
     restrictions         = [];
     dependencies         = [];
     show                 = false;

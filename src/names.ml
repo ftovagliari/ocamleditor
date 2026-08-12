@@ -32,7 +32,7 @@ let event_database_initialized = Manual_reset_event.create None
 let database : db option ref = ref None
 
 let get_project_source_filenames project =
-  File_util.readtree (Project.path_src project)
+  File_util.readtree (Project.Path.src project)
   |> List.map (fun dir ->
       File_util.ls ~dir ~pattern:"*.ml" |> List.map (Filename.concat dir))
   |> List.concat
@@ -194,7 +194,7 @@ let update_all ?(cont=ignore) project =
 module Cache = struct
 
   let create_filename ?(dump=false) project =
-    let cache_dir = Project.path_cache project in
+    let cache_dir = Project.Path.cache project in
     Utils.mkdir_p cache_dir;
     cache_dir // (sprintf "names%s" (if dump then ".dump" else ""));;
 

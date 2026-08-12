@@ -224,20 +224,19 @@ class browser window =
       let active_exists = ref false in
       let i = ref 0 in
       let _ =
-        List.map (begin fun (filename, scroll_offset, offset, active) ->
-            let filename = List.fold_left (//) "" (filename_split filename) in
-            incr i;
-            active_exists := !active_exists || active;
-            let active = active || (List.length proj.open_files = !i && not !active_exists) in
-            editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
-          end) proj.open_files
+        List.map begin fun (filename, scroll_offset, offset, active) ->
+          let filename = List.fold_left (//) "" (filename_split filename) in
+          incr i;
+          active_exists := !active_exists || active;
+          let active = active || (List.length proj.editor_view_state = !i && not !active_exists) in
+          editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
+        end proj.editor_view_state
       in
       editor#set_history_switch_page_locked false;
-      proj.open_files <- [];
+      proj.editor_view_state <- [];
       proj.modified <- false;
       self#update_git_status();
       proj
-
 
     method dialog_project_open () =
       let project_home =
@@ -257,18 +256,21 @@ class browser window =
       dialog#set_current_folder (Filename.dirname project_home) |> ignore;
       match dialog#run () with
       | `OK ->
-          List.iter begin fun filename ->
-            let filename, save = if filename ^^^ Prj.old_extension then (Filename.chop_extension filename) ^ Prj.default_extension, true else filename, false in
-            let proj = self#project_open filename in
-            Quick_file_chooser.add_roots ~roots:[Filename.dirname filename] ~filter:Dialog_find_file.filter;
-            if save then (Project.save ~editor proj);
-          end dialog#get_filenames;
+          begin
+            match dialog#get_filenames with
+            | [ filename ] ->
+                let is_save = filename ^^^ Prj.old_extension in
+                let proj = self#project_open filename in
+                Quick_file_chooser.add_roots ~roots:[Filename.dirname filename] ~filter:Dialog_find_file.filter;
+                if is_save then (Project.save ~editor proj);
+            | _ -> ()
+          end;
           dialog#destroy()
       | _ -> dialog#destroy()
 
     method dialog_project_properties ?page_num ?(show=true) () =
       self#with_current_project begin fun project ->
-        let id = Project.fullpath project in
+        let id = Project.Path.fullname project in
         let remove_from_cache () =
           cache_dialog_project_properties <- List.filter (fun (x, _) -> x <> id) cache_dialog_project_properties
         in
@@ -339,7 +341,8 @@ class browser window =
         Project_properties.create ~show:true ~editor ~new_project ~callback:begin fun proj ->
           self#project_close();
           Project.save ~editor new_project;
-          ignore (self#project_open (Project.fullpath proj));
+          let filename = Project.Path.fullname proj in
+          self#project_open filename |> ignore
         end ()
       in
       window#set_modal true;
@@ -387,7 +390,7 @@ class browser window =
         in
         with_project begin fun proj ->
           ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
-          label_project_name#misc#set_tooltip_text (Project.fullpath proj);
+          label_project_name#misc#set_tooltip_text (Project.Path.fullname proj);
         end;
         Git.toplevel begin function
         | Some toplevel ->
@@ -734,37 +737,30 @@ class browser window =
       menu <- Some menu_items;
       List.iter menubar#append menu_items.menu_items;
       (* Update Window menu with files added to the editor *)
-      ignore (editor#connect#add_page ~callback:begin fun page ->
-          begin
-            if outline_visible#get then page#show_outline();
-            match page#file with None -> () | Some file ->
-              let offset = page#initial_offset in
-              let scroll_offset = page#view#get_scroll_top () in
-              self#with_current_project (fun project -> Project.add_file project ~scroll_offset ~offset file);
-          end;
-          Gaux.may menu ~f:begin fun menu ->
-            menu.window_signal_locked <- true;
-            let basename = Filename.basename page#get_filename in
-            let label = sprintf "%s%s" basename (if page#buffer#modified then "*" else "") in
-            let group = menu.window_radio_group in
-            let item = GMenu.radio_menu_item ?group ~active:true
-                ~label ~packing:(menu.window#insert ~pos:menu.window_n_childs) ()
-            in
-            menu.window_n_childs <- menu.window_n_childs + 1;
-            let _ = item#connect#toggled ~callback:begin fun () ->
-                if not menu.window_signal_locked then begin
-                  ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None page#get_filename)
-                end
-              end in
-            menu.window_pages <- (page#misc#get_oid, item) :: menu.window_pages;
-            menu.window_signal_locked <- false;
-            menu.window_radio_group <- Some item#group;
-          end;
-        end);
+      editor#connect#add_page ~callback:begin fun page ->
+        if outline_visible#get then page#show_outline();
+        Gaux.may menu ~f:begin fun menu ->
+          menu.window_signal_locked <- true;
+          let basename = Filename.basename page#get_filename in
+          let label = sprintf "%s%s" basename (if page#buffer#modified then "*" else "") in
+          let group = menu.window_radio_group in
+          let item = GMenu.radio_menu_item ?group ~active:true
+              ~label ~packing:(menu.window#insert ~pos:menu.window_n_childs) ()
+          in
+          menu.window_n_childs <- menu.window_n_childs + 1;
+          let _ = item#connect#toggled ~callback:begin fun () ->
+              if not menu.window_signal_locked then begin
+                ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None page#get_filename)
+              end
+            end in
+          menu.window_pages <- (page#misc#get_oid, item) :: menu.window_pages;
+          menu.window_signal_locked <- false;
+          menu.window_radio_group <- Some item#group;
+        end;
+      end |> ignore;
       (* Update Window menu with files removed from the editor *)
       ignore (editor#connect#remove_page ~callback:begin fun page ->
           self#with_current_project begin fun project ->
-            Project.remove_file project page#get_filename;
             self#set_title ();
             Gaux.may menu ~f:begin fun menu ->
               try
@@ -799,7 +795,8 @@ class browser window =
               List.iter (fun (_, i) -> menu.project#remove (i :> GMenu.menu_item)) menu.project_history;
               menu.project_history <- []
             end;
-            let project_names = List.map (fun x -> x, Filename.chop_extension (Filename.basename x)) history.File_history.content in
+            let project_names =
+              List.map (fun x -> x, Project.Path.name x) history.File_history.content in
             let project_names = List.sort (fun (_, x1) (_, x2) ->
                 compare (String.lowercase_ascii x1) (String.lowercase_ascii x2)) project_names in
             List.iter begin fun (filename, label) ->

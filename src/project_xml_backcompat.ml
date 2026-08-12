@@ -52,6 +52,12 @@ let xml_bs_targets proj node =
       with Exit -> acc
     end [] node);;
 
+let set_runtime_build_task = fun (proj : Prj.t) rconf task_string ->
+  rconf.Rconf.build_task <- try
+      let target = List.find (fun b -> b.Target.id = rconf.Rconf.target_id) proj.targets in
+      Target.task_of_string target task_string
+    with Not_found -> `NONE
+
 (** xml_bs_args *)
 let xml_bs_args proj node =
   let open Prj in
@@ -143,9 +149,9 @@ let read filename =
         proj.autocomp_enabled <- (attrib node "enabled" bool_of_string true);
         proj.autocomp_delay <- (float_of_string (Xml.attrib node "delay"));
         proj.autocomp_cflags <- (Xml.attrib node "cflags");
-    | "open_files" | "load_files" -> (* backward compatibility with 1.7.2 *)
+    | "editor_view_state" | "load_files" -> (* backward compatibility with 1.7.2 *)
         let files = Xml.fold (fun acc x -> ((value x), 0, (get_offset x), (get_active x)) :: acc) [] node in
-        proj.open_files <- List.rev files;
+        proj.editor_view_state <- List.rev files;
     | "executables" | "runtime" (* Backward compatibility with 1.7.5 *) ->
         let runtime = Xml.fold begin fun acc tnode ->
             let config  = {
@@ -264,6 +270,14 @@ let read filename =
                             task.Task.et_args <-
                               List.rev (Xml.fold (fun acc arg ->
                                   (attrib arg "enabled" bool_of_string true, value arg) :: acc) [] tp);
+                        | "outputs" ->
+                            task.Task.et_outputs <-
+                              List.rev (Xml.fold (fun acc out ->
+                                  (attrib out "enabled" bool_of_string true, value out) :: acc) [] tp);
+                        | "deps" ->
+                            task.Task.et_deps <-
+                              List.rev (Xml.fold (fun acc dep ->
+                                  (attrib dep "enabled" bool_of_string true, value dep) :: acc) [] tp);
                         | "phase" -> task.Task.et_phase <-
                               (match value tp with "" -> None | x -> Some (Task.phase_of_string x))
                         | _ -> ()
@@ -326,8 +340,8 @@ let read filename =
 (** from_local_xml *)
 let from_local_xml proj =
   let open Prj in
-  let filename = Project.fullpath_local proj in
-  let filename = if Sys.file_exists filename then filename else Project.mk_old_filename_local proj in
+  let filename = Project.Path.fullname_local proj in
+  let filename = if Sys.file_exists filename then filename else Project.Path.fullname_local_old proj in
   if Sys.file_exists filename then begin
     let parser = XmlParser.make () in
     let xml = XmlParser.parse parser (XmlParser.SFile filename) in
@@ -340,9 +354,9 @@ let from_local_xml proj =
     let get_active xml = try bool_of_string (Xml.attrib xml "active") with Xml.No_attribute _ -> false in
     Xml.iter begin fun node ->
       match Xml.tag node with
-      | "open_files" ->
+      | "editor_view_state" ->
           let files = Xml.fold (fun acc x -> ((value x), (get_int "scroll" x), (get_cursor x), (get_active x)) :: acc) [] node in
-          proj.open_files <- List.rev files;
+          proj.editor_view_state <- List.rev files;
       | "bookmarks" ->
           Xml.iter begin fun xml ->
             let bm = {
@@ -351,7 +365,7 @@ let from_local_xml proj =
               bm_num      = (get_int "num" xml);
               bm_marker   = None;
             } in
-            Project.set_bookmark bm proj
+            Project.Bookmark.set proj bm
           end node;
 
       | _ -> ()

@@ -116,7 +116,7 @@ class ocaml_shell ?project () =
         end filters;
         dialog#add_select_button_stock `OK `OK;
         dialog#add_button_stock `CANCEL `CANCEL;
-        dialog#set_current_folder path;
+        dialog#set_current_folder path |> ignore;
         dialog#set_select_multiple true;
         match dialog#run () with
         | `OK ->
@@ -206,12 +206,12 @@ let append_page ?project (messages : Messages.messages) =
       end;
       true;
     in
-    sh#b_rename#connect#clicked ~callback:(fun () -> ignore (toggle ()));
+    sh#b_rename#connect#clicked ~callback:(fun () -> ignore (toggle ())) |> ignore;
     entry#event#connect#key_press ~callback:begin fun ev ->
       if GdkEvent.Key.keyval ev = GdkKeysyms._Return then (toggle())
       else false
-    end;
-    entry#event#connect#focus_out ~callback:(fun _ -> ignore (toggle()); false);
+    end |> ignore;
+    entry#event#connect#focus_out ~callback:(fun _ -> ignore (toggle()); false) |> ignore;
     ebox#event#connect#button_press ~callback:begin let time = ref 1l in fun ev ->
         let t = GdkEvent.Button.time ev in
         if !time = 0l then (time := t);
@@ -221,7 +221,7 @@ let append_page ?project (messages : Messages.messages) =
           if dif > 0l then (time := t) else (ignore (toggle()));
         end;
         false
-    end;
+    end |> ignore;
     hbox#coerce
   in
   sh#set_close_tab_func begin fun () ->
@@ -233,6 +233,6 @@ let append_page ?project (messages : Messages.messages) =
     end);
   messages#append_page ~label_widget sh#as_page;
   sh#present ();
-  sh#misc#connect#destroy ~callback:sh#quit;
+  sh#misc#connect#destroy ~callback:sh#quit |> ignore;
   sh#is_working#set false;
 ;;

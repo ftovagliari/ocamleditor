@@ -30,10 +30,21 @@
       "external_tasks": [
         {
           "name": "mkicons",
+          "always_run_in_project": true,
           "always_run_in_script": true,
           "dir": "..",
           "cmd": "ocaml",
           "args": [ [ true, "tools/mkicons.ml" ] ],
+          "outputs": [ [ true, "icons/icons.ml" ] ],
+          "deps": [
+            [ true, "../tools/mkicons.ml" ],
+            [ true, "../tools/scripting.ml" ],
+            [ true, "common/shell.ml" ],
+            [ true, "common/utils.ml" ],
+            [ true, "icons/light" ],
+            [ true, "icons/dark" ],
+            [ true, "icons/svg" ]
+          ],
           "phase": [ "Some", "Before_compile" ]
         }
       ],
@@ -99,7 +110,7 @@
       "byt": false,
       "opt": true,
       "files": "ocamleditor_lib.ml",
-      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify",
       "includes": "gmisclib common icons otherwidgets oebuild ",
       "thread": true,
       "inline": [ "Some", 50 ],
@@ -115,9 +126,9 @@
       "default": true,
       "byt": false,
       "opt": true,
-      "libs": "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
+      "libs": "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
       "files": "ocamleditor.ml",
-      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify",
       "includes": "gmisclib common icons otherwidgets oebuild",
       "thread": true,
       "inline": [ "Some", 50 ],
@@ -130,9 +141,9 @@
     },
     {
       "name": "ocamleditor-bytecode",
-      "libs": "ocamlcommon ocamldoc/odoc_info gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
+      "libs": "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
       "files": "ocamleditor.ml",
-      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc,ocamldoc,inotify",
+      "package": "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify",
       "includes": "gmisclib common icons otherwidgets oebuild ",
       "thread": true,
       "cflags": "-w -s-y-x-m -g",
@@ -147,11 +158,163 @@
       "target_type": "External",
       "external_tasks": [
         {
-          "name": "prepare-build",
+          "name": "err_lexer.ml",
+          "always_run_in_project": true,
           "always_run_in_script": true,
-          "dir": "..",
+          "dir": ".",
+          "cmd": "ocamllex",
+          "args": [ [ true, "err_lexer.mll" ] ],
+          "outputs": [ [ true, "err_lexer.ml" ] ],
+          "deps": [ [ true, "err_lexer.mll" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "err_parser.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "ocamlyacc",
+          "args": [ [ true, "err_parser.mly" ] ],
+          "outputs": [
+            [ true, "err_parser.ml" ], [ true, "err_parser.mli" ]
+          ],
+          "deps": [ [ true, "err_parser.mly" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "settings_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "settings.atd" ] ],
+          "outputs": [
+            [ true, "settings_t.ml" ], [ true, "settings_t.mli" ]
+          ],
+          "deps": [ [ true, "settings.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "settings_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "settings.atd" ] ],
+          "outputs": [
+            [ true, "settings_j.ml" ], [ true, "settings_j.mli" ]
+          ],
+          "deps": [ [ true, "settings.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "merlin_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "merlin.atd" ] ],
+          "outputs": [ [ true, "merlin_t.ml" ], [ true, "merlin_t.mli" ] ],
+          "deps": [ [ true, "merlin.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "merlin_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "merlin.atd" ] ],
+          "outputs": [ [ true, "merlin_j.ml" ], [ true, "merlin_j.mli" ] ],
+          "deps": [ [ true, "merlin.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "find_text_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "find_text.atd" ] ],
+          "outputs": [
+            [ true, "find_text_t.ml" ], [ true, "find_text_t.mli" ]
+          ],
+          "deps": [ [ true, "find_text.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "find_text_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "find_text.atd" ] ],
+          "outputs": [
+            [ true, "find_text_j.ml" ], [ true, "find_text_j.mli" ]
+          ],
+          "deps": [ [ true, "find_text.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "project_t.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-t" ], [ true, "project.atd" ] ],
+          "outputs": [ [ true, "project_t.ml" ], [ true, "project_t.mli" ] ],
+          "deps": [ [ true, "project.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "project_j.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
+          "cmd": "atdgen",
+          "args": [ [ true, "-j" ], [ true, "project.atd" ] ],
+          "outputs": [ [ true, "project_j.ml" ], [ true, "project_j.mli" ] ],
+          "deps": [ [ true, "project.atd" ] ],
+          "phase": [ "Some", "Compile" ]
+        },
+        {
+          "name": "oebuild_script.ml",
+          "always_run_in_project": true,
+          "always_run_in_script": true,
+          "dir": ".",
           "cmd": "ocaml",
-          "args": [ [ true, "tools/prepare_build.ml" ] ],
+          "args": [
+            [ true, "-I" ],
+            [ true, "+unix" ],
+            [ true, "-I" ],
+            [ true, "+str" ],
+            [ true, "str.cma" ],
+            [ true, "unix.cma" ],
+            [ true, "generate_oebuild_script.ml" ]
+          ],
+          "outputs": [ [ true, "oebuild_script.ml" ] ],
+          "deps": [
+            [ true, "generate_oebuild_script.ml" ],
+            [ true, "../header" ],
+            [ true, "common/utils.ml" ],
+            [ true, "common/file_util.ml" ],
+            [ true, "common/argc.ml" ],
+            [ true, "common/log.ml" ],
+            [ true, "common/shell.ml" ],
+            [ true, "common/ocaml_config.ml" ],
+            [ true, "common/app_config.ml" ],
+            [ true, "common/spawn.ml" ],
+            [ true, "task.ml" ],
+            [ true, "build_script_command.ml" ],
+            [ true, "oebuild/oebuild_util.ml" ],
+            [ true, "oebuild/oebuild_table.ml" ],
+            [ true, "oebuild/oebuild_dag.ml" ],
+            [ true, "oebuild/oebuild_dep.ml" ],
+            [ true, "oebuild/oebuild_dep_dag.ml" ],
+            [ true, "oebuild/oebuild_parallel.ml" ],
+            [ true, "oebuild/oebuild.ml" ],
+            [ true, "build_script_util.ml" ]
+          ],
           "phase": [ "Some", "Compile" ]
         }
       ],
@@ -197,11 +360,16 @@
         {
           "name": "generate_oebuild_script",
           "always_run_in_script": true,
-          "dir": "..",
+          "dir": ".",
           "cmd": "ocaml",
           "args": [
-            [ true, "tools/prepare_build.ml" ],
-            [ true, "-generate-oebuild-script" ]
+            [ true, "-I" ],
+            [ true, "+unix" ],
+            [ true, "-I" ],
+            [ true, "+str" ],
+            [ true, "str.cma" ],
+            [ true, "unix.cma" ],
+            [ true, "generate_oebuild_script.ml" ]
           ],
           "phase": [ "Some", "Before_clean" ]
         },
@@ -303,6 +471,25 @@
       { "target_id": 28 },
       { "target_id": 13, "show": false },
       { "target_id": 27, "show": false }
+    ],
+    "commands": [
+      {
+        "name": "Distclean",
+        "descr": "distclean",
+        "target_id": 13,
+        "task_name": "distclean"
+      },
+      {
+        "descr": "Install OCamlEditor",
+        "target_id": 13,
+        "task_name": "Install OCamlEditor"
+      },
+      {
+        "name": "Uninstall",
+        "descr": "Uninstall OCamlEditor",
+        "target_id": 13,
+        "task_name": "Uninstall OCamlEditor"
+      }
     ]
   }
 }

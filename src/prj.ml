@@ -35,8 +35,7 @@ type t = {
   mutable author             : string;
   mutable description        : string;
   mutable version            : string;
-  mutable files              : (Editor_file.file * (int * int)) list; (* Currently open files in the editor (non-persistent) (filename, scrollTopOffset, cursorOffset) *)
-  mutable open_files         : (string * int * int * bool) list; (* filename, scroll top offset, current offset, active *)
+  mutable editor_view_state  : (string * int * int * bool) list; (* filename, scroll top offset, current offset, active *)
   mutable targets            : Target.t list;
   mutable executables        : Rconf.t list;
   mutable autocomp_enabled   : bool;
@@ -48,18 +47,19 @@ type t = {
   mutable in_source_path     : string -> string option;
   mutable source_paths       : string list;
   mutable can_compile_native : bool;
-  mutable symbols            : Oe.symbol_cache;
   mutable build_script       : Build_script.t;
   mutable bookmarks          : Oe.bookmark list;
   mutable file_watcher       : Inotify.watch option;
 }
 
-let default_extension = ".project"
+let default_extension = ".project.json"
+let default_local_extension = ".local.json"
+let old_extension = ".project"
+let old_local_extension = ".project.local"
 let default_dir_src = "src"
 let default_dir_bak = "bak"
 let default_dir_tmp = ".tmp"
 let default_dir_tools = "tools"
-let old_extension = ".xml"
 
 let find_target proj id =
   List.find_opt (fun bc -> bc.Target.id = id) proj.targets;;

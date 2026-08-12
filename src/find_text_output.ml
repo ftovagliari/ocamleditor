@@ -229,9 +229,9 @@ class widget
       sigids <- [];
       List.iter (fun f -> try f () with GText.No_such_mark _ -> ()) delete_marks;
       delete_marks <- [];
-      GtkThread2.sync model#clear ();
-      GtkThread2.sync tbuf#set_text "";
-      GtkThread2.sync label_message#set_text "";
+      GtkThread.sync model#clear ();
+      GtkThread.sync tbuf#set_text "";
+      GtkThread.sync label_message#set_text "";
       current_line_selected <- None;
 
     method new_search () = dialog#present();
@@ -293,7 +293,7 @@ class widget
       if String.length self#options.text_find#get > 0 then begin
         self#clear();
         find_all <- all;
-        GtkThread2.sync begin fun () ->
+        GtkThread.sync begin fun () ->
           button_stop#misc#set_sensitive true;
           button_restart#misc#set_sensitive false;
           button_prev_file#misc#set_sensitive false;
@@ -308,14 +308,14 @@ class widget
         begin
           try
             if all <> (Some false) then begin
-              GtkThread2.sync search_started#call ();
+              GtkThread.sync search_started#call ();
               begin
                 match buffer with
                 | None ->
                     (* Search  *)
                     self#find_in_path (*begin
                                         match *)self#options.path(* with
-                                                                    | Project_source -> Project.path_src project
+                                                                    | Project_source -> Project.Path.src project
                                                                     | Specified path -> path
                                                                     | Only_open_files -> assert false
                                                                     end*)
@@ -323,22 +323,22 @@ class widget
                     (* Search  *)
                     self#find_in_buffer buffer;
               end;
-              GtkThread2.sync begin fun () ->
+              GtkThread.sync begin fun () ->
                 button_stop#misc#set_sensitive false;
                 label_message#set_text "Please wait...";
               end ();
-              if all <> (Some false) then (GtkThread2.sync self#display ());
-              GtkThread2.sync search_finished#call ();
+              if all <> (Some false) then (GtkThread.sync self#display ());
+              GtkThread.sync search_finished#call ();
             end else begin
               let view = match editor#get_page `ACTIVE with Some p -> (p#view :> Text.view) | _ -> assert false in
               (* Search  *)
-              GtkThread2.sync begin fun () ->
+              GtkThread.sync begin fun () ->
                 Find_text_in_buffer.find self#options.direction ~view ~canceled:(fun () -> self#canceled)
               end ();
             end;
-          with Canceled -> (GtkThread2.sync self#display ())
+          with Canceled -> (GtkThread.sync self#display ())
         end;
-        GtkThread2.sync begin fun () ->
+        GtkThread.sync begin fun () ->
           button_stop#misc#set_sensitive false;
           button_restart#misc#set_sensitive true;
           button_prev_file#misc#set_sensitive (hits > 0 && buffer = None);
@@ -434,7 +434,7 @@ class widget
           self#find_in_path'
             ~recursive:self#options.recursive
             ?pattern:(Gaux.may_map self#options.pattern ~f:File_util.Regexp.unix_regexp)
-            [Project.path_src project]
+            [Project.Path.src project]
       | Specified spec_path ->
           self#find_in_path'
             ~recursive:self#options.recursive

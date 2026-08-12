@@ -231,14 +231,14 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
       src_entry#set_text (project.root // Prj.default_dir_src);
       bak_entry#set_text (project.root // Prj.default_dir_bak);
       doc_entry#set_text "";
-      GtkThread2.async ocaml_home#reset ();
+      GtkThread.async ocaml_home#reset ();
       check_autocomp_enabled#set_active project.autocomp_enabled;
       range_box#misc#set_sensitive (check_autocomp_enabled#active);
       entry_autocomp_cflags#misc#set_sensitive (check_autocomp_enabled#active);
       range_autocomp_delay#adjustment#set_value (project.autocomp_delay *. 1000.);
       entry_autocomp_cflags#set_text project.autocomp_cflags;
-      GtkThread2.async target_list#reset ();
-      GtkThread2.async rconf_list#reset ();
+      GtkThread.async target_list#reset ();
+      GtkThread.async rconf_list#reset ();
 
     method save () =
       try

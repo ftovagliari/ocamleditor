@@ -31,7 +31,6 @@ src/stdlib_pp/stdlib_pp.opt
 src/stdlib_pp/stdlib_pp.ml
 src/ocamleditor
 src/ocamleditor.opt
-src/gtkThread2.ml
 src/oebuild_script.ml
 _oasis
 setup.data
@@ -56,3 +55,4 @@ src/icons/icons.ml
 # Ignore generated ATD files for project
 src/project_j.*
 src/project_t.*
+ocamleditor.local.json

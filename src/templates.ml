@@ -218,8 +218,12 @@ let spec : spec list ref =
     ];
 
     "errback", "Print backtrace on standard error", [
-      T "Printf.eprintf \"File \\\""; CURRENT_FILENAME; T"\\\": %s\\n%s\\n%!\" (Printexc.to_string "; I;
+      T "Printf.eprintf \"%s\\n%s\\n%s\\n%!\" __LOC__ (Printexc.to_string "; I;
       SELECTION_OPT "ex"; S; T ") (Printexc.get_backtrace());"
+    ];
+
+    "callstack", "Print callstack on standard error", [
+      T "Printf.eprintf \"%s\\n%!\" (Printexc.raw_backtrace_to_string (Printexc.get_callstack "; I; T"5"; S; T"));"
     ];
 
     "errassert", "if not (<selection>) then begin eprintf ...; assert false end;", [

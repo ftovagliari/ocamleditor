@@ -32,7 +32,9 @@ let mkrelease () =
   if is_win32 then begin
     pushd "..";
     kprintf run "ocaml build.ml -verbose 0 build oebuild oeproc";
-    kprintf run "ocaml tools/prepare_build.ml -generate-oebuild-script %s" redirect_stdout;
+    pushd "src";
+    kprintf run "ocaml -I +unix -I +str str.cma unix.cma generate_oebuild_script.ml %s" redirect_stdout;
+    popd();
     kprintf run "ocaml build.ml distclean %s" redirect_stdout;
     let name = Filename.basename (Sys.getcwd ()) in
     let version = match get_lines_from_file ~filename:"VERSION" [1] with (_, x) :: [] -> x | _ -> assert false in

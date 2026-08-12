@@ -1,0 +1,17 @@
+(rule
+  (alias default)
+  (deps
+    FiraCodeNerdFont-Regular.ttf
+    FiraCodeNerdFontMono-Regular.ttf
+    FiraCodeNerdFontPropo-Regular.ttf
+    FiraCodeOCamlEditor.ttf)
+  (action (progn)))
+
+(install
+  (section share)
+  (package ocamleditor)
+  (files
+    (FiraCodeNerdFont-Regular.ttf as ocamleditor/fonts/FiraCodeNerdFont-Regular.ttf)
+    (FiraCodeNerdFontMono-Regular.ttf as ocamleditor/fonts/FiraCodeNerdFontMono-Regular.ttf)
+    (FiraCodeNerdFontPropo-Regular.ttf as ocamleditor/fonts/FiraCodeNerdFontPropo-Regular.ttf)
+    (FiraCodeOCamlEditor.ttf as ocamleditor/fonts/FiraCodeOCamlEditor.ttf)))

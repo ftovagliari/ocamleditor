@@ -222,13 +222,13 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
 
     initializer
       toolbar#misc#set_name "oe_menubar";
-      tool_refresh#misc#set_name "menubar_button";
-      tool_sort_name#misc#set_name "menubar_button";
-      tool_collapse_all#misc#set_name "menubar_button";
-      tool_sort_kind#misc#set_name "menubar_button";
-      tool_show_nested_defs#misc#set_name "menubar_button";
-      tool_goto_cursor_position#misc#set_name "menubar_button";
-      tool_follow_cursor#misc#set_name "menubar_button";
+      tool_refresh#misc#set_name "outlinebutton";
+      tool_sort_name#misc#set_name "outlinebutton";
+      tool_collapse_all#misc#set_name "outlinebutton";
+      tool_sort_kind#misc#set_name "outlinebutton";
+      tool_show_nested_defs#misc#set_name "outlinebutton";
+      tool_goto_cursor_position#misc#set_name "outlinebutton";
+      tool_follow_cursor#misc#set_name "outlinebutton";
       (* Set toolbar button icons *)
       let mk_icon = Gtk_util.label_icon ~width:25 ~height:1 ~font_size:"medium" in
       tool_refresh#set_label_widget (mk_icon "\u{f0453}")#coerce;

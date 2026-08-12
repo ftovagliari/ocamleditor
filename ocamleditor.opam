@@ -19,7 +19,7 @@ install: [["ocaml" "tools/install.ml" "-prefix" prefix]]
 
 depends: [
   "ocaml" {= "5.3.0"}
-  "odoc"
+  "odoc-parser"
   "ocamlfind" {>= "1.4.0"}
   "lablgtk" {>= "2.18.0"}
   "ocp-indent" { >= "1.8.0" }

@@ -386,6 +386,58 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
               if range.start.col >= 0 && range.stop.col >= 0 then begin
                 let start = buffer#get_iter (`LINECHAR (range.start.line - 1, range.start.col)) in
                 let start = buffer#get_iter (`OFFSET start#offset) in
+                (* TODO Crashed here
+                   (gdb) bt
+                   #0  0x00007f36a919e7b7 in g_log_structured_array () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #1  0x00007f36a919ebde in g_log_default_handler () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #2  0x00007f36a919ee47 in g_logv () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #3  0x00007f36a919f0df in g_log () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #4  0x00007f36a95db1be in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #5  0x00007f36a95e07c2 in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #6  0x0000563cb56525aa in ml_gtk_text_buffer_get_iter_at_line_offset ()
+                   #7  0x0000563cb5699e2b in <signal handler called> ()
+                   #8  0x0000563cb555af89 in camlGText.fun_5389 ()
+                   #9  0x0000563cb5099a19 in camlSearch_results.fun_3850 () at search_results.ml:389
+                   #10 0x0000563cb55d4a5d in camlStdlib__List.map_333 () at list.ml:86
+                   #11 0x0000563cb5091c30 in camlSearch_results.fun_3848 () at search_results.ml:384
+                   #12 0x0000563cb5092364 in camlSearch_results.fun_inner_3840 () at search_results.ml:356
+                   #13 0x0000563cb54dad33 in camlGtkSignal.safe_call_inner_803 ()
+                   #14 0x0000563cb54dbee8 in camlGtkSignal.callback_657 ()
+                   #15 0x0000563cb5699f00 in <signal handler called> ()
+                   #16 0x0000563cb5673a30 in caml_callback_exn (closure=<optimized out>, arg=<optimized out>) at runtime/callback.c:208
+                   #17 0x0000563cb56469d4 in marshal_core ()
+                   #18 0x0000563cb5646a7c in marshal ()
+                   #19 0x00007f36a92923b0 in g_closure_invoke () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #20 0x00007f36a92a5076 in  () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #21 0x00007f36a92abbf5 in g_signal_emit_valist () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #22 0x00007f36a92abdbf in g_signal_emit () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #23 0x00007f36a9636eab in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #24 0x00007f36a963b03d in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #25 0x00007f36a95374c7 in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #26 0x00007f36a92923b0 in g_closure_invoke () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #27 0x00007f36a92a51a5 in  () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #28 0x00007f36a92ab42d in g_signal_emit_valist () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #29 0x00007f36a92abdbf in g_signal_emit () at /lib/x86_64-linux-gnu/libgobject-2.0.so.0
+                   #30 0x00007f36a9655434 in  () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #31 0x00007f36a9535b14 in gtk_propagate_event () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #32 0x00007f36a9535f7b in gtk_main_do_event () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
+                   #33 0x00007f36a93a42ac in  () at /lib/x86_64-linux-gnu/libgdk-x11-2.0.so.0
+                   #34 0x00007f36a9197789 in g_main_context_dispatch () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #35 0x00007f36a9197a18 in  () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #36 0x00007f36a9197aac in g_main_context_iteration () at /lib/x86_64-linux-gnu/libglib-2.0.so.0
+                   #37 0x0000563cb56459f8 in ml_g_main_iteration ()
+                   #38 0x0000563cb5699e2b in <signal handler called> ()
+                   #39 0x0000563cb54c10b7 in camlGtkThread.thread_main_real_569 ()
+                   #40 0x0000563cb5612dc5 in camlStdlib__Printexc.print_454 () at printexc.ml:88
+                   #41 0x0000563cb4f0c899 in camlOcamleditor.entry () at ocamleditor.ml:151
+                   #42 0x0000563cb4f00af7 in caml_program ()
+                   #43 0x0000563cb5699f00 in <signal handler called> ()
+                   #44 0x0000563cb56998ad in caml_startup_common (pooling=<optimized out>, argv=0x7ffe6f43f5a8) at runtime/startup_nat.c:127
+                   #45 caml_startup_common (argv=0x7ffe6f43f5a8, pooling=<optimized out>) at runtime/startup_nat.c:86
+                   #46 0x0000563cb569991b in caml_startup_exn (argv=<optimized out>) at runtime/startup_nat.c:134
+                   #47 caml_startup (argv=<optimized out>) at runtime/startup_nat.c:139
+                   #48 caml_main (argv=<optimized out>) at runtime/startup_nat.c:146
+                *)
                 let stop = buffer#get_iter (`LINECHAR (range.stop.line - 1, range.stop.col)) in
                 let stop = buffer#get_iter (`OFFSET stop#offset) in
                 let mark_start = buffer#create_mark start in
@@ -430,9 +482,9 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
       results <- [];
       canceled <- false;
       view_lines#misc#set_sensitive true;
-      GtkThread2.sync model_lines#clear ();
-      GtkThread2.sync model_files#clear ();
-      GtkThread2.sync label_message#set_label "Searching...";
+      GtkThread.sync model_lines#clear ();
+      GtkThread.sync model_files#clear ();
+      GtkThread.sync label_message#set_label "Searching...";
 
     method prev_file () =
       let path = match view_files#selection#get_selected_rows with
