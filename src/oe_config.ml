@@ -136,6 +136,7 @@ let dot_version = get_version "dot -V"
 let plink_version = get_version "plink -V" (* exits with status = 1 *)
 let xdg_open_version = get_version "xdg-open --version"
 let git_version = get_version ~ok_status:1 "git --version"
+let ocamlmerlin_version = get_version "ocamlmerlin -version"
 
 
 (** GTK config *)
