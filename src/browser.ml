@@ -221,17 +221,11 @@ class browser window =
       (*Project.load_rc_icons proj;*)
       switch_project#call();
       (* Load files *)
-      let active_exists = ref false in
-      let i = ref 0 in
-      let _ =
-        List.map begin fun (filename, scroll_offset, offset, active) ->
-          let filename = List.fold_left (//) "" (filename_split filename) in
-          incr i;
-          active_exists := !active_exists || active;
-          let active = active || (List.length proj.editor_view_state = !i && not !active_exists) in
-          editor#open_file ~active ~scroll_offset ~offset ?remote:None filename;
-        end proj.editor_view_state
-      in
+      List.iteri begin fun i (filename, scroll_offset, offset, active) ->
+        let filename = List.fold_left (//) "" (filename_split filename) in
+        let active = active || (List.length proj.editor_view_state = (i + 1)) in
+        editor#open_file ~active ~scroll_offset ~offset ?remote:None filename |> ignore;
+      end proj.editor_view_state;
       editor#set_history_switch_page_locked false;
       proj.editor_view_state <- [];
       proj.modified <- false;

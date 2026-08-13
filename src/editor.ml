@@ -545,96 +545,103 @@ class editor () =
             let page = List.find (fun p -> p#get_filename = filename) pages in
             notebook#goto_page (notebook#page_num page#coerce);
             page
-          with Not_found -> begin
-              begin
-                try
-                  let page = List.assoc filename pages_cache in
-                  pages_cache <- List.remove_assoc filename pages_cache;
+          with Not_found ->
+            begin
+              try
+                let page = List.assoc filename pages_cache in
+                pages_cache <- List.remove_assoc filename pages_cache;
+                pages <- page :: pages;
+                page#misc#show_all();
+                if active then (notebook#goto_page (notebook#page_num page#coerce));
+                add_page#call page;
+                page
+              with Not_found -> begin
+                  let file = Editor_file.create ?remote filename in
+                  let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
+                  ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
+                  (* Outline *)
+                  page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
+                  (* Tab Label with close button *)
+                  let button_close = GButton.button ~relief:`NONE () in
+                  let image = Icons.create (??? Icons.button_close) in
+                  ignore (button_close#event#connect#enter_notify ~callback:begin fun _ ->
+                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_hi_b) else (??? Icons.button_close_hi));
+                      false
+                    end);
+                  ignore (button_close#event#connect#leave_notify ~callback:begin fun _ ->
+                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_b) else (??? Icons.button_close));
+                      false
+                    end);
+                  ignore (page#view#misc#connect#query_tooltip ~callback:(self#callback_query_tooltip page));
+                  ignore (page#buffer#connect#modified_changed ~callback:begin fun () ->
+                      if page#buffer#modified then begin
+                        page#status_modified_icon#set_label "\u{f0c7}\u{2005}";
+                        page#status_modified_icon#misc#set_tooltip_text "Modified";
+                        image#set_pixbuf (??? Icons.button_close_b)
+                      end else begin
+                        page#status_modified_icon#set_label "    ";
+                        page#status_modified_icon#misc#set_tooltip_text "";
+                        image#set_pixbuf (??? Icons.button_close)
+                      end;
+                      modified_changed#call();
+                    end);
+                  (* Annot type tooltips *)
+                  page#view#misc#set_has_tooltip true;
+                  ignore (page#buffer#undo#connect#after#redo ~callback:(fun ~name -> changed#call()));
+                  ignore (page#buffer#undo#connect#after#undo ~callback:(fun ~name -> changed#call()));
+                  ignore (page#buffer#undo#connect#can_redo_changed ~callback:(fun _ -> changed#call()));
+                  ignore (page#buffer#undo#connect#can_undo_changed ~callback:(fun _ -> changed#call()));
+                  ignore (page#buffer#connect#after#changed ~callback:changed#call);
+                  (* Tab menu *)
+                  let is_in_src_path = project.Prj.in_source_path filename <> None in
+                  let ebox = GBin.event_box () in
+                  ebox#misc#set_property "visible-window" (`BOOL (not is_in_src_path));
+                  ignore (ebox#event#connect#button_release ~callback:begin fun ev ->
+                      if GdkEvent.Button.button ev = 3 then begin
+                        notebook#goto_page (notebook#page_num page#coerce);
+                        self#create_tab_menu page ev;
+                        true
+                      end else false
+                    end);
+                  (* Tab close button *)
+                  let align = GBin.alignment ~packing:ebox#add () in
+                  button_close#set_image image#coerce;
+                  ignore (button_close#connect#clicked ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
+                  let markup = Editor_page.markup_label filename in
+                  let lab = GMisc.label ~markup ~xalign:0.0 ~yalign:1.0 ~xpad:0 () in
+                  if not is_in_src_path then begin
+                    ebox#misc#modify_bg [`NORMAL, Oe_config.editor_tab_color_alt_normal; `ACTIVE, Oe_config.editor_tab_color_alt_active];
+                    lab#misc#modify_fg [`NORMAL, `NAME "#ffffff"; `ACTIVE, `NAME "#000000"];
+                  end;
+                  page#set_tab_widget (align, button_close, lab);
+                  (* Append tab *)
+                  let _ = notebook#append_page ~tab_label:ebox#coerce page#coerce in
+                  notebook#set_tab_reorderable page#coerce true;
+                  self#set_tab_pos ~page Preferences.preferences#get.tab_pos;
                   pages <- page :: pages;
-                  page#misc#show_all();
-                  if active then (notebook#goto_page (notebook#page_num page#coerce));
+                  if active then begin
+                    self#load_page page;
+                    notebook#goto_page (notebook#page_num page#coerce);
+                    switch_page#call page;
+                  end;
                   add_page#call page;
+                  (* Don't save the editor state here because it's impossible to determine whether
+                     the page was added directly from a user action or whether the browser is opening
+                     project pages by reading them from the editor state saved in a file.
+                     Conversely, the editor state would be saved again to a file, but with incorrect
+                     values ​​based on an incomplete page load.
+                     This means that in the event of a crash, when the browser reopens, the pages
+                     the user manually opened won't be in the editor.
+                     Acceptable for now. *)
+                  (*Project.save_local_status ~editor:self project;*)
                   page
-                with Not_found -> begin
-                    let file = Editor_file.create ?remote filename in
-                    let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
-                    ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
-                    (* Outline *)
-                    page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
-                    (* Tab Label with close button *)
-                    let button_close = GButton.button ~relief:`NONE () in
-                    let image = Icons.create (??? Icons.button_close) in
-                    ignore (button_close#event#connect#enter_notify ~callback:begin fun _ ->
-                        image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_hi_b) else (??? Icons.button_close_hi));
-                        false
-                      end);
-                    ignore (button_close#event#connect#leave_notify ~callback:begin fun _ ->
-                        image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_b) else (??? Icons.button_close));
-                        false
-                      end);
-                    ignore (page#view#misc#connect#query_tooltip ~callback:(self#callback_query_tooltip page));
-                    ignore (page#buffer#connect#modified_changed ~callback:begin fun () ->
-                        if page#buffer#modified then begin
-                          page#status_modified_icon#set_label "\u{f0c7}\u{2005}";
-                          page#status_modified_icon#misc#set_tooltip_text "Modified";
-                          image#set_pixbuf (??? Icons.button_close_b)
-                        end else begin
-                          page#status_modified_icon#set_label "    ";
-                          page#status_modified_icon#misc#set_tooltip_text "";
-                          image#set_pixbuf (??? Icons.button_close)
-                        end;
-                        modified_changed#call();
-                      end);
-                    (* Annot type tooltips *)
-                    page#view#misc#set_has_tooltip true;
-                    ignore (page#buffer#undo#connect#after#redo ~callback:(fun ~name -> changed#call()));
-                    ignore (page#buffer#undo#connect#after#undo ~callback:(fun ~name -> changed#call()));
-                    ignore (page#buffer#undo#connect#can_redo_changed ~callback:(fun _ -> changed#call()));
-                    ignore (page#buffer#undo#connect#can_undo_changed ~callback:(fun _ -> changed#call()));
-                    ignore (page#buffer#connect#after#changed ~callback:changed#call);
-                    (* Tab menu *)
-                    let is_in_src_path = project.Prj.in_source_path filename <> None in
-                    let ebox = GBin.event_box () in
-                    ebox#misc#set_property "visible-window" (`BOOL (not is_in_src_path));
-                    ignore (ebox#event#connect#button_release ~callback:begin fun ev ->
-                        if GdkEvent.Button.button ev = 3 then begin
-                          notebook#goto_page (notebook#page_num page#coerce);
-                          self#create_tab_menu page ev;
-                          true
-                        end else false
-                      end);
-                    (* Tab close button *)
-                    let align = GBin.alignment ~packing:ebox#add () in
-                    button_close#set_image image#coerce;
-                    ignore (button_close#connect#clicked ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
-                    let markup = Editor_page.markup_label filename in
-                    let lab = GMisc.label ~markup ~xalign:0.0 ~yalign:1.0 ~xpad:0 () in
-                    if not is_in_src_path then begin
-                      ebox#misc#modify_bg [`NORMAL, Oe_config.editor_tab_color_alt_normal; `ACTIVE, Oe_config.editor_tab_color_alt_active];
-                      lab#misc#modify_fg [`NORMAL, `NAME "#ffffff"; `ACTIVE, `NAME "#000000"];
-                    end;
-                    page#set_tab_widget (align, button_close, lab);
-                    (* Append tab *)
-                    let _ = notebook#append_page ~tab_label:ebox#coerce page#coerce in
-                    notebook#set_tab_reorderable page#coerce true;
-                    self#set_tab_pos ~page Preferences.preferences#get.tab_pos;
-                    pages <- page :: pages;
-                    if active then begin
-                      self#load_page page;
-                      notebook#goto_page (notebook#page_num page#coerce);
-                      switch_page#call page;
-                    end;
-                    add_page#call page;
-                    page
-                  end
-              end;
+                end
             end
         in
         Some page
-      with e -> begin
-          Dialog.display_exn ~title:"Error while opening file" ~parent:self e;
-          None
-        end
+      with e ->
+        Dialog.display_exn ~title:"Error while opening file" ~parent:self e;
+        None
 
     method revert (page : Editor_page.page) = Gaux.may page#file ~f:begin fun _ ->
         if page#buffer#modified then ignore (Dialog.confirm
@@ -930,9 +937,6 @@ class editor () =
             in
             find_page()
         | _ -> ()
-      end |> ignore;
-      self#connect#add_page ~callback:begin fun page ->
-        Project.save_local_status ~editor:self project;
       end |> ignore;
       (* Replace marks with offsets in location history *)
       self#connect#remove_page ~callback:begin fun page ->

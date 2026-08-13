@@ -334,13 +334,14 @@ let save_local_status ~editor proj =
     editor#pages
     |> List.filter_map (fun page -> match page#file with Some file -> Some (page, file) | _ -> None)
     |> List.map begin fun (page, file) ->
-      let scroll_top = page#view#get_scroll_top () in
       let is_active =
         active_page <> None &&
-        page#get_filename = (Option.get active_page)#get_filename in
-      if page#load_complete then
+        page#get_filename = (Option.get active_page)#get_filename
+      in
+      if page#load_complete then begin
+        let scroll_top = page#view#get_scroll_top () in
         file, scroll_top, (page#buffer#get_iter `INSERT)#offset, is_active
-      else
+      end else
         file, page#scroll_offset, page#initial_offset, is_active
     end
     |> List.map begin fun (file, scroll_offset, offset, is_active) ->
