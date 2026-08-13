@@ -290,17 +290,18 @@ let spawn_window qi position (entry : type_enclosing_value) (entry2 : type_enclo
        by merlin, then the fullname returned by ocp_index is correct;
        otherwise, do not display the fullname. *)
     Ocp_index.fullname_async ~context ident
-    |> Async.map ~name:"spawn_window" begin fun fullname ->
-      try
-        match fullname with
-        | Some fullname ->
-            label_fn#misc#show();
-            label_fn#set_label (sprintf "<span size='small'>%s</span>" (Markup.type_info fullname));
-        | None -> label_fn#misc#hide()
-      with ex ->
-        Log.println `ERROR "%s\n\t%s\n%s" __FUNCTION__ (Printexc.to_string ex) (Printexc.get_backtrace())
-    end
-    |> Async.run_synchronously;
+    |> Async.start_with_continuation ~name:"spawn_window" begin fun fullname ->
+      GtkThread.async begin fun () ->
+        try
+          match fullname with
+          | Some fullname ->
+              label_fn#misc#show();
+              label_fn#set_label (sprintf "<span size='small'>%s</span>" (Markup.type_info fullname));
+          | None -> label_fn#misc#hide()
+        with ex ->
+          Log.println `ERROR "%s\n\t%s\n%s" __FUNCTION__ (Printexc.to_string ex) (Printexc.get_backtrace())
+      end ()
+    end;
     label_typ#set_label (sprintf "%s%s" type_expr tail_info);
     if type_params <> "" then begin
       label_vars#misc#show();
