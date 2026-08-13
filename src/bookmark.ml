@@ -25,8 +25,6 @@ open Preferences
 
 let bookmarks_filename = Filename.concat App_config.ocamleditor_user_home "bookmarks-1.5.0"
 
-let limit = 1000
-
 let icon = function
   | 0 -> Some (??? Icons.b0)
   | 1 -> Some (??? Icons.b1)

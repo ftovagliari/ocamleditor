@@ -132,13 +132,17 @@ let print_external_tasks ochan project =
           ksprintf print "\n  %d, (fun command -> {" index;
           ksprintf print "  et_name                  = %S;" et.et_name;
           ksprintf print "  et_env                   = [%s];"
-            (String.concat ";" (List.map (sprintf "%S")
-                                  (List.filter_map (fun (x, y) -> if x then Some y else None) et.et_env)));
+            (String.concat "; " (List.map (sprintf "true,%S") (Task.enabled et.et_env)));
           ksprintf print "  et_env_replace           = %b;" et.et_env_replace;
           ksprintf print "  et_dir                   = %S;" et.et_dir;
           ksprintf print "  et_cmd                   = %S;" et.et_cmd;
           ksprintf print "  et_args                  = [%s];" (String.concat "; " args);
-          ksprintf print "  et_phase                 = %s;" (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
+          ksprintf print "  et_outputs               = [%s];"
+            (String.concat "; " (List.map (sprintf "true,%S") (Task.enabled et.et_outputs)));
+          ksprintf print "  et_deps                  = [%s];"
+            (String.concat "; " (List.map (sprintf "true,%S") (Task.enabled et.et_deps)));
+          ksprintf print "  et_phase                 = %s;"
+            (match et.et_phase with Some p -> "Some " ^ (Task.string_of_phase p) | _ -> "None");
           ksprintf print "  et_always_run_in_project = %b;" et.et_always_run_in_project;
           ksprintf print "  et_always_run_in_script  = %b;" et.et_always_run_in_script;
           ksprintf print "  et_readonly              = %b;" et.et_readonly;

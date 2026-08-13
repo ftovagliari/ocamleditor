@@ -34,7 +34,7 @@ let forward_non_blank iter =
   in
   f iter
 
-class error_indication (view : Ocaml_text.view) vscrollbar global_gutter =
+class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMisc.drawing_area) =
   let buffer = view#tbuffer in
   let tag_table = new GText.tag_table buffer#tag_table in
   let create_tags () =
@@ -499,7 +499,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar global_gutter =
       ignore (vscrollbar#connect#after#value_changed ~callback:(fun () ->
           Gmisclib.Idle.add ~prio:300 (fun () -> view#misc#handler_unblock !signal_expose)));
       (* Global_gutter: expose *)
-      global_gutter#event#connect#expose ~callback:(fun _ -> self#paint_global_gutter (); false);
+      global_gutter#event#connect#expose ~callback:(fun _ -> self#paint_global_gutter (); false) |> ignore;
       (* Global_gutter: button_press  *)
       global_gutter#event#connect#after#button_press ~callback:begin fun ev ->
         if (GdkEvent.Button.button ev = 1 && GdkEvent.get_type ev = `BUTTON_PRESS) then begin

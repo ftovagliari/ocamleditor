@@ -90,7 +90,7 @@ let replace_compiler_artifact ~project tmp_dir relpath ext =
   let file_ext = relpath ^ ext in
   let tmp_ext = tmp_dir // file_ext in
   if Sys.file_exists tmp_ext then begin
-    let src_ext = Project.path_src project // file_ext in
+    let src_ext = Project.Path.src project // file_ext in
     try
       if Sys.file_exists src_ext then Sys.remove src_ext;
       Sys.rename tmp_ext src_ext
@@ -129,17 +129,19 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
           Buffer.add_string compiler_output (Utils.rtrim line);
           Buffer.add_char compiler_output '\n';
         in
-        let at_exit _ =
-          let modname = Filename.chop_extension relpath in
-          replace_compiler_artifact ~project working_directory modname ".cmi";
-          replace_compiler_artifact ~project working_directory modname ".cmt";
-
-          let errors = Error.parse_string (Buffer.contents compiler_output) in
-          GtkThread2.async page#error_indication#apply_tag errors;
-          (* Outline *)
-          let no_errors = errors.Oe.er_errors = [] in
-          if editor#show_outline then begin end;
-          Activity.remove activity_name;
+        let continue_with _ =
+          try
+            let modname = Filename.chop_extension relpath in
+            replace_compiler_artifact ~project working_directory modname ".cmi";
+            replace_compiler_artifact ~project working_directory modname ".cmt";
+            let errors = Error.parse_string (Buffer.contents compiler_output) in
+            GtkThread.async page#error_indication#apply_tag errors;
+            (* Outline *)
+            let no_errors = errors.Oe.er_errors = [] in
+            if editor#show_outline then begin end;
+            Activity.remove activity_name;
+          with ex ->
+            Activity.remove activity_name;
         in
         let process_err = Spawn.loop process_err in
         if join then
@@ -150,13 +152,13 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
             | `SUCCESS (Unix.WSIGNALED code)
             | `SUCCESS (Unix.WSTOPPED code) ->
                 if code <> 0 then
-                  Printf.eprintf "File \"autocomp.ml\": %s %s -> exited with code %d\n%!"
+                  Printf.eprintf "%s: %s %s -> exited with code %d\n%!" __LOC__
                     project.Prj.autocomp_compiler (args |> Array.to_list |> String.concat " ") code
             | `ERROR ex ->
-                Printf.eprintf "File \"autocomp.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
+                Printf.eprintf "%s: %s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
           end;
-          at_exit ()
+          continue_with ()
         else
-          Spawn.async ~working_directory ~at_exit ~process_err project.Prj.autocomp_compiler args |> ignore
+          Spawn.async ~working_directory ~continue_with ~process_err project.Prj.autocomp_compiler args |> ignore
   with ex ->
     Printf.eprintf "%s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace ())

@@ -21,6 +21,17 @@
 *)
 
 
+(* This file is a toplevel script, not a library module: it is run as
+   "ocaml -I +unix -I +str str.cma unix.cma generate_oebuild_script.ml" with the
+   working directory set to the project source directory.
+
+   The two modules it needs are loaded from source rather than linked as
+   precompiled objects, so that the invocation is identical whatever build system
+   runs it. Passing utils.cmo/file_util.cmo instead would require knowing where
+   that build system puts its artifacts. *)
+#mod_use "common/utils.ml"
+#mod_use "common/file_util.ml"
+
 open Utils
 open Printf
 
@@ -53,25 +64,26 @@ let create_script () =
     output_string ochan "#load \"threads.cma\"\n";
     output_string ochan "let split re = Str.split (Str.regexp re)\n";
     let modules = [
-      "../common/argc";
-      "../common/log";
-      "../common/shell";
-      "../common/ocaml_config";
-      "../common/app_config";
-      "../common/spawn";
-      "../task";
-      "../build_script_command";
-      "oebuild_util";
-      "oebuild_table";
-      "oebuild_dag";
-      "oebuild_dep";
-      "oebuild_dep_dag";
-      "oebuild_parallel";
-      "oebuild";
-      "../build_script_util";
+      "common/argc";
+      "common/log";
+      "common/shell";
+      "common/ocaml_config";
+      "common/app_config";
+      "common/spawn";
+      "task";
+      "build_script_command";
+      "oebuild/oebuild_util";
+      "oebuild/oebuild_table";
+      "oebuild/oebuild_dag";
+      "oebuild/oebuild_dep";
+      "oebuild/oebuild_dep_dag";
+      "oebuild/oebuild_parallel";
+      "oebuild/oebuild";
+      "build_script_util";
     ] in
     List.iter begin fun name ->
-      let buf = Util.replace_header (File_util.read (name ^ ".ml")) in
+      let filename = sprintf "%s/%s" (Sys.getcwd()) name in
+      let buf = Util.replace_header (File_util.read (filename ^ ".ml")) in
       let name = Filename.basename name in
       fprintf ochan "module %s = struct " (String.capitalize_ascii name);
       output_string ochan buf;
@@ -93,21 +105,23 @@ let code_of_script () =
   with ex -> (finally());;
 
 let _ =
-  pushd "oebuild";
-  Util.header := Buffer.contents (File_util.read (".."//".."//"header"));
+  (* This script is invoked from two different contexts:
+     - By dune: CWD is _build/default/src/, so "../../../src" navigates to the real src/.
+       After generating oebuild_script.ml in src/, it is renamed back to _build/default/src/
+       where dune expects the declared target.
+     - By the "oebuild_script.ml" external build task (oebuild): CWD is already src/.
+       No navigation needed; oebuild_script.ml simply stays in src/. *)
+  let dune_build_dir = Filename.concat (Sys.getcwd ()) "../../../src" in
+  let is_dune_context = Sys.file_exists dune_build_dir && Sys.is_directory dune_build_dir in
+  if is_dune_context then pushd dune_build_dir;
+  Util.header := Buffer.contents (File_util.read (".."//"header"));
   create_script ();
   code_of_script();
-  let new_filename = ".."//filename in
-  if Sys.file_exists new_filename then (Sys.remove new_filename);
-  Sys.rename filename new_filename;
-  popd ()
-
-
-
-
-
-
-
-
-
-
+  if is_dune_context then begin
+    let new_filename = ".."//"_build"//"default"//"src"//filename in
+    if Sys.file_exists new_filename then (Sys.remove new_filename);
+    Sys.rename filename new_filename;
+    Printf.printf "===>%s - %s\n%!" (Sys.getcwd()) new_filename;
+    popd();
+  end;
+  exit 0

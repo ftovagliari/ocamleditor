@@ -11,6 +11,8 @@ type external_task = {
   ~dir                     <ocaml default="\"\"" > : string;
   ~cmd                     <ocaml default="\"\"" > : string;
   ~args                    <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~outputs                 <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
+  ~deps                    <ocaml default="[]"> : (bool * string) list;  (* enabled, value *)
   ~phase                   <ocaml default="None"> : string option;
 }
 
@@ -113,6 +115,6 @@ type project = {
 }
 
 type project_local = {
-  ~open_files <ocaml default="[]"> : (string * int * int * bool) list;
+  ~editor_view_state <ocaml default="[]"> : (string * int * int * bool) list;
   ~bookmarks <ocaml default="[]"> : (string * int * int) list;
 }

@@ -4,15 +4,10 @@ open Utils
 open Oe
 open Target
 
-(** from_local_json - Load .project.local file with JSON->XML fallback for backward compatibility *)
 let from_local_json proj =
   let open Prj in
-  let filename = Project.fullpath_local proj in
-  let filename =
-    if Sys.file_exists filename
-    then filename
-    else Project.mk_old_filename_local proj
-  in
+  let filename = Project.Path.fullname_local proj in
+  let filename = if Sys.file_exists filename then filename else Project.Path.fullname_local_old proj in
   if Sys.file_exists filename then begin
     try
       let ic = open_in filename in
@@ -22,17 +17,19 @@ let from_local_json proj =
       close_in_noerr ic;
       let content = Bytes.to_string content in
       let project_local = Project_j.project_local_of_string content in
-      proj.open_files <- project_local.Project_t.open_files;
-      project_local.Project_t.bookmarks
-      |> List.iter begin fun (bm_filename, bm_num, offset) ->
-        let bm = {
-          bm_filename = bm_filename;
-          bm_loc = Offset offset;
-          bm_num = bm_num;
-          bm_marker = None;
-        } in
-        Project.set_bookmark bm proj
-      end
+      proj.editor_view_state <- project_local.Project_t.editor_view_state;
+      let bms =
+        project_local.Project_t.bookmarks
+        |> List.map begin fun (bm_filename, bm_num, offset) ->
+          {
+            bm_filename = bm_filename;
+            bm_loc = Offset offset;
+            bm_num = bm_num;
+            bm_marker = None;
+          }
+        end
+      in
+      proj.bookmarks <- bms;
     with _ ->
       (* Fallback to XML parsing if JSON parsing fails *)
       Project_xml_backcompat.from_local_xml proj
@@ -52,6 +49,8 @@ let rec atd_of_task (t : Task.t) : Project_t.external_task =
     dir = t.Task.et_dir;
     cmd = t.Task.et_cmd;
     args = t.Task.et_args;
+    outputs = t.Task.et_outputs;
+    deps = t.Task.et_deps;
     phase = (match t.Task.et_phase with
         | Some p -> Some (Task.string_of_phase p)
         | None -> None);
@@ -179,7 +178,129 @@ let atd_of_project (p : Prj.t) =
 
 let write_json proj =
   let atd = atd_of_project proj in
-  Project_j.string_of_project atd |> Yojson.Safe.prettify
+  Project_j.string_of_project atd |> Yojson.Safe.prettify;;
+
+let target_of_atd (t_atd : Project_t.target) =
+  let tg = Target.create ~id:t_atd.Project_t.id ~name:t_atd.Project_t.name in
+  tg.descr <- t_atd.Project_t.descr;
+  tg.default <- t_atd.Project_t.default;
+  tg.byt <- t_atd.Project_t.byt;
+  tg.opt <- t_atd.Project_t.opt;
+  tg.libs <- t_atd.Project_t.libs;
+  tg.other_objects <- t_atd.Project_t.other_objects;
+  tg.files <- t_atd.Project_t.files;
+  tg.package <- t_atd.Project_t.package;
+  tg.includes <- t_atd.Project_t.includes;
+  tg.thread <- t_atd.Project_t.thread;
+  tg.vmthread <- t_atd.Project_t.vmthread;
+  tg.pp <- t_atd.Project_t.pp;
+  tg.inline <- t_atd.Project_t.inline;
+  tg.nodep <- t_atd.Project_t.nodep;
+  tg.dontlinkdep <- t_atd.Project_t.dontlinkdep;
+  tg.dontaddopt <- t_atd.Project_t.dontaddopt;
+  tg.cflags <- t_atd.Project_t.cflags;
+  tg.lflags <- t_atd.Project_t.lflags;
+  tg.target_type <-
+    (match t_atd.Project_t.target_type with
+     | `Executable -> Target.Executable
+     | `Library -> Target.Library
+     | `Plugin -> Target.Plugin
+     | `Pack -> Target.Pack
+     | `External -> Target.External);
+  tg.outname <- t_atd.Project_t.outname;
+  tg.lib_install_path <- t_atd.Project_t.lib_install_path;
+  tg.external_tasks <-
+    t_atd.Project_t.external_tasks
+    |> List.map begin fun (et : Project_t.external_task) ->
+      Task.create ~name:et.Project_t.name ~env:et.Project_t.env
+        ~env_replace:et.Project_t.env_replace
+        ~dir:et.Project_t.dir
+        ~cmd:et.Project_t.cmd
+        ~args:et.Project_t.args
+        ~outputs:et.Project_t.outputs
+        ~deps:et.Project_t.deps
+        ~run_in_project:et.Project_t.always_run_in_project
+        ~run_in_script:et.Project_t.always_run_in_script
+        ~readonly:et.Project_t.readonly
+        ~visible:et.Project_t.visible
+        ?phase:(match et.Project_t.phase with Some s -> Some (Task.phase_of_string s) | None -> None) ()
+    end;
+  tg.restrictions <- t_atd.Project_t.restrictions;
+  tg.dependencies <- t_atd.Project_t.dependencies;
+  tg.is_fl_package <- t_atd.Project_t.is_fl_package;
+  tg.readonly <- t_atd.Project_t.readonly;
+  tg.visible <- t_atd.Project_t.visible;
+  tg.subsystem <-
+    (match t_atd.Project_t.subsystem with Some s -> Some (Target.subsystem_of_string s) | None -> None);
+  tg.node_collapsed <- t_atd.Project_t.node_collapsed;
+  tg
+
+let build_script_of_atd atd (proj : Prj.t) =
+  Build_script.{
+    bs_filename = atd.Project_t.build_script.Project_t.filename;
+    bs_targets =
+      atd.Project_t.build_script.Project_t.targets
+      |> List.map begin fun (bt : Project_t.build_script_target) ->
+        { Build_script.bst_target =
+            begin match proj.targets |> List.find_opt (fun t -> t.Target.id = bt.Project_t.target_id) with
+            | Some x -> x
+            | None -> (Target.create ~id:bt.Project_t.target_id ~name:(string_of_int bt.Project_t.target_id))
+            end;
+          Build_script.bst_show = bt.Project_t.show
+        }
+      end;
+    bs_args =
+      atd.Project_t.build_script.Project_t.args
+      |> List.map begin fun (ba : Project_t.build_script_arg) ->
+        let bsa_task =
+          match ba.Project_t.task with
+          | Some (target_id, task_name) ->
+              let target = proj.targets |> List.find_opt (fun t -> t.Target.id = target_id) in
+              let task = Prj.find_task proj task_name in
+              begin match target, task with
+              | Some target, Some task -> Some (target, task)
+              | _ -> None
+              end
+          | None -> None
+        in
+        { Build_script_args.
+          bsa_id = ba.Project_t.id;
+          bsa_type = Build_script_args.type_of_string ba.Project_t.type_;
+          bsa_key = ba.Project_t.key;
+          bsa_doc = ba.Project_t.doc;
+          bsa_default_override = true;
+          bsa_default =
+            begin match ba.Project_t.default with
+            | `Flag b -> `flag b
+            | `Bool b -> `bool b
+            | `String s -> `string s
+            end;
+          bsa_task;
+          bsa_mode =
+            (if ba.Project_t.mode = Build_script_args.string_of_add then `add
+             else `replace ba.Project_t.mode);
+          bsa_cmd = Build_script_command.command_of_string ba.Project_t.command;
+          bsa_pass = Build_script_args.pass_of_string ba.Project_t.pass;
+        }
+      end;
+    bs_commands =
+      atd.Project_t.build_script.Project_t.commands
+      |> List.filter_map begin fun (bc : Project_t.build_script_command) ->
+        try
+          let target = proj.targets |> List.find_opt (fun t -> t.Target.id = bc.Project_t.target_id) in
+          let task = Prj.find_task proj bc.Project_t.task_name in
+          match target, task with
+          | Some target, Some task ->
+              Some { Build_script.
+                     bsc_name = Build_script.command_of_string bc.Project_t.name;
+                     bsc_descr = bc.Project_t.descr;
+                     bsc_target = target;
+                     bsc_task = task;
+                   }
+          | _ -> None
+        with _ -> None
+      end;
+  }
 
 let read_json filename =
   try
@@ -200,56 +321,7 @@ let read_json filename =
     proj.autocomp_delay <- atd.Project_t.autocomp.Project_t.delay;
     proj.autocomp_cflags <- atd.Project_t.autocomp.Project_t.cflags;
     (* targets: create without sub_targets then later resolve links if needed *)
-    let targets =
-      atd.targets
-      |> List.map begin fun (t_atd : Project_t.target) ->
-        let tg = Target.create ~id:t_atd.Project_t.id ~name:t_atd.Project_t.name in
-        tg.descr <- t_atd.Project_t.descr;
-        tg.default <- t_atd.Project_t.default;
-        tg.byt <- t_atd.Project_t.byt;
-        tg.opt <- t_atd.Project_t.opt;
-        tg.libs <- t_atd.Project_t.libs;
-        tg.other_objects <- t_atd.Project_t.other_objects;
-        tg.files <- t_atd.Project_t.files;
-        tg.package <- t_atd.Project_t.package;
-        tg.includes <- t_atd.Project_t.includes;
-        tg.thread <- t_atd.Project_t.thread;
-        tg.vmthread <- t_atd.Project_t.vmthread;
-        tg.pp <- t_atd.Project_t.pp;
-        tg.inline <- t_atd.Project_t.inline;
-        tg.nodep <- t_atd.Project_t.nodep;
-        tg.dontlinkdep <- t_atd.Project_t.dontlinkdep;
-        tg.dontaddopt <- t_atd.Project_t.dontaddopt;
-        tg.cflags <- t_atd.Project_t.cflags;
-        tg.lflags <- t_atd.Project_t.lflags;
-        tg.target_type <-
-          (match t_atd.Project_t.target_type with
-           | `Executable -> Target.Executable
-           | `Library -> Target.Library
-           | `Plugin -> Target.Plugin
-           | `Pack -> Target.Pack
-           | `External -> Target.External);
-        tg.outname <- t_atd.Project_t.outname;
-        tg.lib_install_path <- t_atd.Project_t.lib_install_path;
-        tg.external_tasks <-
-          t_atd.Project_t.external_tasks
-          |> List.map begin fun (et : Project_t.external_task) ->
-            Task.create ~name:et.Project_t.name ~env:et.Project_t.env
-              ~dir:et.Project_t.dir
-              ~cmd:et.Project_t.cmd
-              ~args:et.Project_t.args
-              ?phase:(match et.Project_t.phase with Some s -> Some (Task.phase_of_string s) | None -> None) ()
-          end;
-        tg.restrictions <- t_atd.Project_t.restrictions;
-        tg.dependencies <- t_atd.Project_t.dependencies;
-        tg.is_fl_package <- t_atd.Project_t.is_fl_package;
-        tg.readonly <- t_atd.Project_t.readonly;
-        tg.visible <- t_atd.Project_t.visible;
-        tg.subsystem <-
-          (match t_atd.Project_t.subsystem with Some s -> Some (Target.subsystem_of_string s) | None -> None);
-        tg.node_collapsed <- t_atd.Project_t.node_collapsed;
-        tg
-      end in
+    let targets = atd.targets |> List.map target_of_atd in
     proj.targets <- targets;
     proj.executables <-
       atd.executables
@@ -267,22 +339,9 @@ let read_json filename =
           env_replace = r_atd.Project_t.env_replace;
           args = r_atd.Project_t.args;
         } end;
-    proj.build_script <-
-      Build_script.{
-        bs_filename = atd.Project_t.build_script.Project_t.filename;
-        bs_targets =
-          atd.Project_t.build_script.Project_t.targets
-          |> List.map begin fun (bt : Project_t.build_script_target) ->
-            { Build_script.bst_target =
-                begin match proj.targets |> List.find_opt (fun t -> t.Target.id = bt.Project_t.target_id) with
-                | Some x -> x
-                | None -> (Target.create ~id:bt.Project_t.target_id ~name:(string_of_int bt.Project_t.target_id))
-                end;
-              Build_script.bst_show = bt.Project_t.show
-            }
-          end;
-        bs_args = [];
-        bs_commands = [] };
+    proj.build_script <- build_script_of_atd atd proj;
+    (* Translate ocamllib: "" -> 'ocamlc -where' *)
+    set_ocaml_home ~ocamllib:proj.ocamllib proj;
     proj
   with _ -> Project_xml_backcompat.read filename
 

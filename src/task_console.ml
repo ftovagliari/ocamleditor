@@ -39,13 +39,16 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = toolbar#set_icon_size `MENU in
   let sw                = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:hbox#add () in
   let button_detach     = GButton.tool_button ~label:"Detach" ~packing:toolbar#insert () in
-  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon "\u{eb23} ")#coerce in
+  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon "\u{eb23}")#coerce in
+  let _                 = button_detach#misc#set_name "menubarbutton" in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_stop       = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_stop#set_icon_widget (Gtk_util.label_icon ~color:"red" "\u{f04d}")#coerce in
+  let _                 = button_stop#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Kill Process" button_stop#coerce in
   let button_run        = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_run#misc#set_name "menubarbutton" in
   let _                 = button_run#set_icon_widget begin match task_kind with
       | `OTHER | `RUN ->
           tooltips#set_tip ~text:"Start" button_run#coerce;
@@ -60,17 +63,21 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_clear      = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_clear#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Clear Messages" button_clear#coerce in
-  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf} ")#coerce in
+  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf}")#coerce in
   let button_incr_font  = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_incr_font#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Increase Font Size" button_incr_font#coerce in
-  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4} ")#coerce in
+  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4}")#coerce in
   let button_decr_font  = GButton.tool_button ~packing:toolbar#insert () in
+  let _                 = button_decr_font#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Decrease Font Size" button_decr_font#coerce in
-  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3} ")#coerce in
+  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3}")#coerce in
   let button_wrap       = GButton.toggle_tool_button ~packing:toolbar#insert () in
+  let _                 = button_wrap#misc#set_name "menubarbutton" in
   let _                 = tooltips#set_tip ~text:"Word Wrap" button_wrap#coerce in
-  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80} ")#coerce in
+  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80}")#coerce in
   (*  *)
   let view              = GText.view ~editable:(task_kind = `RUN) ~cursor_visible:true ~packing:sw#add () in
   let _                 = view#set_right_margin 2 in
@@ -178,13 +185,13 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
               None
             end
         | Some _ ->
-            GtkThread2.async self#present ();
+            GtkThread.async self#present ();
             if use_thread then
               (match thread_run with None -> assert false | Some th -> Some th)
             else None
       in
       (* Disconnect previous callback assiciated with button_run and connect with a new one. *)
-      GtkThread2.sync begin fun () ->
+      GtkThread.sync begin fun () ->
         begin
           try
             let sid = List.assoc button_run#misc#get_oid button_run_signals in
@@ -203,7 +210,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
 
     method private do_run task =
       let finally () =
-        GtkThread2.sync begin fun () ->
+        GtkThread.sync begin fun () ->
           self#close();
           if has_errors then begin
             (*play "error.wav";*)
@@ -220,7 +227,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
         end ()
       in
       has_errors <- false;
-      GtkThread2.async begin fun () ->
+      GtkThread.async begin fun () ->
         (try view#buffer#delete_mark (`NAME "first_error_line");
          with GText.No_such_mark("first_error_line") -> ());
         tag_locations <- [];
@@ -229,7 +236,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
       (** Process start *)
       let proc, cmd_line = Task_process.create task in
       (** Print command line *)
-      GtkThread2.async begin fun () ->
+      GtkThread.async begin fun () ->
         self#view#set_editable true;
         button_run#misc#set_sensitive false;
         button_stop#misc#set_sensitive true;
@@ -260,7 +267,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
             begin fun ic ->
               let line = input_line ic in
               let line = if Glib.Utf8.validate line then line else Convert.to_utf8 line in
-              GtkThread2.async begin fun line ->
+              GtkThread.async begin fun line ->
                 Mutex.lock m_write;
                 signal_enabled <- false;
                 view#buffer#insert ~iter:(self#buffer#get_iter `END) ~tag_names:["output"] (line ^ "\n");
@@ -294,7 +301,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
               let tag = if warning_line then "warning" else "error" in
               let is_location_line = Str.string_match re_error_line line 0 in
               let is_location_line = is_location_line || (Str.string_match re_assert_failure line 0) in
-              GtkThread2.async begin fun line ->
+              GtkThread.async begin fun line ->
                 Mutex.lock m_write;
                 signal_enabled <- false;
                 let stop = self#buffer#get_iter `END in
@@ -360,7 +367,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
       (** Input of the user redirected to the outchan of the process *)
       if task_kind = `RUN then begin
         ignore (view#buffer#connect#after#insert_text ~callback:begin fun it txt ->
-            if process <> None && signal_enabled then (GtkThread2.sync begin fun () ->
+            if process <> None && signal_enabled then (GtkThread.sync begin fun () ->
                 let start = it#backward_chars (String.length txt) in
                 view#buffer#apply_tag_by_name "input" ~start ~stop:(view#buffer#get_iter `INSERT);
                 match process_outchan with
@@ -521,7 +528,7 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
   let mode : [`all | `group | `single] = `single in
   let f tasks =
     try
-      Project.stop_file_watcher editor#project;
+      Project.Index.stop_watcher editor#project;
       tasks
       |> List.fold_left begin fun acc (task_kind, task) ->
         let console =
@@ -529,9 +536,9 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
           | Some console when mode = `all || mode = `group ->
               console#set_task task;
               console
-          | _ -> GtkThread2.sync (create ~editor task_kind) task
+          | _ -> GtkThread.sync (create ~editor task_kind) task
         in
-        (*if mode = `single then (GtkThread2.async console#tab_label#set_text task.Task.et_name);*)
+        (*if mode = `single then (GtkThread.async console#tab_label#set_text task.Task.et_name);*)
         begin
           match console#run ?run_cb ~use_thread:true () with
           | None -> ();
@@ -541,10 +548,10 @@ let exec_sync ?run_cb ?(use_thread=true) ?(at_exit=ignore) ~editor task_groups =
         Some console
       end None
       |> ignore;
-      Project.start_file_watcher editor#project;
+      Project.Index.start_watcher editor#project;
       at_exit()
     with Exit ->
-      Project.start_file_watcher editor#project;
+      Project.Index.start_watcher editor#project;
       at_exit();
       raise Exit
   in
@@ -603,7 +610,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   let build_name = sprintf "Build \xC2\xAB%s\xC2\xBB" (Filename.basename target.name) in
   let compile_buffer = fun () ->
     (* N.B. compile_buffer also updates ocaml-index *)
-    GtkThread2.async editor#with_current_page (fun p -> p#compile_buffer ?join:None ());
+    GtkThread.async editor#with_current_page (fun p -> p#compile_buffer ?join:None ());
   in
   match task_kind with
   | `CLEANALL ->

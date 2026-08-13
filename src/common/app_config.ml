@@ -94,10 +94,13 @@ let launcher_filename = ocamleditor_user_home // "launcher.list"
 
 let get_application_dir name =
   let exe_dir = !! Sys.executable_name in
-  let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
-  let path = prefix // name in
+  let path = exe_dir // name in
   if Sys.file_exists path && Sys.is_directory path then path
-  else prefix // "share" // "ocamleditor" // name
+  else
+    let prefix = if exe_dir = Sys.getcwd() then exe_dir else !! exe_dir in
+    let path = prefix // name in
+    if Sys.file_exists path && Sys.is_directory path then path
+    else prefix // "share" // "ocamleditor" // name
 
 let application_icons = get_application_dir "icons"
 

@@ -103,7 +103,7 @@ class view ~target_list ~editor ~project ~page ?packing () =
 
     method private append rcs =
       List.iter begin fun rconf ->
-        GtkThread2.sync begin fun () ->
+        GtkThread.sync begin fun () ->
           let rconf = {rconf with Rconf.id = rconf.Rconf.id} in
           let row = model#append () in
           model#set ~row ~column:col_data rconf;
@@ -141,8 +141,8 @@ class view ~target_list ~editor ~project ~page ?packing () =
             rc.Rconf.name <- page#entry_name#text;
             model#set ~row ~column:col_name (self#markup rc);
       in
-      page#entry_name#connect#changed ~callback:update_rconf_name;
-      page#combo_bc#connect#changed ~callback:update_rconf_name;
+      page#entry_name#connect#changed ~callback:update_rconf_name |> ignore;
+      page#combo_bc#connect#changed ~callback:update_rconf_name |> ignore;
       (** b_add#connect#clicked *)
       let _ =
         ignore (b_add#connect#clicked ~callback:begin fun () ->

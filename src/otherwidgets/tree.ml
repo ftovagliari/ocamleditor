@@ -127,7 +127,7 @@ let create ~cols ?packing ?(store=Store.tree) () =
   let store = store column_list in
   let sw = GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ?packing () in
   let view = GTree.view ~model:(store#coerce) ~packing:sw#add () in
-  List.map (fun (_, vc) -> view#append_column vc) columns;
+  List.map (fun (_, vc) -> view#append_column vc) columns |> ignore;
   view#set_headers_visible true;
   { model = store;
     columns = columns;

@@ -80,12 +80,12 @@ class widget ~page ?label_widget ?(with_spinner=true) ?packing () =
       ebox#misc#set_property "visible-window" (`BOOL false);
       ebox#drag#source_set targets ~modi:[`BUTTON1 ] ~actions:[`MOVE ];
       (*ebox#drag#source_set_icon drag_icon;*)
-      ebox#drag#connect#data_get ~callback:self#data_get;
-      ebox#drag#connect#data_delete ~callback:self#data_delete;
+      ebox#drag#connect#data_get ~callback:self#data_get |> ignore;
+      ebox#drag#connect#data_delete ~callback:self#data_delete |> ignore;
       (*  *)
       ignore (page#is_working#connect#changed ~callback:self#set_active);
       (*  *)
-      button#connect#after#clicked ~callback:page#destroy;
+      button#connect#after#clicked ~callback:page#destroy |> ignore;
       button#set_image image#coerce;
       button#misc#set_can_focus false;
       button#misc#set_can_default false;

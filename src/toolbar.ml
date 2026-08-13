@@ -310,11 +310,11 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
       ignore (tool_run#connect#clicked ~callback:(fun () -> self#run_current browser));
       ignore (tool_run#connect#show_menu ~callback:(self#run_menu browser));
       (** Location History *)
-      tool_back#connect#clicked ~callback:(fun () -> browser#goto_location `PREV);
-      tool_forward#connect#clicked ~callback:(fun () -> browser#goto_location `NEXT);
-      tool_last_edit_loc#connect#clicked ~callback:(fun () -> browser#goto_location `LAST);
-      tool_back#connect#show_menu ~callback:(fun (dir, menu) -> browser#create_menu_history `BACK ~menu);
-      tool_forward#connect#show_menu ~callback:(fun (dir, menu) -> browser#create_menu_history `FORWARD ~menu);
+      tool_back#connect#clicked ~callback:(fun () -> browser#goto_location `PREV) |> ignore;
+      tool_forward#connect#clicked ~callback:(fun () -> browser#goto_location `NEXT) |> ignore;
+      tool_last_edit_loc#connect#clicked ~callback:(fun () -> browser#goto_location `LAST) |> ignore;
+      tool_back#connect#show_menu ~callback:(fun (dir, menu) -> browser#create_menu_history `BACK ~menu) |> ignore;
+      tool_forward#connect#show_menu ~callback:(fun (dir, menu) -> browser#create_menu_history `FORWARD ~menu) |> ignore;
       ()
 
     method update current_project =

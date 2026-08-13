@@ -1,0 +1,12 @@
+; Project-wide build policy, kept out of src/dune because it is not derived from
+; any target and src/dune is generated from the project model.
+;
+; The tree still carries several hundred warnings, and dune's default flags mark
+; their warnings fatal (the @ in -w @1..3@5..28...), so without this a build stops
+; at the first one.
+;
+; Note that this only reaches stanzas which declare no (flags ...) field of their
+; own: inside such a field, :standard means dune's defaults, not what is set here.
+; Generated stanzas therefore carry -warn-error -A themselves, and this stanza
+; covers the hand-written ones, dune.inc sections included.
+(env (dev (flags (:standard -warn-error -A))))

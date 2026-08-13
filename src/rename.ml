@@ -24,7 +24,7 @@ let do_rename page renaming_positions new_name =
           count + 1
       | `Label ->
           Log.println `DEBUG "%d `Label DEF" start#offset;
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None ();
+          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
           page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
           count + 1
       | `Record_label_semi ->
@@ -33,7 +33,7 @@ let do_rename page renaming_positions new_name =
           count + 1
       | `Lident ->
           Log.println `DEBUG "%d `Lident %s" start#offset (if is_use then "USE" else "DEF");
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None ();
+          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
           page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
           count + 1
       | `Record_label_equal
@@ -42,7 +42,7 @@ let do_rename page renaming_positions new_name =
           assert false
       | `None ->
           Log.println `DEBUG "%d `None %s" start#offset (if is_use then "USE" else "DEF");
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None ();
+          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
           page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
           count + 1
     end 0

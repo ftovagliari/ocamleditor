@@ -69,8 +69,8 @@ class view ?packing () =
           dialog#destroy()
       | _ -> dialog#destroy()
     end in
-  (* Command line arguments and Environment Variables *)
-  let entry_args, entry_env = Args_env_widget.create vbox in
+  (* Command line arguments, rule outputs/dependencies and Environment Variables *)
+  let entry_args, entry_env, entry_outputs, entry_deps = Args_env_widget.create_task vbox in
   object (self)
     inherit GObj.widget vbox#as_widget
     val mutable etask = None
@@ -86,6 +86,10 @@ class view ?packing () =
                 ~callback:(self#update (fun etask -> etask.Task.et_cmd <- entry_cmd#text)));
       ignore (entry_args#connect#changed
                 ~callback:(self#update (fun etask -> etask.Task.et_args <- entry_args#entries)));
+      ignore (entry_outputs#connect#changed
+                ~callback:(self#update (fun etask -> etask.Task.et_outputs <- entry_outputs#entries)));
+      ignore (entry_deps#connect#changed
+                ~callback:(self#update (fun etask -> etask.Task.et_deps <- entry_deps#entries)));
       ignore (entry_env#connect#changed
                 ~callback:(self#update (fun etask -> etask.Task.et_env <- entry_env#entries)));
       ignore (entry_env#connect#replace_changed
@@ -103,6 +107,8 @@ class view ?packing () =
       check_always_script#set_active et.Task.et_always_run_in_script;
       entry_cmd#set_text et.Task.et_cmd;
       entry_args#set_entries et.Task.et_args;
+      entry_outputs#set_entries et.Task.et_outputs;
+      entry_deps#set_entries et.Task.et_deps;
       entry_env#set_entries et.Task.et_env;
       entry_env#set_replace et.Task.et_env_replace;
       button_dir#set_text et.Task.et_dir;

@@ -232,7 +232,7 @@ class editor () =
           with Not_found -> None
         in
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
-        Project.remove_bookmark num project;
+        Project.Bookmark.remove project num;
         page#view#draw_gutter();
       end
 
@@ -248,7 +248,7 @@ class editor () =
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
         let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ?pixbuf:(Bookmark.icon num) ?callback () in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
-        Project.set_bookmark bm project;
+        Project.Bookmark.set project bm;
         page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
         page#view#draw_gutter();
       end
@@ -267,21 +267,21 @@ class editor () =
         | Some page ->
             if not (page#view#misc#get_flag `REALIZED) then (self#goto_view page#view);
             Gmisclib.Idle.add ~prio:300 begin fun () ->
-              ignore (Bookmark.apply bm begin function
-                | `OFFSET _ ->
-                    let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
-                    self#bookmark_goto ~num;
-                    -1
-                | `ITER it ->
-                    let where = new GText.iter it in
-                    page#view#scroll_lazy where;
-                    page#buffer#place_cursor ~where;
-                    page#view#misc#grab_focus();
-                    -1
-                end)
+              Bookmark.apply bm begin function
+              | `OFFSET _ ->
+                  let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
+                  self#bookmark_goto ~num;
+                  -1
+              | `ITER it ->
+                  let where = new GText.iter it in
+                  page#view#scroll_lazy where;
+                  page#buffer#place_cursor ~where;
+                  page#view#misc#grab_focus();
+                  -1
+              end |> ignore;
             end;
             if page#view#misc#get_flag `REALIZED then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
-            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status project);
+            Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status ~editor:self project);
       with Not_found -> ()
 
     method scroll_to_definition ~page ~iter =
@@ -545,96 +545,103 @@ class editor () =
             let page = List.find (fun p -> p#get_filename = filename) pages in
             notebook#goto_page (notebook#page_num page#coerce);
             page
-          with Not_found -> begin
-              begin
-                try
-                  let page = List.assoc filename pages_cache in
-                  pages_cache <- List.remove_assoc filename pages_cache;
+          with Not_found ->
+            begin
+              try
+                let page = List.assoc filename pages_cache in
+                pages_cache <- List.remove_assoc filename pages_cache;
+                pages <- page :: pages;
+                page#misc#show_all();
+                if active then (notebook#goto_page (notebook#page_num page#coerce));
+                add_page#call page;
+                page
+              with Not_found -> begin
+                  let file = Editor_file.create ?remote filename in
+                  let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
+                  ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
+                  (* Outline *)
+                  page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
+                  (* Tab Label with close button *)
+                  let button_close = GButton.button ~relief:`NONE () in
+                  let image = Icons.create (??? Icons.button_close) in
+                  ignore (button_close#event#connect#enter_notify ~callback:begin fun _ ->
+                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_hi_b) else (??? Icons.button_close_hi));
+                      false
+                    end);
+                  ignore (button_close#event#connect#leave_notify ~callback:begin fun _ ->
+                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_b) else (??? Icons.button_close));
+                      false
+                    end);
+                  ignore (page#view#misc#connect#query_tooltip ~callback:(self#callback_query_tooltip page));
+                  ignore (page#buffer#connect#modified_changed ~callback:begin fun () ->
+                      if page#buffer#modified then begin
+                        page#status_modified_icon#set_label "\u{f0c7}\u{2005}";
+                        page#status_modified_icon#misc#set_tooltip_text "Modified";
+                        image#set_pixbuf (??? Icons.button_close_b)
+                      end else begin
+                        page#status_modified_icon#set_label "    ";
+                        page#status_modified_icon#misc#set_tooltip_text "";
+                        image#set_pixbuf (??? Icons.button_close)
+                      end;
+                      modified_changed#call();
+                    end);
+                  (* Annot type tooltips *)
+                  page#view#misc#set_has_tooltip true;
+                  ignore (page#buffer#undo#connect#after#redo ~callback:(fun ~name -> changed#call()));
+                  ignore (page#buffer#undo#connect#after#undo ~callback:(fun ~name -> changed#call()));
+                  ignore (page#buffer#undo#connect#can_redo_changed ~callback:(fun _ -> changed#call()));
+                  ignore (page#buffer#undo#connect#can_undo_changed ~callback:(fun _ -> changed#call()));
+                  ignore (page#buffer#connect#after#changed ~callback:changed#call);
+                  (* Tab menu *)
+                  let is_in_src_path = project.Prj.in_source_path filename <> None in
+                  let ebox = GBin.event_box () in
+                  ebox#misc#set_property "visible-window" (`BOOL (not is_in_src_path));
+                  ignore (ebox#event#connect#button_release ~callback:begin fun ev ->
+                      if GdkEvent.Button.button ev = 3 then begin
+                        notebook#goto_page (notebook#page_num page#coerce);
+                        self#create_tab_menu page ev;
+                        true
+                      end else false
+                    end);
+                  (* Tab close button *)
+                  let align = GBin.alignment ~packing:ebox#add () in
+                  button_close#set_image image#coerce;
+                  ignore (button_close#connect#clicked ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
+                  let markup = Editor_page.markup_label filename in
+                  let lab = GMisc.label ~markup ~xalign:0.0 ~yalign:1.0 ~xpad:0 () in
+                  if not is_in_src_path then begin
+                    ebox#misc#modify_bg [`NORMAL, Oe_config.editor_tab_color_alt_normal; `ACTIVE, Oe_config.editor_tab_color_alt_active];
+                    lab#misc#modify_fg [`NORMAL, `NAME "#ffffff"; `ACTIVE, `NAME "#000000"];
+                  end;
+                  page#set_tab_widget (align, button_close, lab);
+                  (* Append tab *)
+                  let _ = notebook#append_page ~tab_label:ebox#coerce page#coerce in
+                  notebook#set_tab_reorderable page#coerce true;
+                  self#set_tab_pos ~page Preferences.preferences#get.tab_pos;
                   pages <- page :: pages;
-                  page#misc#show_all();
-                  if active then (notebook#goto_page (notebook#page_num page#coerce));
+                  if active then begin
+                    self#load_page page;
+                    notebook#goto_page (notebook#page_num page#coerce);
+                    switch_page#call page;
+                  end;
                   add_page#call page;
+                  (* Don't save the editor state here because it's impossible to determine whether
+                     the page was added directly from a user action or whether the browser is opening
+                     project pages by reading them from the editor state saved in a file.
+                     Conversely, the editor state would be saved again to a file, but with incorrect
+                     values ​​based on an incomplete page load.
+                     This means that in the event of a crash, when the browser reopens, the pages
+                     the user manually opened won't be in the editor.
+                     Acceptable for now. *)
+                  (*Project.save_local_status ~editor:self project;*)
                   page
-                with Not_found -> begin
-                    let file = Editor_file.create ?remote filename in
-                    let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
-                    ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
-                    (* Outline *)
-                    page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
-                    (* Tab Label with close button *)
-                    let button_close = GButton.button ~relief:`NONE () in
-                    let image = Icons.create (??? Icons.button_close) in
-                    ignore (button_close#event#connect#enter_notify ~callback:begin fun _ ->
-                        image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_hi_b) else (??? Icons.button_close_hi));
-                        false
-                      end);
-                    ignore (button_close#event#connect#leave_notify ~callback:begin fun _ ->
-                        image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_b) else (??? Icons.button_close));
-                        false
-                      end);
-                    ignore (page#view#misc#connect#query_tooltip ~callback:(self#callback_query_tooltip page));
-                    ignore (page#buffer#connect#modified_changed ~callback:begin fun () ->
-                        if page#buffer#modified then begin
-                          page#status_modified_icon#set_label "\u{f0c7}\u{2005}";
-                          page#status_modified_icon#misc#set_tooltip_text "Modified";
-                          image#set_pixbuf (??? Icons.button_close_b)
-                        end else begin
-                          page#status_modified_icon#set_label "    ";
-                          page#status_modified_icon#misc#set_tooltip_text "";
-                          image#set_pixbuf (??? Icons.button_close)
-                        end;
-                        modified_changed#call();
-                      end);
-                    (* Annot type tooltips *)
-                    page#view#misc#set_has_tooltip true;
-                    ignore (page#buffer#undo#connect#after#redo ~callback:(fun ~name -> changed#call()));
-                    ignore (page#buffer#undo#connect#after#undo ~callback:(fun ~name -> changed#call()));
-                    ignore (page#buffer#undo#connect#can_redo_changed ~callback:(fun _ -> changed#call()));
-                    ignore (page#buffer#undo#connect#can_undo_changed ~callback:(fun _ -> changed#call()));
-                    ignore (page#buffer#connect#after#changed ~callback:changed#call);
-                    (* Tab menu *)
-                    let is_in_src_path = project.Prj.in_source_path filename <> None in
-                    let ebox = GBin.event_box () in
-                    ebox#misc#set_property "visible-window" (`BOOL (not is_in_src_path));
-                    ignore (ebox#event#connect#button_release ~callback:begin fun ev ->
-                        if GdkEvent.Button.button ev = 3 then begin
-                          notebook#goto_page (notebook#page_num page#coerce);
-                          self#create_tab_menu page ev;
-                          true
-                        end else false
-                      end);
-                    (* Tab close button *)
-                    let align = GBin.alignment ~packing:ebox#add () in
-                    button_close#set_image image#coerce;
-                    ignore (button_close#connect#clicked ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
-                    let markup = Editor_page.markup_label filename in
-                    let lab = GMisc.label ~markup ~xalign:0.0 ~yalign:1.0 ~xpad:0 () in
-                    if not is_in_src_path then begin
-                      ebox#misc#modify_bg [`NORMAL, Oe_config.editor_tab_color_alt_normal; `ACTIVE, Oe_config.editor_tab_color_alt_active];
-                      lab#misc#modify_fg [`NORMAL, `NAME "#ffffff"; `ACTIVE, `NAME "#000000"];
-                    end;
-                    page#set_tab_widget (align, button_close, lab);
-                    (* Append tab *)
-                    let _ = notebook#append_page ~tab_label:ebox#coerce page#coerce in
-                    notebook#set_tab_reorderable page#coerce true;
-                    self#set_tab_pos ~page Preferences.preferences#get.tab_pos;
-                    if active then begin
-                      self#load_page page;
-                      notebook#goto_page (notebook#page_num page#coerce);
-                      switch_page#call page;
-                    end;
-                    pages <- page :: pages;
-                    add_page#call page;
-                    page
-                  end
-              end;
+                end
             end
         in
         Some page
-      with e -> begin
-          Dialog.display_exn ~title:"Error while opening file" ~parent:self e;
-          None
-        end
+      with e ->
+        Dialog.display_exn ~title:"Error while opening file" ~parent:self e;
+        None
 
     method revert (page : Editor_page.page) = Gaux.may page#file ~f:begin fun _ ->
         if page#buffer#modified then ignore (Dialog.confirm
@@ -709,18 +716,17 @@ class editor () =
         | Some page -> fun p -> p = page
       in
       let modified, close = List.partition (fun p -> p#buffer#modified && (not (except p))) pages in
-      List.iter (fun p -> if not (except p) then (GtkThread2.sync self#close p)) close;
+      List.iter (fun p -> if not (except p) then (GtkThread.sync self#close p)) close;
       if modified <> [] then begin
         let pages = List.rev_map (fun p -> true, p) modified in
         self#dialog_save_modified ~close:true ~callback:ignore pages
       end;
 
     method close page =
-      Project.save_local_status page#project;
       if page#buffer#modified then (page#revert());
       page#buffer#set_modified false;
-      remove_page#call page;
       pages <- List.filter ((<>) page) pages;
+      remove_page#call page;
       (* Location history and autosave *)
       begin
         match page#file with
@@ -909,49 +915,50 @@ class editor () =
           end;
         end);
       (* Remove Page: editor goes to the last active page *)
-      ignore (self#connect#remove_page ~callback:begin fun removed ->
-          match self#get_page `ACTIVE with
-          | Some cur when not history_switch_page_locked && cur#get_oid = removed#get_oid ->
-              let rec find_page () =
-                let history = get_history project in
-                match history with
-                | last :: tl ->
+      self#connect#remove_page ~callback:begin fun removed ->
+        Project.save_local_status ~editor:self project;
+        match self#get_page `ACTIVE with
+        | Some cur when not history_switch_page_locked && cur#get_oid = removed#get_oid ->
+            let rec find_page () =
+              let history = get_history project in
+              match history with
+              | last :: tl ->
+                  begin
+                    let finally () = replace_history project tl in
                     begin
-                      let finally () = replace_history project tl in
-                      begin
-                        match List.find_opt (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
-                        | None -> finally(); find_page()
-                        | _ ->
-                            notebook#goto_page (notebook#page_num last);
-                            finally()
-                      end;
+                      match List.find_opt (fun p -> p#misc#get_oid = last#misc#get_oid) pages with
+                      | None -> finally(); find_page()
+                      | _ ->
+                          notebook#goto_page (notebook#page_num last);
+                          finally()
                     end;
-                | _ -> ()
-              in
-              find_page()
-          | _ -> ()
-        end);
+                  end;
+              | _ -> ()
+            in
+            find_page()
+        | _ -> ()
+      end |> ignore;
       (* Replace marks with offsets in location history *)
-      ignore (self#connect#remove_page ~callback:begin fun page ->
-          Location_history.iter location_history ~f:begin function
-          | loc when loc.Location_history.filename = page#get_filename ->
-              if not page#buffer#modified (* i.e. saved *) then begin
-                match loc.Location_history.mark with
-                | Some mark when (not (GtkText.Mark.get_deleted mark)) ->
-                    let iter = page#buffer#get_iter_at_mark (`MARK mark) in
-                    loc.Location_history.offset <- iter#offset;
-                    loc.Location_history.mark <- None;
-                | Some _ -> loc.Location_history.mark <- None;
-                | _ -> ()
-              end else begin
-                (* If the buffer is not saved, location is unmeaningful; it only
-                   records the file name. *)
-                loc.Location_history.mark <- None;
-                loc.Location_history.offset <- 0;
-              end
-          | _ -> ()
-          end
-        end);
+      self#connect#remove_page ~callback:begin fun page ->
+        Location_history.iter location_history ~f:begin function
+        | loc when loc.Location_history.filename = page#get_filename ->
+            if not page#buffer#modified (* i.e. saved *) then begin
+              match loc.Location_history.mark with
+              | Some mark when (not (GtkText.Mark.get_deleted mark)) ->
+                  let iter = page#buffer#get_iter_at_mark (`MARK mark) in
+                  loc.Location_history.offset <- iter#offset;
+                  loc.Location_history.mark <- None;
+              | Some _ -> loc.Location_history.mark <- None;
+              | _ -> ()
+            end else begin
+              (* If the buffer is not saved, location is unmeaningful; it only
+                 records the file name. *)
+              loc.Location_history.mark <- None;
+              loc.Location_history.offset <- 0;
+            end
+        | _ -> ()
+        end;
+      end |> ignore;
       Margin_fold.init_editor self;
       Global_diff.init_editor self
   end
