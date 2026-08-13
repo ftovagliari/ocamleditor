@@ -107,7 +107,7 @@ class model ~(buffer : Ocaml_text.buffer) () =
               if self#is_valid then begin
                 outline_hash <- hash;
                 outline <- ol;
-                changed#call ();
+                GtkThread.async changed#call ();
               end else
                 Log.println `WARN
                   "*** not up-to-date (%s) %.2f %.2f ***"
@@ -122,7 +122,7 @@ class model ~(buffer : Ocaml_text.buffer) () =
     method private start_timer () =
       match timer_id with
       | None ->
-          timer_id <- Some (GMain.Timeout.add ~ms:200 ~callback:(fun () -> self#update(); true));
+          timer_id <- Some (GMain.Timeout.add ~ms:100 ~callback:(fun () -> self#update(); true));
       | _ -> ()
 
     (** Stops the refresh timer and resets timestamps. *)

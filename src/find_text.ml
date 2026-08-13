@@ -51,6 +51,10 @@ type status = {
   mutable recursive      : bool;
   mutable pattern        : string option;
   mutable current_regexp : Str.regexp option;
+  mutable hist_find_list : string list;
+  mutable hist_repl_list : string list;
+  mutable hist_path_list : string list;
+  mutable hist_pattern_list : string list;
   h_find                 : history_model;
   h_repl                 : history_model;
   h_path                 : history_model;
@@ -102,6 +106,10 @@ let status =
     recursive       = false;
     pattern         = Some "*.ml";
     current_regexp  = None;
+    hist_find_list    = [];
+    hist_repl_list    = [];
+    hist_path_list    = [];
+    hist_pattern_list = [];
     h_find          =
       (let cols = new GTree.column_list in
        let column      = cols#add Gobject.Data.string in
@@ -120,31 +128,37 @@ let status =
        {model = GTree.list_store cols; column = column});
   }
 
-(** write_status *)
 let write_status () =
-  let get_history prepend (model : GTree.list_store) column =
-    let hist = ref [] in
-    if prepend <> "" then (model#set ~row:(model#prepend ()) ~column prepend);
-    model#foreach begin fun _ row ->
-      let txt = model#get ~row ~column in
-      if (List.length !hist <= Oe_config.find_replace_history_max_length)
-      && not (List.mem txt !hist) then (hist := txt :: !hist);
-      false
-    end;
-    let hist = List.rev !hist in
-    model#clear();
-    List.iter (fun h -> model#set ~row:(model#append()) ~column h) hist;
-    hist
+  let update_list prepend current_list (model : GTree.list_store) column =
+    (* 1. Aggiorna la lista OCaml pura *)
+    let filtered = if prepend <> "" then List.filter ((<>) prepend) current_list else current_list in
+    let updated = if prepend <> "" then prepend :: filtered else filtered in
+    let final_list =
+      if List.length updated > Oe_config.find_replace_history_max_length then
+        List.filteri (fun i _ -> i < Oe_config.find_replace_history_max_length) updated
+      else
+        updated
+    in
+    (* 2. Sincronizza il modello GTK per la GUI *)
+    model#clear ();
+    List.iter begin fun h ->
+      let row = model#append () in
+      model#set ~row ~column h
+    end final_list;
+
+    final_list
   in
-  let ensure_utf8 = to_utf8 in
-  let hist_find = List.map ensure_utf8 (get_history status.text_find#get status.h_find.model status.h_find.column) in
-  let hist_repl = List.map ensure_utf8 (get_history status.text_repl status.h_repl.model status.h_repl.column) in
-  let hist_path = List.map ensure_utf8
-      (get_history (match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "")
-           status.h_path.model status.h_path.column) in
-  let hist_pattern = List.map ensure_utf8
-      (get_history (match status.pattern with None -> "" | Some x -> x)
-           status.h_pattern.model status.h_pattern.column) in
+
+  (* Aggiorna e salva usando le liste OCaml *)
+  status.hist_find_list <- update_list status.text_find#get status.hist_find_list status.h_find.model status.h_find.column;
+  status.hist_repl_list <- update_list status.text_repl status.hist_repl_list status.h_repl.model status.h_repl.column;
+
+  let path_str = match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "" in
+  status.hist_path_list <- update_list path_str status.hist_path_list status.h_path.model status.h_path.column;
+
+  let pat_str = match status.pattern with None -> "" | Some x -> x in
+  status.hist_pattern_list <- update_list pat_str status.hist_pattern_list status.h_pattern.model status.h_pattern.column;
+
   let atd_status = {
     Find_text_t.use_regexp = status.use_regexp;
     case_sensitive = status.case_sensitive;
@@ -152,19 +166,20 @@ let write_status () =
     recursive = status.recursive;
     pattern_enabled = (status.pattern <> None);
     path = atd_path_of_path status.path;
-    history_find = hist_find;
-    history_repl = hist_repl;
-    history_path = hist_path;
-    history_pattern = hist_pattern;
+    history_find = List.map to_utf8 status.hist_find_list;
+    history_repl = List.map to_utf8 status.hist_repl_list;
+    history_path = List.map to_utf8 status.hist_path_list;
+    history_pattern = List.map to_utf8 status.hist_pattern_list;
   } in
   try
     let json_str = Find_text_j.string_of_find_text_status atd_status |> Yojson.Safe.prettify in
     let ochan = open_out status.status_filename in
-    lazy (output_string ochan json_str) /*finally*/ lazy (close_out ochan)
+    Fun.protect
+      ~finally:(fun () -> close_out ochan)
+      (fun () -> output_string ochan json_str)
   with ex ->
     eprintf "Failed to write find_text status to %s: %s\n%!" status.status_filename (Printexc.to_string ex)
 
-(** read_status *)
 let read_status () =
   if Sys.file_exists status.status_filename then begin
     try
@@ -178,22 +193,29 @@ let read_status () =
       status.recursive <- atd_status.recursive;
       status.pattern <- if atd_status.pattern_enabled then Some "" else None;
       status.path <- path_of_atd_path atd_status.path;
+
+      (* Salva nelle liste OCaml e popola GTK *)
+      status.hist_find_list <- atd_status.history_find;
+      status.hist_repl_list <- atd_status.history_repl;
+      status.hist_path_list <- atd_status.history_path;
+      status.hist_pattern_list <- atd_status.history_pattern;
+
       List.iter begin fun x ->
         let row = status.h_find.model#append () in
-        status.h_find.model#set ~row ~column:status.h_find.column (to_utf8 x)
-      end atd_status.history_find;
+        status.h_find.model#set ~row ~column:status.h_find.column x
+      end status.hist_find_list;
       List.iter begin fun x ->
         let row = status.h_repl.model#append () in
-        status.h_repl.model#set ~row ~column:status.h_repl.column (to_utf8 x)
-      end atd_status.history_repl;
+        status.h_repl.model#set ~row ~column:status.h_repl.column x
+      end status.hist_repl_list;
       List.iter begin fun x ->
         let row = status.h_path.model#append () in
-        status.h_path.model#set ~row ~column:status.h_path.column (to_utf8 x)
-      end atd_status.history_path;
+        status.h_path.model#set ~row ~column:status.h_path.column x
+      end status.hist_path_list;
       List.iter begin fun x ->
         let row = status.h_pattern.model#append () in
-        status.h_pattern.model#set ~row ~column:status.h_pattern.column (to_utf8 x)
-      end atd_status.history_pattern;
+        status.h_pattern.model#set ~row ~column:status.h_pattern.column x
+      end status.hist_pattern_list;
     with ex ->
       eprintf "Failed to read find_text status from %s: %s\n%!" status.status_filename (Printexc.to_string ex);
       if Sys.file_exists status.status_filename then (try Sys.remove status.status_filename with _ -> ())
@@ -249,6 +271,8 @@ let update_status
 let clear_history () =
   status.h_find.model#clear();
   status.h_repl.model#clear();
+  status.hist_find_list <- [];
+  status.hist_repl_list <- [];
   write_status()
 
 let _ = begin
