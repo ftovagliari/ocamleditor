@@ -58,9 +58,12 @@ let find_substitutions te1 te2 =
         Ptyp_arrow (x, unify l1 r1, unify l2 r2) |> core_type
 
     | Ptyp_tuple l, Ptyp_tuple r ->
-        Ptyp_tuple (
-          try_combine l r |> List.map (fun ((la, l), (_, r)) -> la, unify l r)) 
-        |> core_type
+        let cc = try List.combine l r with Invalid_argument _ -> raise Cannot_be_combined in
+        let res =
+          cc |> List.map (fun ((ll, l), (lr, r)) ->
+              if ll = lr then ll, unify l r else raise Cannot_be_combined)
+        in
+        Ptyp_tuple res |> core_type
 
     | Ptyp_constr (x, l), Ptyp_constr (_, r) ->
         Ptyp_constr (x, try_combine l r |> List.map (fun (l, r) -> unify l r)) |> core_type
