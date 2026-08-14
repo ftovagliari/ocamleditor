@@ -200,22 +200,19 @@ let read_status () =
       status.hist_path_list <- atd_status.history_path;
       status.hist_pattern_list <- atd_status.history_pattern;
 
-      List.iter begin fun x ->
-        let row = status.h_find.model#append () in
-        status.h_find.model#set ~row ~column:status.h_find.column x
-      end status.hist_find_list;
-      List.iter begin fun x ->
-        let row = status.h_repl.model#append () in
-        status.h_repl.model#set ~row ~column:status.h_repl.column x
-      end status.hist_repl_list;
-      List.iter begin fun x ->
-        let row = status.h_path.model#append () in
-        status.h_path.model#set ~row ~column:status.h_path.column x
-      end status.hist_path_list;
-      List.iter begin fun x ->
-        let row = status.h_pattern.model#append () in
-        status.h_pattern.model#set ~row ~column:status.h_pattern.column x
-      end status.hist_pattern_list;
+      let populate_model (model : GTree.list_store) column list =
+        model#clear ();
+        List.iter begin fun x ->
+          let safe_x = Bytes.to_string (Bytes.of_string x) in
+          let row = model#append () in
+          model#set ~row ~column safe_x
+        end list
+      in
+
+      populate_model status.h_find.model status.h_find.column status.hist_find_list;
+      populate_model status.h_repl.model status.h_repl.column status.hist_repl_list;
+      populate_model status.h_path.model status.h_path.column status.hist_path_list;
+      populate_model status.h_pattern.model status.h_pattern.column status.hist_pattern_list;
     with ex ->
       eprintf "Failed to read find_text status from %s: %s\n%!" status.status_filename (Printexc.to_string ex);
       if Sys.file_exists status.status_filename then (try Sys.remove status.status_filename with _ -> ())
