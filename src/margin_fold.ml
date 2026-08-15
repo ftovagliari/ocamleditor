@@ -4,6 +4,7 @@ open GUtil
 module ColorOps = Color
 open Preferences
 open Printf
+open Cairo_drawable
 
 let is_debug = false
 let suppress_invisible = is_debug && false
@@ -138,7 +139,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
       ebox#event#connect#button_press ~callback:begin fun ev ->
         Log.println `DEBUG "BUTTON_PRESS %d %b" self#id is_expanded;
         Gmisclib.Idle.add ~prio:300 (fun () ->
-            if is_expanded then self#collapse() else self#expand());
+            if is_expanded then self#collapse() else self#expand_node());
         false
       end |> ignore;
       (* Preview of the fold region when the mouse is over the expander. *)
@@ -204,7 +205,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
 
     method invalidate () =
       self#misc#hide();
-      self#expand ~prio:100 ();
+      self#expand_node ~prio:100 ();
       is_valid <- false;
       self#destroy();
 
@@ -236,7 +237,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
       (*self#misc#get_flag `VISIBLE &&*)
       (self#body#set_line_offset 0)#tags |> List.for_all (fun t -> t#get_oid <> tag_invisible#get_oid)
 
-    method expand ?prio () =
+    method expand_node ?prio () =
       if self#is_collapsed then begin
         Log.println `DEBUG "EXPAND %d" self#id;
         let nested = ref [] in
@@ -385,7 +386,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
     let desc =
       (* TODO Update on preferences change *)
       Preferences.preferences#get.Settings_t.editor_base_font
-      |> GPango.font_description
+      |> GPango.font_description_from_string
     in
     GPango.to_pixels (view#misc#pango_context#get_metrics ~desc ())#approx_digit_width
   in
@@ -507,9 +508,9 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
       match view#get_window `TEXT with
       | Some window ->
           let line_width = 1 in
-          let drawable = new GDraw.drawable window in
-          drawable#set_line_attributes ~width:line_width ~style:`SOLID ();
-          drawable#set_foreground color_expander;
+          let drawable = Gdk.Cairo.create window in
+          set_line_attributes drawable ~width:line_width ~style:`SOLID ();
+          set_foreground drawable color_expander;
           let vrect = view#visible_rect in
           let y0 = Gdk.Rectangle.y vrect in
           expanders
@@ -523,17 +524,17 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
               let height = height - 4 in (* do not overlap current line border *)
               let width = height * 8 / 5 in
               if expander#contains_mark_occurrence then begin
-                drawable#set_foreground color_occurrences;
-                drawable#rectangle ~x ~y ~filled:true ~width ~height ();
-                drawable#set_foreground color_expander;
+                set_foreground drawable color_occurrences;
+                rectangle drawable ~x ~y ~filled:true ~width ~height ();
+                set_foreground drawable color_expander;
               end;
-              drawable#rectangle ~x ~y ~filled:false ~width ~height ();
+              rectangle drawable ~x ~y ~filled:false ~width ~height ();
               let h3 = height / 3 in
               let x = x + width / 2 in
               let y = y + h3 + h3 in
-              dot |> List.map (fun (xd, yd) -> x + xd - h3, y + yd) |> drawable#polygon ~filled:true;
-              dot |> List.map (fun (xd, yd) -> x + xd,      y + yd) |> drawable#polygon ~filled:true;
-              dot |> List.map (fun (xd, yd) -> x + xd + h3, y + yd) |> drawable#polygon ~filled:true;
+              dot |> List.map (fun (xd, yd) -> x + xd - h3, y + yd) |> polygon drawable ~filled:true;
+              dot |> List.map (fun (xd, yd) -> x + xd,      y + yd) |> polygon drawable ~filled:true;
+              dot |> List.map (fun (xd, yd) -> x + xd + h3, y + yd) |> polygon drawable ~filled:true;
           end
       | _ -> ()
 
@@ -541,7 +542,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
     method private connect_signals () =
       signals <- [
-        `VIEW (view#event#connect#expose ~callback:(fun ev -> self#draw_ellipsis ev; false));
+        `VIEW (view#misc#connect#draw ~callback:(fun ev -> self#draw_ellipsis ev; false));
         `BUFFER (buffer#connect#mark_set ~callback:begin fun _ mark ->
             match GtkText.Mark.get_name mark with
             | Some "insert" ->
@@ -550,7 +551,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
                   if exp#is_collapsed then begin
                     let iter = buffer#get_iter `INSERT in
                     if iter#line > exp#body#line && exp#body_contains iter
-                    then exp#expand ?prio:None ()
+                    then exp#expand_node ?prio:None ()
                   end
                 end
             | _ -> ()
@@ -569,7 +570,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
     method disable () =
       self#set_is_visible false;
-      expanders |> List.iter (fun exp -> exp#expand ?prio:(Some 100) ());
+      expanders |> List.iter (fun exp -> exp#expand_node ?prio:(Some 100) ());
       expanders |> List.iter (fun exp -> exp#invalidate());
       expanders <- [];
       is_refresh_pending <- false;
@@ -608,12 +609,12 @@ let pages : (int * margin_fold) list ref = ref []
 
 let init_page (page : Editor_page.page) =
   try
-    page#view#margin#list |> List.find_opt (fun m -> m#kind = FOLDING)
+    page#view#margin_container#list |> List.find_opt (fun m -> m#kind = FOLDING)
     |> begin function
     | None ->
         page#outline |> Option.iter begin fun outline ->
           let margin = new margin_fold outline page#ocaml_view in
-          page#view#margin#add (margin :> Margin.margin);
+          page#view#margin_container#add (margin :> Margin.margin);
           margin#connect#begin_expander_toggled ~callback:(fun (expander, nested) ->
               nested := margin#find_nested_expanders expander) |> ignore;
           margin#connect#expander_toggled ~callback:begin fun expander ->
@@ -622,7 +623,7 @@ let init_page (page : Editor_page.page) =
           end |> ignore;
           page#misc#connect#destroy ~callback:begin fun () ->
             pages := List.filter begin fun (oid, margin) ->
-                page#view#margin#remove (margin :> Margin.margin);
+                page#view#margin_container#remove (margin :> Margin.margin);
                 oid <> page#misc#get_oid
               end !pages
           end |> ignore;
@@ -675,7 +676,7 @@ let collapse_to_definitions (page : Editor_page.page) =
   iter_page_expanders page (fun exp -> if exp#is_definition then exp#collapse ~prio:100 ())
 
 let expand_all (page : Editor_page.page) =
-  iter_page_expanders page (fun exp -> exp#expand())
+  iter_page_expanders page (fun exp -> exp#expand_node())
 
 let init_editor editor =
   editor#connect#add_page ~callback:init_page |> ignore;

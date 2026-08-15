@@ -40,8 +40,8 @@ class browser window =
   let get_menu_item_redo                 = ref (fun () -> failwith "get_menu_item_redo") in
   (* Packing *)
   let editor = new Editor.editor () in
-  let _ = window#add Messages.hpaned#coerce in
-  let vbox = GPack.vbox ~packing:Messages.hpaned#add1 () in
+  let _ = Option.iter (fun hpaned -> window#add hpaned#coerce) !Messages.hpaned in
+  let vbox = GPack.vbox ~packing:(Option.get !Messages.hpaned)#add1 () in
   let menubarbox = GPack.hbox ~spacing:0 ~packing:vbox#pack () in
   (* Menubar icon displayed full-screen mode *)
   let window_title_menu_icon = GBin.event_box ~packing:menubarbox#pack ~show:false () in
@@ -57,9 +57,9 @@ class browser window =
       false;
     end in
   (* Standard Toolbar *)
-  let toolbar = new Toolbar.toolbar ~messages:Messages.vmessages ~hmessages:Messages.hmessages ~editor () in
+  let toolbar = new Toolbar.toolbar ~messages:(Messages.vmessages()) ~hmessages:(Messages.hmessages()) ~editor () in
   let _ = vbox#pack toolbar#coerce in
-  let paned = Messages.vpaned in
+  let paned = Option.get !Messages.vpaned in
   let _ = vbox#add paned#coerce in
   let toolbox = GPack.hbox ~packing:menubarbox#add ~show:false () in
   let _ = GMisc.separator `VERTICAL ~packing:toolbox#pack () in
@@ -72,7 +72,8 @@ class browser window =
   let _ =
     if Oe_config.unify_statusbars then
       editor#connect#switch_page ~callback:(fun page -> statusbar#pack_editorbar page#statusbar) |> ignore;
-    editor#connect#notification ~callback:statusbar#flash_message |> ignore;
+    (* TODO: Lablgtk3 issue *)
+    (*editor#connect#notification ~callback:statusbar#flash_message |> ignore;*)
   in
   (** Spinner *)
   let activate_spinner (active : Activity.t list) =
@@ -164,8 +165,8 @@ class browser window =
     (*method vmessages = Messages.vmessages
       method hmessages = Messages.hmessages*)
     method shell () =
-      self#with_current_project (fun project -> Ocaml_shell.append_page ~project Messages.vmessages);
-      Messages.vmessages#set_visible true;
+      self#with_current_project (fun project -> Ocaml_shell.append_page ~project (Messages.vmessages()));
+      (Messages.vmessages())#set_visible true;
 
     method save_all () =
       editor#save_all();
@@ -431,7 +432,7 @@ class browser window =
       let mb = menubar_visible#get in
       let tb = toolbar_visible#get in
       let tab = tabbar_visible#get in
-      let ms = Messages.vmessages#visible in
+      let ms = (Messages.vmessages())#visible in
       let fs = is_fullscreen in
       let dc = is_decorated in
       let save_default () =
@@ -450,7 +451,7 @@ class browser window =
         self#menubar_visible#set original.mva_menubar;
         self#toolbar_visible#set original.mva_toolbar;
         self#tabbar_visible#set original.mva_tabbar;
-        Messages.vmessages#set_visible original.mva_messages;
+        (Messages.vmessages())#set_visible original.mva_messages;
         self#set_fullscreen original.mva_fullscreen;
         window#set_decorated original.mva_decorated;
         toolbox#misc#hide();
@@ -464,7 +465,7 @@ class browser window =
             self#menubar_visible#set first.mva_menubar;
             self#toolbar_visible#set first.mva_toolbar;
             self#tabbar_visible#set first.mva_tabbar;
-            if Messages.vmessages#visible then (Messages.vmessages#set_visible first.mva_messages);
+            if (Messages.vmessages())#visible then ((Messages.vmessages())#set_visible first.mva_messages);
             if first.mva_fullscreen then
               self#set_fullscreen first.mva_fullscreen
             else begin
@@ -478,7 +479,7 @@ class browser window =
             self#menubar_visible#set second.mva_menubar;
             self#toolbar_visible#set second.mva_toolbar;
             self#tabbar_visible#set second.mva_tabbar;
-            if Messages.vmessages#visible then (Messages.vmessages#set_visible second.mva_messages);
+            if (Messages.vmessages())#visible then ((Messages.vmessages())#set_visible second.mva_messages);
             if second.mva_fullscreen then
               self#set_fullscreen second.mva_fullscreen
             else
@@ -654,10 +655,10 @@ class browser window =
 
     method exit (editor : Editor.editor) () =
       try
-        Preferences.preferences#get.hmessages_width <- Messages.hmessages#position;
-        Preferences.preferences#get.vmessages_height <- Messages.vmessages#position;
+        Preferences.preferences#get.hmessages_width <- (Messages.hmessages())#position;
+        Preferences.preferences#get.vmessages_height <- (Messages.vmessages())#position;
         Preferences.preferences#get.outline_width <- editor#paned#position;
-        ignore(Messages.vmessages#remove_all_tabs());
+        ignore((Messages.vmessages())#remove_all_tabs());
         if maximized_view_action = `NONE then (self#set_geometry());
         (*Save geometry*)
         let chan = open_out (Filename.concat App_config.ocamleditor_user_home "geometry") in
@@ -865,7 +866,7 @@ class browser window =
           toolbar#tool_messages_handler_unblock ();
         end !menu_item_view_messages
       in
-      Messages.vmessages#connect#visible_changed ~callback:update_view_vmessages_items |> ignore;
+      (Messages.vmessages())#connect#visible_changed ~callback:update_view_vmessages_items |> ignore;
       let update_view_hmessages_items visible =
         List.iter begin fun (mi, sign) ->
           toolbar#tool_hmessages_handler_block ();
@@ -876,7 +877,7 @@ class browser window =
           toolbar#tool_hmessages_handler_unblock ();
         end !menu_item_view_hmessages
       in
-      Messages.hmessages#connect#visible_changed ~callback:update_view_hmessages_items |> ignore;
+      (Messages.hmessages())#connect#visible_changed ~callback:update_view_hmessages_items |> ignore;
 
       (* Editor *)
       paned#pack1 ~resize:true ~shrink:true editor#coerce;
@@ -891,7 +892,7 @@ class browser window =
             Option.iter
               begin fun button ->
                 button#misc#set_sensitive page#buffer#modified;
-                button#misc#set_state `NORMAL
+                (*button#misc#set_state `NORMAL*)     (* TODO: Lablgtk3 issue *)
               end
               button
           end;
@@ -900,7 +901,7 @@ class browser window =
             Option.iter
               begin fun button ->
                 button#misc#set_sensitive exists_unsaved;
-                button#misc#set_state `NORMAL
+                (*button#misc#set_state `NORMAL*)     (* TODO: Lablgtk3 issue *)
               end
               button
           end;
@@ -981,9 +982,9 @@ class browser window =
       outline_visible#set !is_outline_visible;
       window#resize ~width:!width ~height:!height;
       Gmisclib.Idle.add ~prio:300 begin fun () ->
-        Messages.vmessages#set_position (Preferences.preferences#get.vmessages_height);
+        (Messages.vmessages())#set_position (Preferences.preferences#get.vmessages_height);
       end;
-      Gmisclib.Idle.add ~prio:300 (fun () -> Messages.hmessages#set_position (Preferences.preferences#get.hmessages_width));
+      Gmisclib.Idle.add ~prio:300 (fun () -> (Messages.hmessages())#set_position (Preferences.preferences#get.hmessages_width));
       ignore (window#event#connect#after#delete ~callback:(fun _ -> self#exit editor (); true));
       button_menu_exit#connect#clicked ~callback:(fun () -> self#exit editor ()) |> ignore;
       button_menu_reset#connect#clicked ~callback:(fun () -> self#set_maximized_view `NONE) |> ignore;
@@ -1048,7 +1049,8 @@ class browser window =
               ~show:true ()
           in
           let ms = 5000 in
-          statusbar#flash_message ~delay:ms "Ctrl+K was pressed. Waiting for a second key...";
+          (* TODO: Lablgtk3 issue *)
+          (*statusbar#flash_message ~delay:ms "Ctrl+K was pressed. Waiting for a second key...";*)
           GMain.Timeout.add ~ms ~callback:(fun () -> window#destroy(); false) |> ignore;
           window#event#connect#key_press ~callback:begin fun ev ->
             let state = GdkEvent.Key.state ev in
@@ -1068,7 +1070,8 @@ class browser window =
                 true
               end else false
             in
-            statusbar#flash_message ~delay:ms "";
+            (* TODO: Lablgtk3 issue *)
+            (*statusbar#flash_message ~delay:ms "";*)
             window#destroy ();
             result
           end |> ignore;

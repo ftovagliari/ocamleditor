@@ -35,7 +35,7 @@ let set_menu_item_nav_history_sensitive = ref (fun () -> failwith "set_menu_item
 (** Editor *)
 class editor () =
   let hpaned = GPack.paned `HORIZONTAL () in
-  let notebook = GPack.notebook ~tab_border:0 ~show_border:true
+  let notebook = GPack.notebook ~border_width:0 ~show_border:true
       ~packing:(hpaned#pack2 ~resize:true ~shrink:true) ~scrollable:true () in
   let _ = hpaned#set_position Preferences.preferences#get.outline_width in
   let incremental_search = new Incremental_search.incremental () in
@@ -265,7 +265,8 @@ class editor () =
               ~message:(sprintf "File \xC2\xAB%s\xC2\xBB does not exist." bm.Oe.bm_filename) self;
             self#bookmark_remove ~num
         | Some page ->
-            if not (page#view#misc#get_flag `REALIZED) then (self#goto_view page#view);
+            (* TODO: Lablgtk3 issue, misc#get_flag `REALIZED *)
+            if not (page#view#visible) then (self#goto_view page#view);
             Gmisclib.Idle.add ~prio:300 begin fun () ->
               Bookmark.apply bm begin function
               | `OFFSET _ ->
@@ -280,7 +281,8 @@ class editor () =
                   -1
               end |> ignore;
             end;
-            if page#view#misc#get_flag `REALIZED then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
+            (* TODO: Lablgtk3 issue, misc#get_flag `REALIZED *)
+            if page#view#visible then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
             Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status ~editor:self project);
       with Not_found -> ()
 
@@ -470,13 +472,11 @@ class editor () =
       let menu = GMenu.menu () in
       let filename = page#get_filename in
       let basename = Filename.basename filename in
-      let item = GMenu.image_menu_item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (Icons.create (??? Icons.close_16))#coerce;
+      let item = Image_menu.item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_16)) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
-      let item = GMenu.image_menu_item ~label:(sprintf "Close All Except \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Close All Except \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#close_all ~except:page ()));
-      let item = GMenu.image_menu_item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`MENU ())#coerce;
+      let item = Image_menu.item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`MENU ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#revert page));
       let _ = GMenu.separator_item ~packing:menu#add () in
       let item = GMenu.menu_item ~label:"Copy Full Path" ~packing:menu#add () in
@@ -494,7 +494,7 @@ class editor () =
           Option.iter (fun cmd -> ignore (Thread.create (fun () -> ignore (Sys.command cmd)) ())) cmd
         end);
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:"Switch to Implementation/Interface" ~packing:menu#add () in
+      let item = Image_menu.item ~label:"Switch to Implementation/Interface" ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#switch_mli_ml page));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       self#with_current_page begin fun page ->
@@ -502,25 +502,22 @@ class editor () =
         ignore (switch_viewer#connect#activate ~callback:page#button_dep_graph#clicked);
         switch_viewer#misc#set_sensitive (Menu_view.get_switch_view_sensitive self#project page)
       end;
-      let item = GMenu.image_menu_item
+      let item = Image_menu.item
           ~image:(GMisc.image ~pixbuf:(??? Icons.history) ())#coerce
           ~label:"Revision History" ~packing:menu#add ()
       in
       ignore (item#connect#activate ~callback:(fun () -> self#with_current_page (fun page -> page#show_revision_history ())));
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:"Save As..." ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.save_as_16) (*~stock:`SAVE_AS*) ~icon_size:`MENU ())#coerce;
+      let item = Image_menu.item ~label:"Save As..." ~image:(GMisc.image ~pixbuf:(??? Icons.save_as_16) (*~stock:`SAVE_AS*) ~icon_size:`MENU ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_save_as page));
-      let item = GMenu.image_menu_item ~label:(sprintf "Rename \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Rename \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_rename page));
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
-      let item = GMenu.image_menu_item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (Icons.create (??? Icons.close_window))#coerce;
+      let item = Image_menu.item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_window)) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:self#dialog_delete_current);
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.compile_file_16) ())#coerce;
+      let item = Image_menu.item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.compile_file_16) ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> page#compile_buffer ?join:None ()));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       menu#popup ~time:(GdkEvent.Button.time ev) ~button:3;
@@ -691,7 +688,6 @@ class editor () =
                 ~message:("Delete file\n\n"^page#get_title^"?")
                 ~message_type:`INFO
                 ~position:`CENTER
-                ~allow_grow:false
                 ~destroy_with_parent:false
                 ~modal:true
                 ~buttons:GWindow.Buttons.yes_no () in
@@ -790,7 +786,7 @@ class editor () =
                 if project.Prj.autocomp_enabled then begin
                   try
                     self#with_current_page begin fun page ->
-                      if page#view#misc#get_flag `HAS_FOCUS && page#buffer#is_changed_after_last_autocomp then begin
+                      if page#view#has_focus && page#buffer#is_changed_after_last_autocomp then begin
                         if Unix.gettimeofday() -. page#buffer#last_edit_time > project.Prj.autocomp_delay (*/. 2.*)
                         then (page#compile_buffer ?join:None ())
                       end
@@ -829,7 +825,7 @@ class editor () =
         | None ->
             id_timeout_delim := Some (GMain.Timeout.add ~ms:1500 ~callback:begin fun () ->
                 self#with_current_page begin fun page ->
-                  if page#view#misc#get_flag `HAS_FOCUS then begin
+                  if page#view#has_focus then begin
                     let offset = (page#buffer#get_iter `INSERT)#offset in
                     if not page#buffer#has_selection && offset <> !last_cursor_offset then begin
                       page#view#matching_delim ();

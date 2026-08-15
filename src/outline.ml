@@ -448,7 +448,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
         and selects it in the tree view. Expands parent nodes and scrolls into view
         if needed. *)
     method goto_cursor_position (mark : Gtk.text_mark) =
-      if self#misc#get_flag `VISIBLE then begin
+      if self#visible then begin
         let iter = buffer#get_iter_at_mark (`MARK mark) in
         let ln = iter#line + 1 in
         let cn = iter#line_offset + 1 in
@@ -492,7 +492,11 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
               | _ ->
                   view#expand_to_path path;
                   view#selection#select_path path;
-                  if view#misc#get_flag `REALIZED && not (Gmisclib.Util.treeview_is_path_onscreen view path) then
+                  (* TODO: Lablgtk3 issue, `get_flag `REALIZED *)
+                  let is_realized =
+                    try view#misc#window |> ignore; true with Gpointer.Null -> false
+                  in
+                  if is_realized && not (Gmisclib.Util.treeview_is_path_onscreen view path) then
                     Gmisclib.Idle.add ~prio:300 (fun () ->
                         view#scroll_to_cell ~align:(0.38, 0.) path vc);
             end

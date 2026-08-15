@@ -175,7 +175,7 @@ let display qi start stop =
   label_typ#misc#modify_font_by_name preferences#get.editor_completion_font;
   label_fn#misc#modify_font_by_name preferences#get.editor_base_font;
   let x, y =
-    let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+    let pX, pY = Gdk.Window.get_pointer_location (Window.root_window qi.view) in
     let win = (match qi.view#get_window `WIDGET with None -> assert false | Some w -> w) in
     let px, py = Gdk.Window.get_pointer_location win in
     match qi.show_at with
@@ -278,7 +278,7 @@ let get_iter_at_linechar buffer pos =
 (** Opens a new quick information window with the information received from merlin.
     This function is applied in a separate thread. *)
 let spawn_window qi position (entry : type_enclosing_value) (entry2 : type_enclosing_value option) =
-  if qi.view#misc#get_flag `HAS_FOCUS then begin
+  if qi.view#has_focus then begin
     let start = get_iter_at_linechar qi.view#buffer entry.te_start in
     let stop = get_iter_at_linechar qi.view#buffer entry.te_stop in
     let tail_info, type_expr, type_params = build_content qi entry entry2 in
@@ -365,7 +365,7 @@ let process_location qi ?(is_at_iter=false) x y =
           | Some wi ->
               begin
                 try
-                  let root_window = Gdk.Window.root_parent () in
+                  let root_window = Window.root_window qi.view in
                   let r = wi.window#misc#allocation in
                   let wx, wy = Gdk.Window.get_position wi.window#misc#window in
                   let px, py = Gdk.Window.get_pointer_location root_window in

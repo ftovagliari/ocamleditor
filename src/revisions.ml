@@ -204,11 +204,11 @@ class widget ~page ?packing () =
       self#view_diff();
 
     method private reduce_font_size ocamlview =
-      let fd = ocamlview#view#misc#pango_context#font_description in
-      let size = Pango.Font.get_size fd in
+      let fd : GPango.font_description = ocamlview#view#misc#pango_context#font_description in
+      let size = fd#size in
       if size - Pango.scale >= (7 * Pango.scale) then begin
         let size = size - 2 * Pango.scale in
-        Pango.Font.modify fd ~size ();
+        fd#modify ~size ();
         ocamlview#view#misc#modify_font fd;
       end;
 

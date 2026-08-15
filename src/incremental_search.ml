@@ -174,7 +174,7 @@ class incremental () =
         self#set_view (Some view);
         let dialog =
           match Sys.os_type with
-          | _ -> GWindow.window ~allow_grow:true
+          | _ -> GWindow.window
                    ?type_hint:(Some `DIALOG)
                    ~decorated:false ~modal:false ~border_width:1 ()
         in
@@ -182,7 +182,7 @@ class incremental () =
         dialog#set_skip_pager_hint true;
         let move () =
           (* Coordinate del puntatore relative al desktop *)
-          let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+          let pX, pY = Gdk.Window.get_pointer_location view#misc#window in
           (* Coordinate del puntatore relative alla vista *)
           let win = (match view#get_window `WIDGET
                      with None -> failwith "Incremental_search.i_search: view#get_window `WIDGET = None" | Some w -> w) in

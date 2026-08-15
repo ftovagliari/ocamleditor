@@ -46,9 +46,9 @@ class editorbar ~view ?packing () =
       ~icon:"\u{f09f4}"
       ~packing:lbox#pack
       ~callback:begin fun () ->
-        let fd = view#misc#pango_context#font_description in
-        let size = Pango.Font.get_size fd + Pango.scale in
-        Pango.Font.modify fd ~size ();
+        let fd : GPango.font_description = view#misc#pango_context#font_description in
+        let size = fd#size + Pango.scale in
+        fd#modify ~size ();
         view#misc#modify_font fd;
       end ()
   in
@@ -57,11 +57,11 @@ class editorbar ~view ?packing () =
       ~icon:"\u{f09f3}"
       ~packing:lbox#pack
       ~callback:begin fun () ->
-        let fd = view#misc#pango_context#font_description in
-        let size = Pango.Font.get_size fd in
+        let fd : GPango.font_description = view#misc#pango_context#font_description in
+        let size = fd#size in
         if size - Pango.scale >= (7 * Pango.scale) then begin
           let size = size - Pango.scale in
-          Pango.Font.modify fd ~size ();
+          fd#modify ~size ();
           view#misc#modify_font fd;
         end
       end ()
@@ -140,7 +140,8 @@ class editorbar ~view ?packing () =
   let _ = set_label_font_size status_pos_sel_chars in
   (*let _ = status_pos_sel_chars#misc#set_tooltip_text "Selected characters" in*)
   let _ = GMisc.separator `VERTICAL ~packing:pos_box#pack () in
-  let _ = paned#set_position 900 in
+  (* TODOL Labltgk3 issue, paned#set_position *)
+  (*let _ = paned#set_position 900 in*)
   object (self)
     inherit GObj.widget box#as_widget
     method paned = paned
@@ -188,31 +189,30 @@ class gitbar ?packing () =
 
 class widget ?packing () =
   let ebox = GBin.event_box ~border_width:0 ?packing () in
-  let statusbar = GMisc.statusbar (*~spacing:1*) ~border_width:0 ~packing:ebox#add () in
-  let editorbar_placeholder = GBin.alignment ~packing:(statusbar#pack ~from:`START ~expand:true ~fill:true) () in
-  let _ = GMisc.separator `VERTICAL ~packing:(statusbar#pack ~expand:false) () in
-  let spinner = GMisc.image ~width:20 ~packing:statusbar#pack () in
-  let _ = GMisc.separator `VERTICAL ~packing:(statusbar#pack ~expand:false) () in
-  let context_flash = statusbar#new_context ~name:"flash-messages" in
+  let box = GPack.hbox ~spacing:1 ~border_width:0 ~packing:ebox#add () in
+  (*let statusbar = GMisc.statusbar (*~spacing:1*) ~border_width:0 ~packing:ebox#add () in*)
+  let editorbar_placeholder = GBin.alignment ~packing:(box#pack ~from:`START ~expand:true ~fill:true) () in
+  let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
+  let spinner = GMisc.image ~width:20 ~packing:box#pack () in
+  let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
+  (*let context_flash = statusbar#new_context ~name:"flash-messages" in*)
   object (self)
     inherit GObj.widget ebox#as_widget
     initializer
-      self#set_style();
+      self#set_custom_style();
       ebox#misc#toplevel#misc#connect#after#style_set
-        ~callback:(fun () -> Gmisclib.Idle.add ~prio:300 self#set_style) |> ignore
+        ~callback:(fun () -> Gmisclib.Idle.add ~prio:300 self#set_custom_style) |> ignore
 
     method pack_editorbar (bar : editorbar) =
       if editorbar_placeholder#children <> [] then
         editorbar_placeholder#remove editorbar_placeholder#child#coerce;
       editorbar_placeholder#add bar#coerce;
 
-    method pack ?from widget = statusbar#pack ?from ~expand:false ~fill:false widget
+    method pack ?from widget = box#pack ?from ~expand:false ~fill:false widget
 
     method spinner = spinner
 
-    method flash_message ?(delay=3000) msg = context_flash#flash ~delay msg
-
-    method private set_style () =
+    method private set_custom_style () =
       ebox#misc#modify_bg [`NORMAL, `COLOR (ebox#misc#style#light `NORMAL)];
       ebox#misc#modify_fg [`NORMAL, `COLOR (ebox#misc#style#fg `NORMAL)];
   end

@@ -81,7 +81,7 @@ let get_window_position page renaming_positions =
   let rect = page#view#get_iter_location position_with_cursor in
   let x, y = page#view#buffer_to_window_coords ~tag:`WIDGET
       ~x:(Gdk.Rectangle.x rect) ~y:(Gdk.Rectangle.y rect) in
-  let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+  let pX, pY = Gdk.Window.get_pointer_location (Window.root_window page#view) in
   let win = (match page#view#get_window `WIDGET with None -> assert false | Some w -> w) in
   let px, py = Gdk.Window.get_pointer_location win in
   let x = pX - px + x in

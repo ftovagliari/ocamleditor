@@ -2,6 +2,7 @@ open Margin
 open Odiff
 module ColorOps = Color
 open Preferences
+open Cairo_drawable
 
 class widget view =
   let drawing_area = GMisc.drawing_area () in
@@ -41,22 +42,21 @@ class widget view =
       Preferences.preferences#connect#changed ~callback:begin fun _ ->
         Gmisclib.Idle.add (fun () -> color_base <- `COLOR (view#misc#style#bg `NORMAL))
       end |> ignore;
-      let drawable = new GDraw.drawable drawing_area#misc#window in
-      drawable#set_background color_base;
-      drawable#set_line_attributes ~width:line_width ();
-      drawing_area#event#connect#expose ~callback:begin fun _ ->
-        drawable#set_foreground color_base;
-        drawable#rectangle ~x:0 ~y:0 ~width:area_width ~height ~filled:true ();
+      drawing_area#misc#connect#draw ~callback:begin fun drawable ->
+        set_background drawable color_base;
+        set_foreground drawable color_base;
+        set_line_attributes drawable ~width:line_width ();
+        rectangle drawable ~x:0 ~y:0 ~width:area_width ~height ~filled:true ();
         diffs
         |> List.iter begin function
         | Add (_, ind, _) ->
-            drawable#set_foreground color_add;
+            set_foreground drawable color_add;
             self#draw_bar drawable ind
         | Delete (_, ind, _) ->
-            drawable#set_foreground color_del;
+            set_foreground drawable color_del;
             self#draw_triangle drawable ind
         | Change (_, _, ind, _) ->
-            drawable#set_foreground color_change;
+            set_foreground drawable color_change;
             self#draw_bar drawable ind
         end;
         false
@@ -66,13 +66,13 @@ class widget view =
       | One ln when start_line <= ln && ln <= stop_line ->
           let iter = view#buffer#get_iter (`LINE (ln - 1)) in
           let y, height = view#get_line_yrange iter in
-          drawable#rectangle ~x:0 ~y:(y - top) ~width ~height ~filled ()
+          rectangle drawable ~x:0 ~y:(y - top) ~width ~height ~filled ()
       | Many (l1, l2) when l1 <= stop_line && l2 >= start_line ->
           let iter1 = view#buffer#get_iter (`LINE (l1 - 1)) in
           let y1, _ = view#get_line_yrange iter1 in
           let iter2 = view#buffer#get_iter (`LINE (l2 - 1)) in
           let y2, height2 = view#get_line_yrange iter2 in
-          drawable#rectangle ~x:0 ~y:(y1 - top) ~width ~height:(y2 + height2 - y1) ~filled ()
+          rectangle drawable ~x:0 ~y:(y1 - top) ~width ~height:(y2 + height2 - y1) ~filled ()
       | One _ | Many _ -> ()
 
     method draw_triangle drawable = function
@@ -81,11 +81,11 @@ class widget view =
           let y, height = view#get_line_yrange iter in
           let y = y - top + height in
           let dy = height / 3 in
-          drawable#polygon ~filled [ 0, y - dy; 0, y + dy; width, y ];
+          polygon drawable ~filled [ 0, y - dy; 0, y + dy; width, y ];
       | One _ | Many _ -> ()
 
     method draw ~view ~top:t ~left ~height:h ~start ~stop =
-      drawing_area#set_size ~width:area_width ~height;
+      drawing_area#misc#set_size_request ~width:area_width ~height ();
       start_line <- start#line + 1;
       stop_line <- stop#line + 1;
       top <- t;

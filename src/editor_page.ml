@@ -37,12 +37,12 @@ type load_event_phase = [ `Begin | `End ]
 
 let create_view ~project ~buffer ?file ?packing () =
   let sw = GBin.scrolled_window ~width:100 ~height:100 ~shadow_type:`NONE
-      ~hpolicy:`NEVER ~vpolicy:`NEVER ?packing () in
+      ~hpolicy:`NEVER ~vpolicy:`AUTOMATIC ?packing () in
   let view = new Ocaml_text.view ~project ~buffer () in
   Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
   let tview = (view :> Text.view) in
   let _  = sw#add view#coerce in
-  sw, tview, view
+  sw, (view :> Text.view), view
 
 let shortname filename =
   let basename = Filename.basename filename in
@@ -102,6 +102,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       vbox#pack editorbar#coerce;
     end
   in
+  (* TODO: Lablgtk3 issue: remove this? *)
   let vscrollbar = GRange.scrollbar `VERTICAL ~adjustment:sw#vadjustment (*~update_policy:`DELAYED*) ~packing:svbox#add () in
   let _ =
     text_view#event#connect#scroll ~callback:begin fun ev ->
@@ -117,9 +118,11 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       false
     end
   in
+  (* END TODO *)
   (** Global gutter *)
-  let global_gutter = GMisc.drawing_area ~width:Oe_config.global_gutter_size ~packing:global_gutter_ebox#add
+  let global_gutter = GMisc.drawing_area ~packing:global_gutter_ebox#add
       ~show:Preferences.preferences#get.editor_show_global_gutter () in
+  let _ = global_gutter#set_width_request Oe_config.global_gutter_size in
   let _ = global_gutter#misc#set_has_tooltip true in
   let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in
   let _                        =
@@ -406,7 +409,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       let hbox = GPack.hbox ~spacing:1 () in
       let _ = GMisc.image ~pixbuf:(??? Icons.history) ~packing:hbox#pack () in
       let label = GMisc.label ~text:(sprintf "\xC2\xAB%s\xC2\xBB history" (Filename.basename self#get_filename)) ~packing:hbox#pack () in
-      Messages.vmessages#append_page ~label_widget:hbox#coerce ~with_spinner:false rev;
+      (Messages.vmessages())#append_page ~label_widget:hbox#coerce ~with_spinner:false (rev :> Messages.page);
       rev#set_title label#text;
       rev#present();
       rev#set_icon None;
@@ -502,7 +505,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       (**  *)
       view#hyperlink#enable();
       (** Expose: Statusbar *)
-      let signal_expose = ref (self#view#event#connect#after#expose ~callback:begin fun _ ->
+      let signal_expose = ref (self#view#misc#connect#after#draw ~callback:begin fun _ ->
           let iter = self#buffer#get_iter `INSERT in
           editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
           editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));

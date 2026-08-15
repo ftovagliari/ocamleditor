@@ -24,6 +24,7 @@ open Printf
 module ColorOps = Color
 open Preferences
 open Utils
+open Cairo_drawable
 
 let forward_non_blank iter =
   let rec f it =
@@ -243,7 +244,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
       | x -> x
 
     method tooltip ?(sticky=false) ?(need_focus=true) (location : [`ITER of GText.iter | `XY of int * int]) =
-      if enabled && (not need_focus || view#misc#get_flag `HAS_FOCUS) then begin
+      if enabled && (not need_focus || view#has_focus) then begin
         let iter = match location with `XY (x, y) -> view#get_iter_at_location ~x ~y | `ITER it -> it in
         if not iter#ends_line then begin
           try
@@ -295,7 +296,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
                         let y = y - popup#misc#allocation.Gtk.height - 5 - displacement in
                         popup#move ~x ~y;
                     | `XY _ ->
-                        let x, y = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+                        let x, y = Gdk.Window.get_pointer_location (Window.root_window view) in
                         popup#show();
                         popup#move ~x ~y:(y - popup#misc#allocation.Gtk.height - 12 - displacement);
                   end;
@@ -322,17 +323,17 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
       try
         let window = global_gutter#misc#window in
         table <- [];
-        let drawable = new GDraw.drawable window in
-        drawable#set_line_attributes ~width:1 ~style:`SOLID ~join:`ROUND ();
-        let width0, height = drawable#size in
+        let drawable = Gdk.Cairo.create window in
+        set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`ROUND ();
+        let { Gtk.width = width0; height; _ } = global_gutter#misc#allocation in
         let width = Oe_config.global_gutter_size in
         let half_width = width * 2 / 3 in
         let x0 = width0 - width in
         let xm = x0 + width / 3 - 1 in
         let alloc = vscrollbar#misc#allocation in
         (* Clean up *)
-        drawable#set_foreground (`COLOR (view#misc#style#base `NORMAL));
-        drawable#rectangle ~filled:true ~x:x0 ~y:0 ~width ~height ();
+        set_foreground drawable (`COLOR (view#misc#style#base `NORMAL));
+        rectangle drawable ~filled:true ~x:x0 ~y:0 ~width ~height ();
         (* Draw markers *)
         let line_count, visible_lines_before =
           match GtkText.TagTable.lookup buffer#tag_table Oe_config.code_folding_tag_invisible_name with
@@ -355,7 +356,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
             if is_unused
             then (`NAME (?? Oe_config.warning_unused_color)) else color
           in
-          drawable#set_foreground color;
+          set_foreground drawable color;
           let line_start = (buffer#get_iter_at_mark (`MARK start))#line in
           let y = int_of_float ((visible_lines_before line_start /. line_count) *. height) - 1 in
           table <- (y + 1, start) :: table;
@@ -368,8 +369,8 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
               lines := (x0 + (!i+1) * h, y + h/2) :: (x0 + !i * h, y - h/2) :: !lines;
               incr i; incr i;
             done;
-            drawable#lines !lines
-          end else drawable#rectangle ~filled:true ~x:x0 ~y ~width:half_width ~height:3 ();
+            Cairo_drawable.lines drawable !lines
+          end else rectangle drawable ~filled:true ~x:x0 ~y ~width:half_width ~height:3 ();
         in
         (* Warnings *)
         let color = ?? Oe_config.warning_popup_border_color in
@@ -384,23 +385,23 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
           let bg = `NAME ?? bg_color_occurrences in
           let factor = if Preferences.preferences#get.theme_is_dark then -0.23 else 0.13 in
           let border = `NAME (ColorOps.add_value (?? bg_color_occurrences) ~sfact:0.75 factor) in
-          drawable#set_line_attributes ~width:1 ~style:`SOLID ();
+          set_line_attributes drawable ~width:1 ~style:`SOLID ();
           List.iter begin fun (m1, _) ->
             let start = buffer#get_iter_at_mark m1 in
             let y = int_of_float (visible_lines_before start#line *. line_height) - 1 in
-            drawable#set_foreground bg;
-            drawable#rectangle ~filled:true ~x:xm ~y ~width:half_width ~height:3 ();
-            drawable#set_foreground border;
-            drawable#rectangle ~filled:false ~x:xm ~y ~width:half_width ~height:3 ();
+            set_foreground drawable bg;
+            rectangle drawable ~filled:true ~x:xm ~y ~width:half_width ~height:3 ();
+            set_foreground drawable border;
+            rectangle drawable ~filled:false ~x:xm ~y ~width:half_width ~height:3 ();
           end view#mark_occurrences_manager#words;
           let color = ?? Oe_config.ref_bg_color in
           let width = half_width / 2 in
           let x = xm + width in
-          drawable#set_foreground color;
+          set_foreground drawable color;
           List.iter begin fun (mark, _) ->
             let start = buffer#get_iter_at_mark mark in
             let y = int_of_float (visible_lines_before start#line *. line_height) in
-            drawable#rectangle ~filled:true ~x ~y ~width ~height:2 ();
+            rectangle drawable ~filled:true ~x ~y ~width ~height:2 ();
           end view#mark_occurrences_manager#refs;
         end;
         (* Errors *)
@@ -411,8 +412,8 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
         let iter = buffer#get_iter `INSERT in
         let y1 = int_of_float (visible_lines_before iter#line *. line_height) in
         let y1 = y1 - h / 2 in
-        drawable#set_foreground current_line_fgcolor;
-        drawable#rectangle ~filled:false ~x:x0 ~y:y1 ~width:(width - 1) ~height:h ();
+        set_foreground drawable current_line_fgcolor;
+        rectangle drawable ~filled:false ~x:x0 ~y:y1 ~width:(width - 1) ~height:h ();
       with Gpointer.Null -> ()
 
     method private draw_underline drawable top bottom x0 y0 offset = function
@@ -441,7 +442,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
                   while !x <= x2 do
                     segments := (!x + phase, y + offset) :: (!x, yu + offset) :: !segments; x := !x + phase2;
                   done;
-                  drawable#lines !segments;
+                  Cairo_drawable.lines drawable !segments;
                 end;
               with Exit | Invalid_argument _ -> ()
             end;
@@ -449,36 +450,36 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
           done;
       | _ -> ()
 
-    method private expose ev =
+    method private expose _drawable =
       if flag_underline then begin
         match view#get_window `TEXT with
         | Some window ->
+            let drawable = Gdk.Cairo.create window in
             let vrect = view#visible_rect in
             let x0 = Gdk.Rectangle.x vrect in
             let y0 = Gdk.Rectangle.y vrect in
             (* Draw exposed area only *)
-            let expose_area = GdkEvent.Expose.area ev in
-            let ya = y0 + Gdk.Rectangle.y expose_area in
+            let expose_area = Cairo.clip_extents drawable in
+            let ya = y0 + int_of_float expose_area.y in
             let top, _ = view#get_line_at_y ya in
-            let bottom, _ = view#get_line_at_y (ya + (Gdk.Rectangle.height expose_area)) in
+            let bottom, _ = view#get_line_at_y (ya + (int_of_float expose_area.h)) in
             (*  *)
-            let drawable = new GDraw.drawable window in
-            drawable#set_line_attributes ~width:1 ~style:`SOLID ~join:`MITER ();
+            set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`MITER ();
             let f = self#draw_underline drawable top bottom x0 y0 in
-            drawable#set_foreground (?? Oe_config.warning_underline_color);
+            set_foreground drawable (?? Oe_config.warning_underline_color);
             List.iter (f 0) tag_warning_bounds;
-            drawable#set_foreground (?? Oe_config.warning_underline_shadow);
+            set_foreground drawable (?? Oe_config.warning_underline_shadow);
             List.iter (f 1) tag_warning_bounds;
             begin
               match Oe_config.error_underline_mode with
               | `CUSTOM ->
-                  drawable#set_foreground (?? Oe_config.error_underline_color);
+                  set_foreground drawable (?? Oe_config.error_underline_color);
                   List.iter (f 0) tag_error_bounds;
-                  drawable#set_foreground (?? Oe_config.error_underline_shadow);
+                  set_foreground drawable (?? Oe_config.error_underline_shadow);
                   List.iter (f 1) tag_error_bounds;
               | _ -> ()
             end;
-            Gdk.GC.set_fill drawable#gc `SOLID;
+            (*Gdk.GC.set_fill drawable#gc `SOLID;*)
             false
         | _ -> false
       end else false
@@ -493,36 +494,47 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
       ignore (view#event#connect#leave_notify ~callback:unsticky : GtkSignal.id);
       (* View: on expose draw underline for warnings *)
       let signal_expose =
-        ref (view#event#connect#after#expose ~callback:self#expose)
+        ref (view#misc#connect#after#draw ~callback:self#expose)
       in
-      ignore (vscrollbar#connect#value_changed ~callback:(fun () -> view#misc#handler_block !signal_expose));
-      ignore (vscrollbar#connect#after#value_changed ~callback:(fun () ->
+      ignore (view#vadjustment#connect#value_changed ~callback:(fun () -> view#misc#handler_block !signal_expose));
+      ignore (view#vadjustment#connect#after#value_changed ~callback:(fun () ->
           Gmisclib.Idle.add ~prio:300 (fun () -> view#misc#handler_unblock !signal_expose)));
       (* Global_gutter: expose *)
-      global_gutter#event#connect#expose ~callback:(fun _ -> self#paint_global_gutter (); false) |> ignore;
+      global_gutter#misc#connect#draw ~callback:(fun _ -> self#paint_global_gutter (); false) |> ignore;
       (* Global_gutter: button_press  *)
       global_gutter#event#connect#after#button_press ~callback:begin fun ev ->
         if (GdkEvent.Button.button ev = 1 && GdkEvent.get_type ev = `BUTTON_PRESS) then begin
-          let alloc = vscrollbar#misc#allocation in
+          let alloc = view#misc#allocation in
           let y = GdkEvent.Button.y ev in
-          let window = global_gutter#misc#window in
-          let drawable = new GDraw.drawable window in
-          let _, height = drawable#size in
-          let height = float height in
-          let tooltip, iter =
-            try
-              let _, mark = List.find (fun (yy, _) -> let yy = float yy in yy -. 4. <= y && y <= yy +. 4.) (List.rev table) in
-              true, (buffer#get_iter_at_mark (`MARK mark))
-            with Not_found -> begin
-                let line_count = float buffer#line_count in
-                let line = int_of_float (y /. height *. line_count) in
-                false, buffer#get_iter (`LINE line);
-              end
-          in
-          view#scroll_lazy iter;
-          buffer#place_cursor ~where:iter;
-          if tooltip then begin
-            Gmisclib.Idle.add ~prio:300 (fun () -> self#tooltip ~sticky:true (`ITER iter));
+          if y > float (alloc.Gtk.width) then begin
+            let window = global_gutter#misc#window in
+            let drawable = Gdk.Cairo.create window in
+            let height = int_of_float (Cairo.clip_extents drawable).h in
+            let height = float (height - 2 * alloc.Gtk.width) in
+            let y = y -. (float alloc.Gtk.width) in
+            let tooltip, iter =
+              try
+                let _, mark = List.find (fun (yy, _) -> let yy = float yy in yy -. 4. <= y && y <= yy +. 4.) (List.rev table) in
+                true, (buffer#get_iter_at_mark (`MARK mark))
+              with Not_found -> begin
+                  let line_count = float buffer#line_count in
+                  let line = int_of_float (y /. height *. line_count) in
+                  false, buffer#get_iter (`LINE line);
+                end
+            in
+            view#scroll_lazy iter;
+            buffer#place_cursor ~where:iter;
+            if tooltip then begin
+              Gmisclib.Idle.add ~prio:300 (fun () -> self#tooltip ~sticky:true (`ITER iter));
+            end;
+          end else begin
+            let iter =
+              match self#first_error_or_warning with
+              | None -> buffer#start_iter
+              | Some (start, _, _) -> buffer#get_iter_at_mark (`MARK start)
+            in
+            view#scroll_lazy iter;
+            buffer#place_cursor ~where:iter;
           end
         end;
         false

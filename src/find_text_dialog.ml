@@ -128,7 +128,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     | Some row -> status.h_pattern.model#get ~row ~column:status.h_pattern.column
   end;
   let enable_entry_pattern () =
-    if check_pattern#active && check_pattern#misc#get_flag `SENSITIVE then begin
+    if check_pattern#active && check_pattern#sensitive then begin
       entry_pattern#misc#set_sensitive true;
       entry_pattern#entry#misc#grab_focus()
     end else begin

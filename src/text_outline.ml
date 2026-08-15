@@ -1,6 +1,7 @@
 open Preferences
+open Cairo_drawable
 
-let draw view (drawable : GDraw.drawable) approx_char_width hadjust y0 bounds =
+let draw view (drawable : Gdk.cairo) approx_char_width hadjust y0 bounds =
   let buffer = view#tbuffer in
   let (start, stop), color, line_width =
     match bounds with
@@ -43,9 +44,9 @@ let draw view (drawable : GDraw.drawable) approx_char_width hadjust y0 bounds =
                 then yl1 + ((!lines_displayed - 1) * (hl1 / !n_display_lines))
                 else yl1 + view#pixels_above_lines
               in
-              drawable#set_foreground color;
-              drawable#set_line_attributes ~width:line_width ();
-              drawable#rectangle ~x ~y ~width ~height ();
+              set_foreground drawable color;
+              set_line_attributes drawable ~width:line_width ();
+              rectangle drawable ~x ~y ~width ~height ();
             end
         | _ -> ()
       end

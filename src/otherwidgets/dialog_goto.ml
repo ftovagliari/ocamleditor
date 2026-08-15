@@ -7,8 +7,6 @@ let show ~view () =
         ~title: "Go to..."
         ~resizable:false
         ~type_hint:`DIALOG
-        ~allow_grow:false
-        ~allow_shrink:false
         ~position:`CENTER_ALWAYS
         ~modal:true () in
     Gmisclib.Window.GeometryMemo.add (!Otherwidgets_config.geometry_memo()) ~key:"dialog-goto-line" ~window:w;

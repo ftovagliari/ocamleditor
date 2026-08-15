@@ -22,6 +22,7 @@
 
 
 open Text_util
+open Cairo_drawable
 
 let scan_indent view (start : GText.iter) (stop : GText.iter) =
   let data = ref [] in
@@ -43,7 +44,7 @@ let color_hl_bg = `NAME "#e0f0ff"
 let color_hl_bg1 = `NAME "#fff0e0"
 
 (** draw_indent_lines *)
-let draw_indent_lines view (drawable : GDraw.drawable) start stop y0 =
+let draw_indent_lines view (drawable : Gdk.cairo) start stop y0 =
   let left_margin = view#left_margin + 1 in (* +1 per evitare di coprire la linea del cursore *)
   let buffer = view#tbuffer in
   let current_iter : GText.iter = buffer#get_iter `INSERT in
@@ -65,7 +66,7 @@ let draw_indent_lines view (drawable : GDraw.drawable) start stop y0 =
     | _ -> (ll := (x, ref [y1, y2]) :: !ll)
   in
   let hline = ref 0 in
-  let hadjust = match view#hadjustment with Some adj -> int_of_float adj#value - left_margin | _ -> 0 in
+  let hadjust = int_of_float view#hadjustment#value - left_margin in
   let draw line indent =
     let iter = buffer#get_iter (`LINE line) in
     let y1, h1 = view#get_line_yrange iter in
@@ -95,15 +96,15 @@ let draw_indent_lines view (drawable : GDraw.drawable) start stop y0 =
 
   let draw_highlight x y1 y2 =
     if use_glow then begin
-      drawable#set_foreground color_hl_bg;
-      drawable#set_line_attributes ~width:3 ~style:`SOLID ();
-      drawable#line ~x ~y:y1 ~x ~y:y2;
+      set_foreground drawable color_hl_bg;
+      set_line_attributes drawable ~width:3 ~style:`SOLID ();
+      line drawable x y1 x y2;
     end;
-    drawable#set_foreground color_hl_fg;
-    drawable#set_line_attributes ~width ~style ();
+    set_foreground drawable color_hl_fg;
+    set_line_attributes drawable ~width ~style ();
     current_block := false;
   in
-  Gdk.GC.set_dashes drawable#gc ~offset:1 Oe_config.on_off_dashes;
+  (*Gdk.GC.set_dashes drawable#gc ~offset:1 Oe_config.on_off_dashes;*)
   List.iter begin fun (x, xlines) ->
     List.iter begin fun (y1, y2) ->
       if y2 - y1 > !hline then begin
@@ -112,28 +113,28 @@ let draw_indent_lines view (drawable : GDraw.drawable) start stop y0 =
             draw_highlight x y1 y2;
           end else begin
             if use_glow then begin
-              drawable#set_foreground color_hl_bg1(*view#options#base_color*);
-              drawable#set_line_attributes ~width:3 ~style:`SOLID ();
-              drawable#line ~x ~y:y1 ~x ~y:y2;
+              set_foreground drawable color_hl_bg1 (*view#options#base_color*);
+              set_line_attributes drawable ~width:3 ~style:`SOLID ();
+              line drawable x y1 x y2;
             end;
-            drawable#set_foreground view#options#indent_lines_color_dashed;
-            drawable#set_line_attributes ~width ~style ();
+            set_foreground drawable view#options#indent_lines_color_dashed;
+            set_line_attributes drawable ~width ~style ();
           end;
-          drawable#line ~x ~y:y1 ~x ~y:y2;
+          line drawable x y1 x y2;
         end else begin
           if y2 - y1 > !hline then begin
             if !current_block && y1 <= y_current_line && y_current_line <= y2 then begin
               draw_highlight x y1 y2;
             end else begin
               if use_glow then begin
-                drawable#set_foreground color_hl_bg1(*view#options#base_color*);
-                drawable#set_line_attributes ~width:3 ~style:`SOLID ();
-                drawable#line ~x ~y:y1 ~x ~y:y2;
+                set_foreground drawable color_hl_bg1 (*view#options#base_color*);
+                set_line_attributes drawable ~width:3 ~style:`SOLID ();
+                line drawable x y1 x y2;
               end;
-              drawable#set_foreground view#options#indent_lines_color_solid;
-              drawable#set_line_attributes ~width ~style:`SOLID ();
+              set_foreground drawable view#options#indent_lines_color_solid;
+              set_line_attributes drawable ~width ~style:`SOLID ();
             end;
-            drawable#line ~x ~y:y1 ~x ~y:y2;
+            line drawable x y1 x y2;
           end;
         end
       end

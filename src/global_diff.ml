@@ -4,6 +4,7 @@ let global_gutter_diff_size = 8
 let global_gutter_diff_sep = 1
 let fact = 0.0
 open Preferences
+open Cairo_drawable
 
 let color_add =
   let sat, value = if Preferences.preferences#get.theme_is_dark then 0.2, 0.4 else 0.4, 0.2 in
@@ -17,12 +18,12 @@ let color_change = `NAME (?? Oe_config.global_gutter_diff_color_change)
 
 let initialized : (int * Margin_diff.widget) list ref = ref []
 
-let wave_line ~(drawable : GDraw.drawable) ~color ~width ~height ~y ~is_add =
-  drawable#set_foreground color;
+let wave_line ~(drawable : Cairo.context) ~color ~width ~height ~y ~is_add =
+  set_foreground drawable color;
   let ww = width * 2 / 3 in
   let len = 0 (*height / ww*) in
   if len < 4 then
-    drawable#rectangle ~filled:is_add ~x:0 ~y ~width:(width - (if is_add then 1 else 2)) ~height ()
+    rectangle drawable ~filled:is_add ~x:0 ~y ~width:(width - (if is_add then 1 else 2)) ~height ()
   else
     let polyline = ref [] in
     let i = ref 0 in
@@ -33,21 +34,22 @@ let wave_line ~(drawable : GDraw.drawable) ~color ~width ~height ~y ~is_add =
     done;
     if !polyline <> [] then begin
       let width = if is_add then 1 else 2 in
-      drawable#set_line_attributes ~width ~cap:`ROUND ~style:`SOLID ~join:`ROUND ();
-      drawable#lines !polyline
+      set_line_attributes drawable ~width ~cap:`ROUND ~style:`SOLID ~join:`ROUND ();
+      lines drawable !polyline
     end;;
 
 let paint_diffs page diffs =
   let window = page#global_gutter#misc#window in
-  let drawable = new GDraw.drawable window in
+  let drawable = Gdk.Cairo.create window in
   let alloc = page#vscrollbar#misc#allocation in
-  drawable#set_line_attributes ~width:1 ~style:`SOLID ~join:`ROUND ();
-  let _, height = drawable#size in
+  set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`ROUND ();
+  let { Cairo.h; _ } = Cairo.clip_extents drawable in
+  let height = int_of_float h in
   let width = global_gutter_diff_size in
   let line_count = float page#buffer#line_count in
   let open Odiff in
-  drawable#set_foreground (`COLOR (page#view#misc#style#base `NORMAL));
-  drawable#rectangle ~filled:true ~x:0 ~y:0 ~width ~height ();
+  set_foreground drawable (`COLOR (page#view#misc#style#base `NORMAL));
+  rectangle drawable ~filled:true ~x:0 ~y:0 ~width ~height ();
   page#set_global_gutter_tooltips [];
   let black = page#view#gutter.Gutter.marker_color in
   let height = float height in
@@ -66,38 +68,38 @@ let paint_diffs page diffs =
               begin
                 match Oe_config.global_gutter_diff_style with
                 | `COLOR with_border ->
-                    drawable#set_foreground color;
-                    drawable#polygon ~filled:true [x0, y; x0 + wtri, y - wtri2; x0 + wtri, y + wtri2];
+                    set_foreground drawable color;
+                    polygon drawable ~filled:true [x0, y; x0 + wtri, y - wtri2; x0 + wtri, y + wtri2];
                     if (*true ||*) with_border then begin
-                      drawable#set_foreground (ColorOps.set_value 0.6 color);
-                      drawable#polygon ~filled:false [0, y; wtri, y - wtri2; wtri, y + wtri2]
+                      set_foreground drawable (ColorOps.set_value 0.6 color);
+                      polygon drawable ~filled:false [0, y; wtri, y - wtri2; wtri, y + wtri2]
                     end
                 | `BW ->
-                    drawable#set_foreground black;
+                    set_foreground drawable black;
                     let tri = [x0, y; x0 + wtri, y - wtri; x0 + wtri, y + wtri] in
-                    drawable#polygon ~filled:true tri;
-                    drawable#set_foreground (ColorOps.set_value 0.5 black);
-                    drawable#polygon ~filled:false tri;
+                    polygon drawable ~filled:true tri;
+                    set_foreground drawable (ColorOps.set_value 0.5 black);
+                    polygon drawable ~filled:false tri;
               end;
           | col when col = color_add ->
-              drawable#set_foreground
+              set_foreground drawable
                 (match Oe_config.global_gutter_diff_style with
                  | `COLOR _ -> color;
                  | `BW -> black);
-              drawable#rectangle ~filled:true ~x:0 ~y:(y - 2) ~width:(width-2) ~height ();
+              rectangle drawable ~filled:true ~x:0 ~y:(y - 2) ~width:(width-2) ~height ();
           | color ->
               begin
                 match Oe_config.global_gutter_diff_style with
                 | `COLOR with_border ->
-                    drawable#set_foreground color;
-                    drawable#rectangle ~filled:true ~x:0 ~y:(y - 2) ~width ~height ();
+                    set_foreground drawable color;
+                    rectangle drawable ~filled:true ~x:0 ~y:(y - 2) ~width ~height ();
                     if with_border then begin
-                      drawable#set_foreground (ColorOps.set_value 0.6 color);
-                      drawable#rectangle ~filled:false ~x:0 ~y:(y - 2) ~width:(width-1) ~height ();
+                      set_foreground drawable (ColorOps.set_value 0.6 color);
+                      rectangle drawable ~filled:false ~x:0 ~y:(y - 2) ~width:(width-1) ~height ();
                     end
                 | `BW ->
-                    drawable#set_foreground black;
-                    drawable#rectangle ~filled:false ~x:0 ~y:(y - 2) ~width:(width - 1) ~height ();
+                    set_foreground drawable black;
+                    rectangle drawable ~filled:false ~x:0 ~y:(y - 2) ~width:(width - 1) ~height ();
               end;
         end
     | Many (l1, l2) ->
@@ -107,11 +109,11 @@ let paint_diffs page diffs =
         begin
           match Oe_config.global_gutter_diff_style with
           | `COLOR with_border ->
-              drawable#set_foreground color;
-              drawable#rectangle ~filled:true ~x:0 ~y:y1 ~width ~height ();
+              set_foreground drawable color;
+              rectangle drawable ~filled:true ~x:0 ~y:y1 ~width ~height ();
               if with_border then begin
-                drawable#set_foreground (ColorOps.set_value 0.6 color);
-                drawable#rectangle ~filled:false ~x:0 ~y:y1 ~width:(width-1) ~height ();
+                set_foreground drawable (ColorOps.set_value 0.6 color);
+                rectangle drawable ~filled:false ~x:0 ~y:y1 ~width:(width-1) ~height ();
               end;
           | `BW ->
               wave_line ~drawable ~color:black ~width ~height ~y:y1 ~is_add:(color = color_add);
@@ -183,7 +185,7 @@ let compare_with_head page continue_with =
 let try_compare ?(force=false) page =
   let margin = List.assoc_opt page#get_oid !initialized in
   let is_changed = Option.fold ~none:true ~some:(fun m -> m#is_changed_after_last_diff) margin in
-  if (is_changed || force) && page#view#misc#get_flag `VISIBLE then begin
+  if (is_changed || force) && page#view#visible then begin
     compare_with_head page begin fun diffs ->
       try
         diffs |> paint_diffs page;
@@ -200,9 +202,8 @@ let init_page page =
   match List.assoc_opt page#get_oid !initialized with
   | None ->
       let change_size () =
-        let _, height = (new GDraw.drawable page#global_gutter#misc#window)#size in
         let new_width = Oe_config.global_gutter_size + global_gutter_diff_size + global_gutter_diff_sep in
-        page#global_gutter#set_size ~width:new_width ~height;
+        page#global_gutter#set_width_request new_width;
         page#global_gutter#event#connect#button_release ~callback:begin fun ev ->
           if (GdkEvent.Button.button ev = 3 && GdkEvent.get_type ev = `BUTTON_RELEASE) then begin
             let x = GdkEvent.Button.x ev in
@@ -214,7 +215,7 @@ let init_page page =
           true
         end |> ignore;
         let margin = new Margin_diff.widget page#view in
-        page#view#margin#add (margin :> Margin.margin);
+        page#view#margin_container#add (margin :> Margin.margin);
         initialized := (page#get_oid, margin) :: !initialized;
         try_compare ~force:true page;
         Gmisclib.Idle.add ~prio:500 page#view#draw_gutter
@@ -232,7 +233,7 @@ let init_editor editor =
   editor#connect#remove_page ~callback:begin fun page ->
     begin
       match !initialized |> List.assoc_opt page#get_oid with
-      | Some margin_diff -> page#view#margin#remove (margin_diff :> Margin.margin)
+      | Some margin_diff -> page#view#margin_container#remove (margin_diff :> Margin.margin)
       | _ -> ()
     end;
     initialized := List.filter (fun (oid, _) -> oid <> page#get_oid) (!initialized);
@@ -245,7 +246,7 @@ let init_editor editor =
     let callback () =
       try
         editor#with_current_page begin fun page ->
-          if page#view#misc#get_flag `HAS_FOCUS then (try_compare page);
+          if page#view#has_focus then (try_compare page);
         end;
         true
       with ex ->

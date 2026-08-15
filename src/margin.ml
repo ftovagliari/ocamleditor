@@ -44,7 +44,7 @@ class line_numbers (view : GText.view) =
         | Some d -> d
         | _ ->
             Preferences.preferences#get.Settings_t.editor_base_font
-            |> GPango.font_description
+            |> GPango.font_description_from_string
       in
       let char_width = GPango.to_pixels (view#misc#pango_context#get_metrics ~desc ())#approx_digit_width in
       size <- label_max_chars * char_width;
@@ -193,7 +193,7 @@ class container (view : GText.view) =
 
     method draw () =
       (* Check `REALIZED to avoid caching line numbers without parent. *)
-      if view#misc#get_flag `REALIZED then begin
+      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized not visible *)
         let vrect = view#visible_rect in
         let height = Gdk.Rectangle.height vrect in
         let top = Gdk.Rectangle.y vrect in
