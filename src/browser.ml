@@ -370,9 +370,9 @@ class browser window =
     method outline_visible = outline_visible
 
     method private set_geometry () =
-      let alloc = window#misc#allocation in
+      let width, height = window#get_size () in
       geometry <- sprintf "%d\n%d\n%d\n%d\n%b\n%b\n%b\n%b\n"
-          (alloc.Gtk.width) (alloc.Gtk.height) (alloc.Gtk.x) (alloc.Gtk.y)
+          width height 0 0
           menubar_visible#get editor#show_tabs toolbar_visible#get outline_visible#get;
 
     method update_git_status () =
@@ -953,8 +953,8 @@ class browser window =
       let roots = List.map Filename.dirname project_history.File_history.content in
       Quick_file_chooser.init ~roots ~filter:Dialog_find_file.filter;
       (* Geometry settings *)
-      let height = ref 700 in
-      let width = ref 1052 in
+      let height = ref 1000 in
+      let width = ref 1600 in
       let pos_x = ref None in
       let pos_y = ref None in
       let is_menubar_visible = ref true in

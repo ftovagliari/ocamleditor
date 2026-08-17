@@ -21,30 +21,6 @@
 *)
 
 
-(** fade_out *)
-let fade_out window =
-  if Ocaml_config.is_mingw then begin
-    GMain.Timeout.add ~ms:5 ~callback:begin fun () ->
-      let opa = max 0. (window#opacity -. 0.1) in
-      if opa > 0. then begin
-        window#set_opacity opa;
-        true
-      end else begin
-        window#destroy();
-        false
-      end
-    end |> ignore;
-  end else begin
-    while window#opacity > 0. do
-      Thread.delay 0.02;
-      let opa = max 0. (window#opacity -. 0.1) in
-      if opa >= 0. then begin
-        window#set_opacity opa;
-      end
-    done;
-  end;
-  window#destroy()
-
 let install_fonts () =
   let (/) = Filename.concat in
   let font_names =
@@ -85,9 +61,7 @@ let main () = begin
         ~title:About.program_name
         ~icon:(??? Icons.oe)
         ~position:`CENTER
-        ~width:1
-        ~height:1
-        ~decorated:false
+        ~decorated:true
         ~focus_on_map:true
         ~resizable:true
         ~type_hint:`NORMAL
@@ -96,7 +70,6 @@ let main () = begin
     in
     Gtk_theme.set_theme ~context:window#misc#pango_context ();
     window#iconify(); (* doesn't work on WSL *)
-    window#move ~x:0 ~y:0;
     let _ = new Theme.monitor window in
     let browser = Browser.create window in
     (* Before browser initialization *)
@@ -107,20 +80,16 @@ let main () = begin
       Project_json.init();
     end |> ignore;
     browser#connect#after#startup ~callback:begin fun () ->
-      Gmisclib.Idle.add ~prio:300 begin fun () ->
-        (*window#set_position `CENTER_ALWAYS;
-          window#move ~x:0 ~y:0;
-          window#set_position `CENTER;*)
-        window#set_decorated true;
-        window#deiconify();
-        window#present();
-        Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
-        Gaux.may splashscreen ~f:fade_out;
-      end
+      window#deiconify();
+      window#show();
+      Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
+      Gaux.may splashscreen ~f:(fun w -> w#destroy());
     end |> ignore;
     (*  *)
     browser#startup();
   in
+  Messages.vpaned := Some (GPack.paned `VERTICAL ());
+  Messages.hpaned := Some (GPack.paned `HORIZONTAL ());
   begin
     match Browser.splashscreen() with
     | None -> start None
@@ -143,8 +112,6 @@ let main () = begin
         end |> ignore;
         splashscreen#present();
   end;
-  Messages.vpaned := Some (GPack.paned `VERTICAL ());
-  Messages.hpaned := Some (GPack.paned `HORIZONTAL ());
   GtkThread.main ();
 end
 
