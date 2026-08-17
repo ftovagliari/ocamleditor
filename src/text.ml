@@ -525,8 +525,8 @@ and view ?project ?buffer () =
                 | _ -> ()
               end;
               (* ocamldoc_paragraph_bgcolor_enabled *)
-              if Oe_config.ocamldoc_paragraph_border_enabled
-              then (self#draw_paragraph_border drawable start stop y0 w0);
+              (*if Oe_config.ocamldoc_paragraph_border_enabled
+                then (self#draw_paragraph_border drawable start stop y0 w0);*)
               (* Whitespace characters *)
               if options#show_whitespace_chars then begin
                 let iter        = ref expose_top in

@@ -950,8 +950,8 @@ class editor () =
         | _ -> ()
         end;
       end |> ignore;
-      Margin_fold.init_editor self;
-      Global_diff.init_editor self
+      (*Margin_fold.init_editor self;*)
+      (*Global_diff.init_editor self*)
   end
 
 (** Signals *)

@@ -450,39 +450,39 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
           done;
       | _ -> ()
 
-    method private expose _drawable =
-      if flag_underline then begin
-        match view#get_window `TEXT with
-        | Some window ->
-            let drawable = Gdk.Cairo.create window in
-            let vrect = view#visible_rect in
-            let x0 = Gdk.Rectangle.x vrect in
-            let y0 = Gdk.Rectangle.y vrect in
-            (* Draw exposed area only *)
-            let expose_area = Cairo.clip_extents drawable in
-            let ya = y0 + int_of_float expose_area.y in
-            let top, _ = view#get_line_at_y ya in
-            let bottom, _ = view#get_line_at_y (ya + (int_of_float expose_area.h)) in
-            (*  *)
-            set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`MITER ();
-            let f = self#draw_underline drawable top bottom x0 y0 in
-            set_foreground drawable (?? Oe_config.warning_underline_color);
-            List.iter (f 0) tag_warning_bounds;
-            set_foreground drawable (?? Oe_config.warning_underline_shadow);
-            List.iter (f 1) tag_warning_bounds;
-            begin
-              match Oe_config.error_underline_mode with
-              | `CUSTOM ->
-                  set_foreground drawable (?? Oe_config.error_underline_color);
-                  List.iter (f 0) tag_error_bounds;
-                  set_foreground drawable (?? Oe_config.error_underline_shadow);
-                  List.iter (f 1) tag_error_bounds;
-              | _ -> ()
-            end;
-            (*Gdk.GC.set_fill drawable#gc `SOLID;*)
-            false
-        | _ -> false
-      end else false
+    method private expose _drawable = false
+    (*if flag_underline then begin
+      match view#get_window `TEXT with
+      | Some window ->
+          let drawable = Gdk.Cairo.create window in
+          let vrect = view#visible_rect in
+          let x0 = Gdk.Rectangle.x vrect in
+          let y0 = Gdk.Rectangle.y vrect in
+          (* Draw exposed area only *)
+          let expose_area = Cairo.clip_extents drawable in
+          let ya = y0 + int_of_float expose_area.y in
+          let top, _ = view#get_line_at_y ya in
+          let bottom, _ = view#get_line_at_y (ya + (int_of_float expose_area.h)) in
+          (*  *)
+          set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`MITER ();
+          let f = self#draw_underline drawable top bottom x0 y0 in
+          set_foreground drawable (?? Oe_config.warning_underline_color);
+          List.iter (f 0) tag_warning_bounds;
+          set_foreground drawable (?? Oe_config.warning_underline_shadow);
+          List.iter (f 1) tag_warning_bounds;
+          begin
+            match Oe_config.error_underline_mode with
+            | `CUSTOM ->
+                set_foreground drawable (?? Oe_config.error_underline_color);
+                List.iter (f 0) tag_error_bounds;
+                set_foreground drawable (?? Oe_config.error_underline_shadow);
+                List.iter (f 1) tag_error_bounds;
+            | _ -> ()
+          end;
+          (*Gdk.GC.set_fill drawable#gc `SOLID;*)
+          false
+      | _ -> false
+      end else false*)
 
     initializer
       self#set_phase();
@@ -500,7 +500,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
       ignore (view#vadjustment#connect#after#value_changed ~callback:(fun () ->
           Gmisclib.Idle.add ~prio:300 (fun () -> view#misc#handler_unblock !signal_expose)));
       (* Global_gutter: expose *)
-      global_gutter#misc#connect#draw ~callback:(fun _ -> self#paint_global_gutter (); false) |> ignore;
+      (*global_gutter#misc#connect#draw ~callback:(fun _ -> self#paint_global_gutter (); false) |> ignore;*)
       (* Global_gutter: button_press  *)
       global_gutter#event#connect#after#button_press ~callback:begin fun ev ->
         if (GdkEvent.Button.button ev = 1 && GdkEvent.get_type ev = `BUTTON_PRESS) then begin
