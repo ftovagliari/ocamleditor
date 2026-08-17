@@ -693,6 +693,7 @@ class widget
               | {marks = ((mark_start, mark_stop) :: _); _} ->
                   begin
                     try
+                      page#outline |> Option.iter (fun o -> o#refresh());
                       let where = page#buffer#get_iter_at_mark (`NAME mark_start) in
                       page#buffer#select_range where (page#buffer#get_iter_at_mark (`NAME mark_stop));
                       page#view#scroll_lazy where;

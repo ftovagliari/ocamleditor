@@ -18,7 +18,7 @@ build: [["ocaml" "build.ml" "ocamleditor"]]
 install: [["ocaml" "tools/install.ml" "-prefix" prefix]]
 
 depends: [
-  "ocaml" {= "5.3.0"}
+  "ocaml" {>= "5.4.0" & <= "5.5.0"}
   "odoc-parser"
   "ocamlfind" {>= "1.4.0"}
   "lablgtk" {>= "2.18.0"}

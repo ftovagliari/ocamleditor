@@ -35,7 +35,7 @@ open GUtil
     maintains a cached outline that's periodically refreshed, and notifies
     listeners when the outline changes. The model validates that cached data
     is still current by comparing buffer modification times. *)
-class model ~(buffer : Ocaml_text.buffer) () =
+class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
   let merlin text func = func ~filename:buffer#filename ~buffer:text in
   object (self)
     (** Current outline structure from Merlin. *)
@@ -75,7 +75,7 @@ class model ~(buffer : Ocaml_text.buffer) () =
         and merges them into a single outline. Emits [changed] signal if the
         structure has changed. Updates are skipped if the buffer was modified
         during the async Merlin call (detected via timestamps). *)
-    method update ?(force=false) () =
+    method private update ?(force=false) () =
       if not self#is_valid || force then begin
         let source_code = buffer#get_text () in
         last_refresh_time <- Unix.gettimeofday();
@@ -107,22 +107,24 @@ class model ~(buffer : Ocaml_text.buffer) () =
               if self#is_valid then begin
                 outline_hash <- hash;
                 outline <- ol;
-                changed#call ();
+                GtkThread.async changed#call ();
               end else
                 Log.println `WARN
                   "*** not up-to-date (%s) %.2f %.2f ***"
                   (Filename.basename buffer#filename)
-                  buffer#last_edit_time  last_refresh_time;
+                  buffer#last_edit_time last_refresh_time;
         | Merlin.Failure _ | Merlin.Error _ -> ()
         end
       end
+
+    method refresh () = self#update ~force:true ()
 
     (** Starts the periodic refresh timer if not already running.
         Performs an immediate update followed by updates every 300ms. *)
     method private start_timer () =
       match timer_id with
       | None ->
-          timer_id <- Some (GMain.Timeout.add ~ms:200 ~callback:(fun () -> self#update(); true));
+          timer_id <- Some (GMain.Timeout.add ~ms:100 ~callback:(fun () -> self#update(); true));
       | _ -> ()
 
     (** Stops the refresh timer and resets timestamps. *)
@@ -186,9 +188,9 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let _                      = view#misc#set_property "enable-tree-lines" (`BOOL true) in
 
   (** Comparison functions for different sorting modes. *)
-  let compare_position a b = compare b.ol_start a.ol_start in
-  let compare_name a b = compare (String.lowercase_ascii b.ol_name) (String.lowercase_ascii a.ol_name) in
-  let compare_kind a b = compare (String.lowercase_ascii b.ol_kind) (String.lowercase_ascii a.ol_kind) in
+  let compare_position a b = compare a.ol_start b.ol_start in
+  let compare_name a b = compare (String.lowercase_ascii a.ol_name) (String.lowercase_ascii b.ol_name) in
+  let compare_kind a b = compare (String.lowercase_ascii a.ol_kind) (String.lowercase_ascii b.ol_kind) in
 
   object (self)
     inherit GObj.widget vbox#as_widget
@@ -360,7 +362,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
 
     method outline = outline
 
-    method refresh = outline#update ~force:true
+    method refresh = outline#refresh
 
     (** Performs a depth-first fold over the outline structure.
 
@@ -503,15 +505,13 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       else if tool_sort_kind#get_active then compare_kind
       else compare_position
 
-    (** Lazily builds child nodes for an expanded tree row.
+    (** Builds child nodes for an expanded tree row.
 
-        @param prio Priority for idle callbacks (0 = immediate, higher = deferred)
         @param row The parent row being expanded
         @param path The tree path of the parent row
 
-        Replaces the dummy placeholder node with actual child nodes.
-        Uses idle callbacks for progressive loading unless prio=0. *)
-    method private build_childs ?(prio=300) row path =
+        Replaces the dummy placeholder node with actual child nodes. *)
+    method private build_childs row path =
       let parent = GTree.Path.copy path in
       GTree.Path.down path;
       let first_child = model#get_iter path in
@@ -519,38 +519,29 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       if first_child_data.ol_kind = "Dummy" then begin
         model#remove first_child |> ignore;
         let row_data = model#get ~row ~column:col_data in
-        let steps =
-          row_data.ol_children
-          |> List.sort self#sort_func
-          |> List.map (fun child () -> self#append ~parent:(model#get_iter parent) child)
-        in
-        let steps = (fun () -> view#expand_row parent) :: steps in
-        match prio with
-        | 0 -> steps |> List.rev |> List.iter (fun f -> f())
-        | _ -> Gmisclib.Idle.idleize_cascade ~prio steps ();
+        row_data.ol_children
+        |> List.sort self#sort_func
+        |> List.iter (self#append ~parent:(model#get_iter parent));
+        view#expand_row parent;
       end
 
     (** Rebuilds the entire outline tree from current outline data.
         Preserves expansion state of previously expanded nodes. *)
     method private build () =
-      let steps =
-        outline#get
-        |> List.sort self#sort_func
-        |> List.map (fun ol () -> self#append ol)
-      in
-      let update_expaneded_rows () =
-        model#foreach begin fun path row ->
-          let ol = model#get ~row ~column:col_data in
-          if names_expaneded |> List.exists (fun ne -> ne = ol.ol_name) then begin
-            Log.println `DEBUG "%s %s" __FUNCTION__ ol.ol_name;
-            view#expand_row path;
-          end;
-          false
-        end;
-      in
-      let steps = update_expaneded_rows :: steps in
+      view#set_model None;
       model#clear();
-      Gmisclib.Idle.idleize_cascade ~prio:200 steps ()
+      outline#get
+      |> List.sort self#sort_func
+      |> List.iter self#append;
+      view#set_model (Some model#coerce);
+      model#foreach begin fun path row ->
+        let ol = model#get ~row ~column:col_data in
+        if names_expaneded |> List.exists (fun ne -> ne = ol.ol_name) then begin
+          Log.println `DEBUG "%s %s" __FUNCTION__ ol.ol_name;
+          view#expand_row path;
+        end;
+        false
+      end
 
     (** Enables or disables automatic cursor following.
 

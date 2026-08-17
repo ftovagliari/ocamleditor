@@ -73,6 +73,7 @@ let to_string () =
     20, "native_compilation", (match Ocaml_config.can_compile_native () with Some x -> "Yes (" ^ x ^ ")" | _ -> "No");
     70, "xdg-open", (Option.value Oe_config.xdg_open_version ~default:"<Not Found>");
     70, "dot", (Option.value Oe_config.dot_version ~default:"<Not Found>");
+    70, "ocamlmerlin", (Option.value Oe_config.ocamlmerlin_version ~default:"<Not Found>");
     50, "findlib", (Option.value (findlib_package_exists "findlib") ~default:"<Not Found>");
     50, "lablgtk2", (Option.value (findlib_package_exists "lablgtk2") ~default:"<Not Found>");
     50, "ocamldiff", (Option.value (findlib_package_exists "ocamldiff") ~default:"<Not Found>");
