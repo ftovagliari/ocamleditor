@@ -56,8 +56,10 @@ class editor () =
     val mutable pages = []
     val mutable pages_cache = []
     val mutable project = Project.create ~filename:"untitled.xyz" ()
-    val tout_delim = Timeout.create ~delay:1.5 ~len:3 ()
-    val tout_fast = Timeout.create ~delay:0.3 ~len:2 ()
+    val debouncer_matching_delim = Debouncer.create ~ms:1500
+    val debouncer_mark_ref = Debouncer.create ~ms:300
+    val debouncer_colorize = Debouncer.create ~ms:300
+    val debouncer_mark_words = Debouncer.create ~ms:300
     val location_history = Location_history.create()
     val mutable file_history =
       File_history.create
@@ -71,8 +73,6 @@ class editor () =
     val mutable show_outline = true
 
     method status_message = notification#call
-
-    method tout_delim = tout_delim
 
     method paned = hpaned
 
@@ -198,7 +198,7 @@ class editor () =
       Location_history.add location_history
         ~kind ~view:(page#view :> GText.view)
         ~filename:page#get_filename ~offset:iter#offset;
-      Timeout.set tout_delim 1 !set_menu_item_nav_history_sensitive;
+      Gmisclib.Idle.add ~prio:300 !set_menu_item_nav_history_sensitive;
 
     method location_history_goto location =
       let filename = location.Location_history.filename in
@@ -417,48 +417,49 @@ class editor () =
         let buffer = page#buffer in
         let gtext_buffer = buffer#as_gtext_buffer in
         let view = page#view in
-        let ocaml_view = page#ocaml_view in
-        let cb_tout_fast () =
+        let colorize_callback () =
           if buffer#lexical_enabled then begin
             let iter = buffer#get_iter `INSERT in
             self#colorize_within_nearest_tag_bounds gtext_buffer iter;
           end;
           view#draw_gutter ();
         in
+        let matching_delim_callback () =
+          buffer#block_signal_handlers();
+          view#matching_delim ();
+          page#error_indication#hide_tooltip();
+          buffer#unblock_signal_handlers();
+        in
         let callback iter _ =
           Gmisclib.Idle.add ~prio:100 (fun () -> view#draw_current_line_background ~force:true (buffer#get_iter `INSERT));
-          Timeout.set tout_fast 0 cb_tout_fast;
-          Timeout.set tout_delim 0 (self#cb_tout_delim page);
+          Debouncer.schedule debouncer_colorize colorize_callback;
+          Debouncer.schedule debouncer_matching_delim matching_delim_callback;
           self#location_history_add ~page ~iter ~kind:`EDIT ();
         in
         buffer#add_signal_handler (buffer#connect#insert_text ~callback);
         buffer#add_signal_handler (buffer#connect#after#delete_range ~callback:(fun ~start ~stop -> callback start stop));
         (* Mark Set *)
         let lab_sel_lines, lab_sel_chars = page#status_pos_sel in
+        let activate_mark_occurrences () =
+          Debouncer.schedule debouncer_mark_words page#view#mark_occurrences_manager#mark_words;
+          Debouncer.schedule debouncer_mark_ref page#view#mark_occurrences_manager#mark_refs;
+        in
+        let option_occurrences, option_under_cursor, _ = view#options#mark_occurrences in
         buffer#add_signal_handler (buffer#connect#after#mark_set ~callback:begin fun _ mark ->
-            let mark_occurrences, under_cursor, _ = view#options#mark_occurrences in
-            let is_insert = match GtkText.Mark.get_name mark with Some "insert" -> true | _ -> false in
-            if mark_occurrences && under_cursor then begin
-              Timeout.set tout_fast 1 page#view#mark_occurrences_manager#mark_words;
-              Timeout.set tout_delim 2 page#view#mark_occurrences_manager#mark_refs;
-            end;
+            let is_insert_mark = match GtkText.Mark.get_name mark with Some "insert" -> true | _ -> false in
+            if is_insert_mark && option_occurrences then activate_mark_occurrences();
             if buffer#has_selection then begin
               let start, stop = buffer#selection_bounds in
               let nlines = stop#line - start#line in
               let nchars = stop#offset - start#offset in
               lab_sel_lines#set_text (string_of_int nlines);
               lab_sel_chars#set_text (string_of_int nchars);
-              if is_insert && mark_occurrences && not under_cursor then begin
-                Timeout.set tout_fast 1 page#view#mark_occurrences_manager#mark_words;
-                Timeout.set tout_delim 2 page#view#mark_occurrences_manager#mark_refs;
-              end
             end else begin
-              if mark_occurrences && not under_cursor then
-                page#view#mark_occurrences_manager#clear();
               lab_sel_lines#set_text "0";
               lab_sel_chars#set_text "0";
             end;
-            if is_insert then Timeout.set tout_delim 0 (self#cb_tout_delim page)
+            if is_insert_mark then
+              Debouncer.schedule debouncer_matching_delim matching_delim_callback;
           end);
         (* Paste clipboard *)
         ignore (page#view#connect#paste_clipboard ~callback:page#paste);
@@ -530,7 +531,7 @@ class editor () =
           page#tooltip location;
         in
         if (*true ||*) preferences#get.editor_annot_type_tooltips_delay = 1 then begin
-          Timeout.set tout_delim 0 (GtkThread.async f);
+          Gmisclib.Idle.add ~prio:200 f;
         end else (f());
       end else (page#error_indication#hide_tooltip ~force:false ());
       false;
@@ -767,10 +768,6 @@ class editor () =
       (List.length (Location_history.get_history_forward self#location_history) = 0),
       ((Location_history.last_edit_location self#location_history) = None)
 
-    method private cb_tout_delim page () =
-      page#view#matching_delim ();
-      page#error_indication#hide_tooltip();
-
     val signals = new signals hpaned#as_widget ~add_page ~switch_page ~remove_page ~changed ~modified_changed
       ~file_history_changed ~outline_visibility_changed ~file_saved ~notification
     method connect = signals
@@ -874,8 +871,6 @@ class editor () =
       show_global_gutter#set Preferences.preferences#get.editor_show_global_gutter;
       (*  *)
       self#add_timeouts();
-      ignore (Timeout.start tout_delim);
-      ignore (Timeout.start tout_fast);
       (* Switch page: update the statusbar and remove annot tag *)
       ignore (notebook#connect#after#switch_page ~callback:begin fun _ ->
           (* Current page *)

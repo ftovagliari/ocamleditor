@@ -109,7 +109,6 @@ class browser window =
   let _ = GMisc.image ~pixbuf:(??? Icons.close_window) ~packing:button_menu_exit#add () in
   let _ = button_menu_exit#misc#set_name "windowbutton" in
   let _ = button_menu_exit#set_focus_on_click false in
-  let tout_low_prio = Timeout.create ~delay:0.75 () in
 
   object (self)
     val mutable finalize = fun _ -> ()
@@ -377,7 +376,7 @@ class browser window =
           menubar_visible#get editor#show_tabs toolbar_visible#get outline_visible#get;
 
     method update_git_status () =
-      Timeout.set tout_low_prio 0 begin fun () ->
+      Gmisclib_util.idle_add ~prio:300 begin fun () ->
         let with_project f =
           match current_project#get with
           | Some proj -> f proj
@@ -1022,7 +1021,6 @@ class browser window =
         end;
       in
       window#event#connect#focus_out ~callback:begin fun _ ->
-        Timeout.destroy tout_low_prio;
         id_timeout := Some (GMain.Timeout.add ~ms:300 ~callback:begin fun () ->
             check_launcher();
             true
@@ -1032,7 +1030,6 @@ class browser window =
       window#event#connect#focus_in ~callback:begin fun _ ->
         self#set_title();
         self#update_git_status();
-        Timeout.start tout_low_prio;
         (match !id_timeout with Some id -> GMain.Timeout.remove id | _ -> ());
         false
       end |> ignore;

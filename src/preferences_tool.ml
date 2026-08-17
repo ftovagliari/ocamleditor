@@ -31,7 +31,7 @@ class preferences ~editor () =
   let initial_gtk_theme = Preferences.preferences#get.theme in
   let initial_compl_decorated = Preferences.preferences#get.editor_completion_decorated in
   let initial_general_font = Preferences.preferences#get.font in
-  let window            = GWindow.window ~resizable:true ~width:800
+  let window            = GWindow.window ~resizable:true ~width:1200
       ~type_hint:`DIALOG ~modal:true ~title:"Preferences" ~position:`CENTER ~icon:(??? Icons.oe) ~show:false () in
   let _ = Gmisclib.Window.GeometryMemo.add ~key:"dialog-preferences" ~window Preferences.geometry_memo in
   let _                 = Gaux.may (GWindow.toplevel editor) ~f:(fun w -> window#set_transient_for w#as_window) in
@@ -43,8 +43,8 @@ class preferences ~editor () =
   let renderer          = GTree.cell_renderer_text [] in
   let view_column       = GTree.view_column ~title:"File" ~renderer:(renderer, ["text", column]) () in
   let sw                = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
-      ~packing:(hbox#pack ~expand:false) () in
-  let view              = GTree.view ~model:model ~headers_visible:false ~reorderable:false ~width:160
+      ~packing:(hbox#pack ~expand:true) () in
+  let view              = GTree.view ~model:model ~headers_visible:false ~reorderable:false ~width:360
       ~height:300 ~packing:sw#add () in
   let _                 = view#append_column view_column in
   let _                 = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in

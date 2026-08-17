@@ -164,7 +164,7 @@ let display qi start stop =
   let label_fn = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:false ~packing:vbox1#add () in
   let label_typ = GMisc.label ~xpad:10 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:false ~packing:vbox1#add () in
   let label_vars = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~packing:vbox#add ~show:false () in
-  let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add () in
+  let _ = GMisc.separator `HORIZONTAL ~packing:(vbox#pack ~expand:false) () in
   let label_doc = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:true ~packing:vbox#add () in
   label_typ#set_use_markup true;
   label_fn#set_use_markup true;
@@ -190,7 +190,7 @@ let display qi start stop =
     Some (qi.view#buffer#create_mark ~name:"qi-start" start,
           qi.view#buffer#create_mark ~name:"qi-stop" stop)
   in
-  let window = Gtk_util.window_tooltip vbox#coerce ~fade:false ~x ~y ~show:false () in
+  let window = Gtk_util.window_tooltip vbox#coerce ~parent:qi.view ~fade:false ~x ~y ~width:500 ~show:false () in
   let wininfo = {
     window;
     range = create_range ();
@@ -225,7 +225,7 @@ let display qi start stop =
       vbox#misc#reparent vp#coerce;
       hide qi;
       close qi "";
-      let window = Gtk_util.window_tooltip sw#coerce ~fade:false ~x ~y ~width:700 ~height:300 ~show:false () in
+      let window = Gtk_util.window_tooltip sw#coerce ~parent:qi.view ~fade:false ~x ~y ~width:700 ~height:300 ~show:false () in
       let wininfo = {
         window;
         range = create_range ();

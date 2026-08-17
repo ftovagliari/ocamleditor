@@ -363,6 +363,7 @@ and view ?project ?buffer () =
       let stop = pos#forward_chars 5 in
       let text55 = self#buffer#get_text ~start ~stop () in
       let text = self#buffer#get_text () in
+      (* Is cursor on a delimiter? *)
       if Delimiters.is_delimiter ~utf8:false text55 (pos#offset - start#offset) then begin
         ignore (self#matching_delim_apply_tag text pos#offset)
       end else begin
@@ -484,6 +485,10 @@ and view ?project ?buffer () =
 
     method draw_gutter () = (* 0.008 *) margin#draw ();
 
+    method private metrics =
+      let pango = view#misc#pango_context in
+      pango#get_metrics ?desc:None ?lang:None ()
+
     method private expose _ =
       try
         begin
@@ -600,7 +605,7 @@ and view ?project ?buffer () =
                 end;
               end;
               (* Border around matching delimiters *)
-              text_outline |> List.iter (Text_outline.draw self drawable approx_char_width hadjust y0);
+              text_outline |> List.iter (Text_outline.draw self drawable self#metrics approx_char_width hadjust y0);
               false;
           | _ -> false
         end;      with ex ->
