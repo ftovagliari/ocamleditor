@@ -1030,7 +1030,7 @@ class browser window =
       window#event#connect#focus_in ~callback:begin fun _ ->
         self#set_title();
         self#update_git_status();
-        (match !id_timeout with Some id -> GMain.Timeout.remove id | _ -> ());
+        (match !id_timeout with Some id -> GMain.Timeout.remove id; id_timeout := None | _ -> ());
         false
       end |> ignore;
       (* Key sequences ("chords") *)

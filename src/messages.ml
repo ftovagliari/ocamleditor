@@ -26,9 +26,6 @@ open Preferences
 
 exception Cancel_process_termination
 
-(*let hpaned = GPack.paned `HORIZONTAL ()
-  let vpaned = GPack.paned `VERTICAL ()
-*)
 let hpaned = ref None
 let vpaned = ref None
 
@@ -350,11 +347,27 @@ and remove_page () = object inherit [GObj.widget] signal () end
 and visible_changed () = object inherit [bool] signal () end
 and switch_page () = object inherit [page] signal () end
 
-let vmessages () =
-  match !vpaned with Some vpaned -> new messages ~paned:vpaned () | _ -> failwith __LOC__
+let vmessages =
+  let store = ref None in
+  fun () ->
+    match !store with
+    | Some mw -> mw
+    | _ ->
+        let paned = Option.get !vpaned in
+        let messages = new messages ~paned () in
+        store := Some messages;
+        messages
 
-let hmessages () =
-  match !hpaned with Some hpaned -> new messages ~paned:hpaned () | _ -> failwith __LOC__
+let hmessages =
+  let store = ref None in
+  fun () ->
+    match !store with
+    | Some mw -> mw
+    | _ ->
+        let paned = Option.get !hpaned in
+        let messages = new messages ~paned () in
+        store := Some messages;
+        messages
 
 
 
