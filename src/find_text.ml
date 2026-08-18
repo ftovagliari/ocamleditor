@@ -87,6 +87,16 @@ let path_of_atd_path (p : Find_text_t.path_type) =
   | `Specified s -> Specified s
   | `Only_open_files -> Only_open_files
 
+let default_patterns = [ "*.{ml,mli,mll,mly,txt}" ]
+
+let populate_model (model : GTree.list_store) column list =
+  model#clear ();
+  List.iter begin fun x ->
+    let safe_x = Bytes.to_string (Bytes.of_string x) in
+    let row = model#append () in
+    model#set ~row ~column safe_x
+  end list
+
 (** status *)
 let status =
   let status_filename =
@@ -140,11 +150,7 @@ let write_status () =
         updated
     in
     (* 2. Sincronizza il modello GTK per la GUI *)
-    model#clear ();
-    List.iter begin fun h ->
-      let row = model#append () in
-      model#set ~row ~column h
-    end final_list;
+    populate_model model column final_list;
 
     final_list
   in
@@ -199,15 +205,6 @@ let read_status () =
       status.hist_repl_list <- atd_status.history_repl;
       status.hist_path_list <- atd_status.history_path;
       status.hist_pattern_list <- atd_status.history_pattern;
-
-      let populate_model (model : GTree.list_store) column list =
-        model#clear ();
-        List.iter begin fun x ->
-          let safe_x = Bytes.to_string (Bytes.of_string x) in
-          let row = model#append () in
-          model#set ~row ~column safe_x
-        end list
-      in
 
       populate_model status.h_find.model status.h_find.column status.hist_find_list;
       populate_model status.h_repl.model status.h_repl.column status.hist_repl_list;
@@ -268,8 +265,10 @@ let update_status
 let clear_history () =
   status.h_find.model#clear();
   status.h_repl.model#clear();
+  status.h_pattern.model#clear();
   status.hist_find_list <- [];
   status.hist_repl_list <- [];
+  status.hist_pattern_list <- default_patterns;
   write_status()
 
 let _ = begin
