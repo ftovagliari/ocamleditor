@@ -205,7 +205,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     entry_find#entry#set_text text;
   end;
   entry_find#entry#misc#grab_focus();
-  if entry_pattern#entry#text = "" then (entry_pattern#entry#set_text "*.{ml,mli,mll,mly,txt}");
+  if entry_pattern#entry#text = "" then (entry_pattern#entry#set_text (List.hd default_patterns));
   let callback () =
     let not_empty = String.length entry_find#entry#text > 0 in
     button_find#misc#set_sensitive not_empty;
