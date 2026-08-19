@@ -229,7 +229,7 @@ and messages ~(paned : GPack.paned) () =
           Gaux.may current_page ~f:(fun page -> window#set_title page#title);
           (*detached#call true;*)
           button_detach#misc#set_sensitive true;
-          (* TODO: Lablgtk3 issue *)
+          (* TODO: Lablgtk3 issue, set_state *)
           (*button_detach#misc#set_state `NORMAL;*)
 
     method private empty =

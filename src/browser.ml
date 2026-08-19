@@ -1046,7 +1046,7 @@ class browser window =
               ~show:true ()
           in
           let ms = 5000 in
-          (* TODO: Lablgtk3 issue *)
+          (* TODO: Lablgtk3 issue, flash_message *)
           (*statusbar#flash_message ~delay:ms "Ctrl+K was pressed. Waiting for a second key...";*)
           GMain.Timeout.add ~ms ~callback:(fun () -> window#destroy(); false) |> ignore;
           window#event#connect#key_press ~callback:begin fun ev ->
@@ -1067,7 +1067,7 @@ class browser window =
                 true
               end else false
             in
-            (* TODO: Lablgtk3 issue *)
+            (* TODO: Lablgtk3 issue, flash_message *)
             (*statusbar#flash_message ~delay:ms "";*)
             window#destroy ();
             result

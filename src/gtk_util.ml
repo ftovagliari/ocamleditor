@@ -21,6 +21,8 @@
 *)
 
 
+open Printf
+
 let _ = Gmisclib.Util.fade_window_enabled := Oe_config.fade_window_enabled
 
 let create_mark_name =
@@ -155,10 +157,17 @@ let label_icon ?(width=20) ?(height=16) ?(font_name="FiraCode OCamlEditor") ?(fo
   let markup = Printf.sprintf "<span size='%s'>%s</span>" font_size icon in
   let label = GMisc.label ~xalign:0.5 ~yalign:0.5 ~xpad:0 ~ypad:0 ~width ~height ~markup ?packing () in
   label#misc#modify_font_by_name font_name;
-  color |> Option.iter begin fun color ->
-    label#misc#modify_fg [ `NORMAL, `NAME color; `ACTIVE, `NAME color; `PRELIGHT, `NAME color ];
-    label#misc#modify_text [ `NORMAL, `NAME color; `ACTIVE, `NAME color; `PRELIGHT, `NAME color ];
-  end;
+  (* TODO: Lablgtk3 issue, refactor css into a sigle module. *)
+  Option.iter begin fun color ->
+    let css_provider = GObj.css_provider () in
+    css_provider#load_from_data (sprintf {|
+label.%s-button { color: %s; }
+label.%s-button:disabled { color: #808080; }
+|} color color color);
+    label#misc#style_context#add_class (sprintf "%s-button" color);
+    label#misc#style_context#add_provider css_provider 600
+  end color;
+
   label
 
 class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?relief ?packing () =

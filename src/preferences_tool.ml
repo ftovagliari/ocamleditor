@@ -31,7 +31,7 @@ class preferences ~editor () =
   let initial_gtk_theme = Preferences.preferences#get.theme in
   let initial_compl_decorated = Preferences.preferences#get.editor_completion_decorated in
   let initial_general_font = Preferences.preferences#get.font in
-  let window            = GWindow.window ~resizable:true ~width:1200
+  let window            = GWindow.window ~resizable:true ~width:1200 ~height:900
       ~type_hint:`DIALOG ~modal:true ~title:"Preferences" ~position:`CENTER ~icon:(??? Icons.oe) ~show:false () in
   let _ = Gmisclib.Window.GeometryMemo.add ~key:"dialog-preferences" ~window Preferences.geometry_memo in
   let _                 = Gaux.may (GWindow.toplevel editor) ~f:(fun w -> window#set_transient_for w#as_window) in
@@ -44,8 +44,7 @@ class preferences ~editor () =
   let view_column       = GTree.view_column ~title:"File" ~renderer:(renderer, ["text", column]) () in
   let sw                = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
       ~packing:(hbox#pack ~expand:true) () in
-  let view              = GTree.view ~model:model ~headers_visible:false ~reorderable:false ~width:360
-      ~height:300 ~packing:sw#add () in
+  let view              = GTree.view ~model:model ~headers_visible:false ~reorderable:false ~packing:sw#add () in
   let _                 = view#append_column view_column in
   let _                 = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
   let button_box        = GPack.button_box `HORIZONTAL ~layout:`END ~border_width:5
@@ -161,22 +160,6 @@ and pref_editor_actions title ?packing () =
   let combo_end, _ = GEdit.combo_box_text ~active:0 ~strings:
       ["Move to last column position (includes whitespace)"; "Move to end of last character"]
       ~packing:(skbox#attach ~top:1 ~left:1 ~expand:`X) () in
-  (*  (* Type Annotation *)
-      let align                       = create_align ~title:"Type Annotations" ~vbox () in
-      let box                         = GPack.vbox ~spacing:row_spacings ~packing:align#add () in
-      let table_annot_type            = GPack.table ~row_spacings:row_spacings ~col_spacings:col_spacings ~packing:box#add () in
-      let check_annot_type_enabled    = GButton.check_button ~label:"Enable tooltips"
-      ~packing:(table_annot_type#attach ~top:0 ~left:0) () in
-      let combo_annot_type_tooltips_delay, _ = GEdit.combo_box_text ~strings:
-      ["Show immediately"; "Show after delay"]
-      ~packing:(table_annot_type#attach ~top:0 ~left:1 ~expand:`X) () in
-      (*  let _ = GMisc.label ~show:false ~text:"Implementation: " ~xalign:0.0 ~packing:(table_annot_type#attach ~top:1 ~left:0) () in
-      let combo_annot_type_tooltips_impl, _ = GEdit.combo_box_text ~show:false ~strings:
-      ["Use popups"; "Use GTK tooltips"]
-      ~packing:(table_annot_type#attach ~top:1 ~left:1 ~expand:`X) () in*)
-      let _                           = check_annot_type_enabled#connect#toggled ~callback:begin fun () ->
-      combo_annot_type_tooltips_delay#misc#set_sensitive check_annot_type_enabled#active;
-      end in*)
   (* File Saving *)
   let align                       = create_align ~title:"File Saving" ~vbox () in
   let box                         = GPack.vbox ~spacing:row_spacings ~packing:align#add () in
@@ -191,20 +174,13 @@ and pref_editor_actions title ?packing () =
   object
     inherit page title vbox
 
-    (*  initializer
-        combo_annot_type_tooltips_delay#misc#set_sensitive check_annot_type_enabled#active;*)
-
     method write pref =
       pref.editor_bak <- check_bak#active;
       pref.editor_trim_lines <- check_trim#active;
       pref.editor_format_on_save <- check_autoformat#active;
       pref.editor_smart_keys_home <- combo_home#active;
       pref.editor_smart_keys_end <- combo_end#active;
-      (*    pref.Preferences.pref_annot_type_tooltips_enabled <- check_annot_type_enabled#active;
-            pref.Preferences.pref_annot_type_tooltips_delay <- combo_annot_type_tooltips_delay#active;
-            (*pref.Preferences.pref_annot_type_tooltips_impl <- combo_annot_type_tooltips_impl#active;*)*)
       pref.editor_search_word_at_cursor <- check_search_word_at_cursor#active;
-      (*pref.Preferences.pref_editor_save_all_bef_comp <- check_save_all_bef_comp#active;*)
 
     method read pref =
       check_bak#set_active pref.editor_bak;
@@ -212,11 +188,7 @@ and pref_editor_actions title ?packing () =
       check_autoformat#set_active pref.editor_format_on_save;
       combo_home#set_active pref.editor_smart_keys_home;
       combo_end#set_active pref.editor_smart_keys_end;
-      (*    check_annot_type_enabled#set_active pref.Preferences.pref_annot_type_tooltips_enabled;
-            combo_annot_type_tooltips_delay#set_active pref.Preferences.pref_annot_type_tooltips_delay;
-            (*combo_annot_type_tooltips_impl#set_active pref.Preferences.pref_annot_type_tooltips_impl;*)*)
       check_search_word_at_cursor#set_active pref.editor_search_word_at_cursor;
-      (*check_save_all_bef_comp#set_active pref.Preferences.pref_editor_save_all_bef_comp*)
   end
 
 (** pref_fonts *)
@@ -458,9 +430,9 @@ and pref_templ title ?packing () =
       end)
   in
   let label      = GMisc.label ~markup:"<b>How to create custom templates</b>" () in
-  let expander   = GBin.expander ~packing:vbox#add () in
+  let expander   = GBin.expander ~packing:(vbox#pack ~expand:true) () in
   let _          = expander#set_label_widget label#coerce in
-  let sw         = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:expander#add () in
+  let sw         = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~height:500 ~packing:expander#add () in
   let markup     = Template.help in
   let label      = GMisc.label ~xalign:0.0 ~yalign:0.0 ~xpad:3 ~ypad:3 ~markup ~line_wrap:false ~selectable:true ~packing:sw#add_with_viewport () in
   object

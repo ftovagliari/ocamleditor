@@ -471,6 +471,7 @@ class editor () =
 
     method private create_tab_menu page ev =
       let menu = GMenu.menu () in
+      GtkMenu.Menu.attach_to_widget menu#as_menu page#as_widget;
       let filename = page#get_filename in
       let basename = Filename.basename filename in
       let item = Image_menu.item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_16)) ~packing:menu#add () in
