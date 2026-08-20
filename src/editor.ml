@@ -916,7 +916,7 @@ class editor () =
         end);
       (* Remove Page: editor goes to the last active page *)
       self#connect#remove_page ~callback:begin fun removed ->
-        Project.save_local_status ~editor:self project;
+        (*Project.save_local_status ~editor:self project;*)
         match self#get_page `ACTIVE with
         | Some cur when not history_switch_page_locked && cur#get_oid = removed#get_oid ->
             let rec find_page () =
