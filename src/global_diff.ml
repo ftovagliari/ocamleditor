@@ -218,7 +218,7 @@ let init_page page =
         page#view#margin_container#add (margin :> Margin.margin);
         initialized := (page#get_oid, margin) :: !initialized;
         try_compare ~force:true page;
-        Gmisclib.Idle.add ~prio:500 page#view#draw_gutter
+        Gmisclib.Idle.add ~prio:500 page#view#build_gutter
       in
       begin
         page#view#event#connect#focus_in ~callback:(fun _ -> try_compare ~force:true page; false) |> ignore;

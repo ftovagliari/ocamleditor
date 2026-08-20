@@ -214,8 +214,6 @@ and view ?project ?buffer () =
 
     val mutable options = new Text_options.options ()
     val mutable tbuffer = buffer
-    val mutable hadjustment : GData.adjustment option = None
-    val mutable vadjustment : GData.adjustment option = None
     val mutable prev_line_background = 0
     val mutable highlight_current_line_tag = create_highlight_current_line_tag ()
     val mutable current_matching_tag_bounds = []
@@ -248,10 +246,6 @@ and view ?project ?buffer () =
     method gutter = margin#gutter (* Legacy *)
     method margin_container = margin
 
-    (* TODO: Lablgtk3 issue *)
-    (*method hadjustment = hadjustment
-      method vadjustment = vadjustment*)
-
     method set_buffer buf =
       let tbuf = new buffer ~buffer:buf () in
       tbuffer <- tbuf;
@@ -265,7 +259,7 @@ and view ?project ?buffer () =
     method modify_font fontname =
       self#misc#modify_font_by_name fontname;
       approx_char_width <- GPango.to_pixels (self#misc#pango_context#get_metrics())#approx_digit_width;
-      Gmisclib.Idle.add self#draw_gutter
+      Gmisclib.Idle.add self#build_gutter
 
     method create_highlight_current_line_tag () =
       let tag_table = new GText.tag_table buffer#tag_table in
@@ -287,7 +281,7 @@ and view ?project ?buffer () =
         *)
         self#scroll_to_iter ~use_align:(self#scroll_to_iter iter) ~xalign:1.0 ~yalign:0.38 iter |> ignore;
         Gmisclib.Idle.add ~prio:200 begin fun () ->
-          self#draw_gutter();
+          self#build_gutter();
           GtkBase.Widget.queue_draw self#as_widget;
         end
       end;
@@ -483,7 +477,7 @@ and view ?project ?buffer () =
         prev_line_background <- cur_line;
       end
 
-    method draw_gutter () = (* 0.008 *) margin#build ();
+    method build_gutter () = (* 0.008 *) margin#build ();
 
     method private metrics =
       let pango = view#misc#pango_context in
@@ -608,7 +602,8 @@ and view ?project ?buffer () =
               text_outline |> List.iter (Text_outline.draw self drawable self#metrics approx_char_width hadjust y0);
               false;
           | _ -> false
-        end;      with ex ->
+        end;
+      with ex ->
         Printf.eprintf "File \"text.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
         false
 
@@ -622,7 +617,7 @@ and view ?project ?buffer () =
             | Some color ->
                 set_foreground drawable (*(`NAME "red")*) (`NAME (ColorOps.modify color ~sat:0.1 ~value:0.1));
                 set_line_attributes drawable ~width:1 ~style:`SOLID ();
-                let hadjust = match hadjustment with Some adj -> int_of_float adj#value | _ -> 0 in
+                let hadjust = int_of_float view#hadjustment#value in
                 while !start#forward_line#compare stop <= 0 && not (!start#equal self#buffer#end_iter) do
                   if !start#has_tag tag then begin
                     let x = 0 - hadjust + self#left_margin in
@@ -647,11 +642,12 @@ and view ?project ?buffer () =
       margin#add (margin_markers :> Margin.margin);
       margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;
       view#misc#connect#style_set ~callback:begin fun () ->
-        failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
+        (* TODO: Lablgtk3 issue *)
+        Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
         (* Applies the new font size to labels that have been created after
            the number of lines of text has increased. *)
         Gmisclib.Idle.add ~prio:300 begin fun () ->
-          Gmisclib.Idle.add self#draw_gutter
+          Gmisclib.Idle.add self#build_gutter
         end;
       end |> ignore;
       ignore (options#connect#mark_occurrences_changed ~callback:(fun _ -> self#mark_occurrences_manager#mark()));
@@ -663,15 +659,17 @@ and view ?project ?buffer () =
       ignore (options#connect#after#line_numbers_changed ~callback:begin fun visible ->
           margin_line_numbers#set_is_visible visible;
           margin_markers#set_size (if visible then 0 else margin_markers#icon_size);
-          failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
-          Gmisclib.Idle.add self#draw_gutter
+          (* TODO: Lablgtk3 issue *)
+          Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
+          Gmisclib.Idle.add self#build_gutter
         end);
       ignore (options#connect#line_numbers_font_changed ~callback:begin fun fontname ->
-          failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
+          (* TODO: Lablgtk3 issue *)
+          Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
         end);
       options#set_line_numbers_font view#misc#pango_context#font_name;
       ignore (options#connect#after#show_markers_changed ~callback:(fun _ ->
-          Gmisclib.Idle.add self#draw_gutter));
+          Gmisclib.Idle.add self#build_gutter));
       ignore (options#connect#word_wrap_changed ~callback:(fun x -> self#set_wrap_mode (if x then `WORD else `NONE)));
       ignore (options#connect#after#highlight_current_line_changed ~callback:begin fun x ->
           prev_line_background <- 0;
@@ -708,18 +706,7 @@ and view ?project ?buffer () =
       signal_expose <- Some (self#misc#connect#after#draw ~callback:(fun _ ->
           Prf.register Prf.expose self#expose ()));
       (*  *)
-      ignore (visible_height#connect#changed ~callback:(fun _ -> self#draw_gutter()));
-      (* Refresh gutter and right margin line when scrolling *)
-      self#hadjustment#connect#after#value_changed ~callback:begin fun _ ->
-        (* Redraw the entire window on horizontal scroll to refresh right margin *)
-        print_endline "----- notify_hadjustment";
-        GtkBase.Widget.queue_draw self#as_widget
-      end |> ignore;
-      self#vadjustment#connect#after#value_changed ~callback:begin fun _ ->
-        (* Update gutter on vertical scroll changes *)
-        Gmisclib.Idle.add self#draw_gutter;
-        Gmisclib.Idle.add ~prio:300 (fun () -> GtkBase.Widget.queue_draw self#as_widget)
-      end |> ignore;
+      ignore (visible_height#connect#changed ~callback:(fun _ -> self#build_gutter()));
       (* Fix bug in draw_current_line_background *)
       let before, after =
         let old_mark_occurrences = ref None in

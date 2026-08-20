@@ -73,7 +73,7 @@ class editorbar ~view ?packing () =
         let above, below = Preferences.preferences#get.editor_pixels_lines in
         view#set_pixels_above_lines (min (4 + above) (view#pixels_above_lines + 1));
         view#set_pixels_below_lines (min (4 + below) (view#pixels_below_lines + 1));
-        Gmisclib.Idle.add view#draw_gutter;
+        Gmisclib.Idle.add view#build_gutter;
       end ()
   in
   let button_rowspacing_decr = create_small_button
@@ -82,7 +82,7 @@ class editorbar ~view ?packing () =
       ~callback:begin fun () ->
         view#set_pixels_above_lines (max 0 (view#pixels_above_lines - 1));
         view#set_pixels_below_lines (max 0 (view#pixels_below_lines - 1));
-        Gmisclib.Idle.add view#draw_gutter;
+        Gmisclib.Idle.add view#build_gutter;
       end ()
   in
 

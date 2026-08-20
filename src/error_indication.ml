@@ -35,7 +35,7 @@ let forward_non_blank iter =
   in
   f iter
 
-class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMisc.drawing_area) =
+class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_area) =
   let buffer = view#tbuffer in
   let tag_table = new GText.tag_table buffer#tag_table in
   let create_tags () =
@@ -195,7 +195,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
           has_warnings#set (tag_warning_bounds <> []);
           let has_messages = has_errors#get || has_warnings#get in
           has_errors_or_warnings#set has_messages;
-          if has_messages then (tview#draw_gutter());
+          if has_messages then (tview#build_gutter());
           self#paint_global_gutter ();
         end;
       end;
@@ -223,7 +223,7 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
         let tview = (view :> Text.view) in
         Gutter.destroy_markers tview#gutter error_gutter_markers;
         error_gutter_markers <- [];
-        if had_messages then (tview#draw_gutter());
+        if had_messages then (tview#build_gutter());
       end
 
     method hide_tooltip ?(force=true) () =
@@ -330,7 +330,6 @@ class error_indication (view : Ocaml_text.view) vscrollbar (global_gutter : GMis
         let half_width = width * 2 / 3 in
         let x0 = width0 - width in
         let xm = x0 + width / 3 - 1 in
-        let alloc = vscrollbar#misc#allocation in
         (* Clean up *)
         set_foreground drawable (`COLOR (view#misc#style#base `NORMAL));
         rectangle drawable ~filled:true ~x:x0 ~y:0 ~width ~height ();

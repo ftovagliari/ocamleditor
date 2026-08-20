@@ -592,7 +592,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
         is_refresh_pending <- true;
         Log.println `DEBUG "CHANGED %b" is_refresh_pending;
         Gmisclib.Idle.add ~prio:100 begin fun () ->
-          view#draw_gutter(); (* triggers draw *)
+          view#build_gutter(); (* triggers draw *)
         end;
       end |> ignore;
       self#configure self#is_visible;
@@ -621,7 +621,7 @@ let init_page (page : Editor_page.page) =
               nested := margin#find_nested_expanders expander) |> ignore;
           margin#connect#expander_toggled ~callback:begin fun expander ->
             Log.println `DEBUG "EXPANDER_TOGGLED %d" expander#id;
-            Gmisclib.Idle.add ~prio:300 page#view#draw_gutter
+            Gmisclib.Idle.add ~prio:300 page#view#build_gutter
           end |> ignore;
           page#misc#connect#destroy ~callback:begin fun () ->
             pages := List.filter begin fun (oid, margin) ->
@@ -658,7 +658,7 @@ let init_page (page : Editor_page.page) =
             | `End when !old_is_visible ->
                 Gmisclib.Idle.add ~prio:300 begin fun () ->
                   margin#enable();
-                  page#view#draw_gutter();
+                  page#view#build_gutter();
                   GtkBase.Widget.queue_draw page#view#as_widget;
                 end
             | _ -> ()

@@ -233,7 +233,7 @@ class editor () =
         in
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
         Project.Bookmark.remove project num;
-        page#view#draw_gutter();
+        page#view#build_gutter();
       end
 
     method bookmark_create ~num ?where ?(callback : (Gtk.text_mark -> bool) option) () =
@@ -250,7 +250,7 @@ class editor () =
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
         page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
-        page#view#draw_gutter();
+        page#view#build_gutter();
       end
 
     method bookmark_goto ~num =
@@ -422,7 +422,7 @@ class editor () =
             let iter = buffer#get_iter `INSERT in
             self#colorize_within_nearest_tag_bounds gtext_buffer iter;
           end;
-          view#draw_gutter ();
+          view#build_gutter ();
         in
         let matching_delim_callback () =
           buffer#block_signal_handlers();

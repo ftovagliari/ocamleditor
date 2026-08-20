@@ -159,40 +159,32 @@ class container (view : GText.view) =
     val mutable width = 0
     val mutable approx_char_width = 0
 
-    (*initializer*)
-    (*view#misc#connect#realize ~callback:begin fun _ ->
-      self#draw_margin_container();
-      end |> ignore;*)
-    (*view#set_border_window_size ~typ:`TOP ~size:50;*)
-    (*view#buffer#connect#changed ~callback:begin fun () ->
-      Printf.printf "************8\n%!" ;
-      self#test ();
-      end |> ignore;*)
-    (*view#event#connect#button_press ~callback:begin fun _ ->
-      (*self#test ();*)
-      false
+    initializer
+      view#misc#connect#realize ~callback:begin fun () ->
+        view#set_border_window_size ~typ:`LEFT ~size:(max 50 gutter.size); (* dummy initial size *)
+        self#build ();
       end |> ignore;
-      view#misc#connect#after#draw ~callback:begin fun cr ->
-      self#test ();
-      false
-      end |> ignore;*)
-
-    (*method private test drawable =
-      match view#get_window `TOP with
-      | Some window ->
-          let open Cairo_drawable in
-          let drawable = GDraw.Cairo.create window in
-          let x = 0 and y = 0 in
-          let x1, y1 = view#buffer_to_window_coords ~x ~y ~tag:`TOP in
-          let x2, y2 = view#window_to_buffer_coords ~x ~y ~tag:`TOP in
-          Printf.printf "----> test %d %d -- %d %d\n%!" x1 y1 x2 y2;
-          set_foreground drawable (`NAME "red");
-          rectangle drawable ~x ~y ~width:10 ~height:10 ();
-          set_foreground drawable (`NAME "green");
-          rectangle drawable ~x:x1 ~y:y1 ~width:10 ~height:10 ();
-          set_foreground drawable (`NAME "blue");
-          rectangle drawable ~x:x2 ~y:y2 ~width:10 ~height:10 ();
-      | _ -> ()*)
+      view#misc#connect#after#draw ~callback:begin fun _ ->
+        self#draw ();
+        false
+      end |> ignore;
+      view#vadjustment#connect#value_changed ~callback:self#build |> ignore;
+      (*view#misc#connect#realize ~callback:begin fun _ ->
+        self#draw_margin_container();
+        end |> ignore;*)
+      (*view#set_border_window_size ~typ:`TOP ~size:50;*)
+      (*view#buffer#connect#changed ~callback:begin fun () ->
+        Printf.printf "************8\n%!" ;
+        self#test ();
+        end |> ignore;*)
+      (*view#event#connect#button_press ~callback:begin fun _ ->
+        (*self#test ();*)
+        false
+        end |> ignore;
+        view#misc#connect#after#draw ~callback:begin fun cr ->
+        self#test ();
+        false
+        end |> ignore;*)
 
     method gutter = gutter
     method approx_char_width = approx_char_width
@@ -207,42 +199,36 @@ class container (view : GText.view) =
     method list = childs
 
     method build () =
-      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized, not visible *)
+      let vrect = view#visible_rect in
+      let height = Gdk.Rectangle.height vrect in
+      let top = Gdk.Rectangle.y vrect in
+      let start, _ = view#get_line_at_y top in
+      let stop, _ = view#get_line_at_y (top + height) in
+      List.iter (fun child -> child#build ~start ~stop) childs
+
+    method draw () =
+      Prf.register Prf.draw_margins begin fun () ->
         let vrect = view#visible_rect in
         let height = Gdk.Rectangle.height vrect in
         let top = Gdk.Rectangle.y vrect in
         let start, _ = view#get_line_at_y top in
         let stop, _ = view#get_line_at_y (top + height) in
-        List.iter (fun child -> child#build ~start ~stop) childs
-      end
-
-    method draw () =
-      (* Check `REALIZED to avoid caching line numbers without parent. *)
-      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized, not visible *)
-        Prf.register Prf.draw_margins begin fun () ->
-          let vrect = view#visible_rect in
-          let height = Gdk.Rectangle.height vrect in
-          let top = Gdk.Rectangle.y vrect in
-          let start, _ = view#get_line_at_y top in
-          let stop, _ = view#get_line_at_y (top + height) in
-          view#set_border_window_size ~typ:`LEFT ~size:(max 50 gutter.size); (* dummy initial size *)
-          let size =
-            childs
-            |> List.fold_left begin fun left margin ->
-              if margin#is_visible then begin
-                margin#draw_margin ~view ~top ~left ~height ~start ~stop;
-                left + margin#size
-              end else left
-            end left_spacing
-          in
-          (* TODO Optimize. There is no need to resize with every draw *)
-          let size = size + right_spacing in
-          gutter.size <- size;
-          view#set_border_window_size ~typ:`LEFT ~size;
-          approx_char_width <- GPango.to_pixels (view#misc#pango_context#get_metrics())#approx_digit_width;
-        end ();
-        update#call ();
-      end
+        let size =
+          childs
+          |> List.fold_left begin fun left margin ->
+            if margin#is_visible then begin
+              margin#draw_margin ~view ~top ~left ~height ~start ~stop;
+              left + margin#size
+            end else left
+          end left_spacing
+        in
+        (* TODO Optimize. There is no need to resize with every draw *)
+        let size = size + right_spacing in
+        gutter.size <- size;
+        view#set_border_window_size ~typ:`LEFT ~size;
+        approx_char_width <- GPango.to_pixels (view#misc#pango_context#get_metrics())#approx_digit_width;
+      end ();
+      update#call ();
 
     method connect = new container_signals ~update
   end

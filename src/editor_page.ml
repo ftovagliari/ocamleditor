@@ -26,7 +26,6 @@ open Utils
 open Preferences
 open GUtil
 open Settings_t
-open Gtk_util
 
 module Log = Common.Log.Make(struct let prefix = "EDITOR_PAGE" end)
 let _ =
@@ -36,11 +35,11 @@ let _ =
 type load_event_phase = [ `Begin | `End ]
 
 let create_view ~project ~buffer ?file ?packing () =
-  let sw = GBin.scrolled_window ~width:100 ~height:100 ~shadow_type:`NONE
-      ~hpolicy:`NEVER ~vpolicy:`AUTOMATIC ?packing () in
   let view = new Ocaml_text.view ~project ~buffer () in
+  let sw = GBin.scrolled_window ~width:100 ~height:100 ~shadow_type:`NONE
+      ~vadjustment:view#vadjustment ~hadjustment:view#hadjustment
+      ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
   Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
-  let tview = (view :> Text.view) in
   let _  = sw#add view#coerce in
   sw, (view :> Text.view), view
 
@@ -79,52 +78,28 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
 (** Editor page *)
 class page ?file ~project ~scroll_offset ~offset ~editor () =
   let file_changed             = new file_changed () in
-  let scroll_changed           = new scroll_changed () in
   let load                     = new load () in
-  let signals                  = new signals ~file_changed ~scroll_changed ~load in
+  let signals                  = new signals ~file_changed ~load in
   let buffer                   = new Ocaml_text.buffer ~project ?file () in
   let sw, text_view, ocaml_view = create_view ~project ~buffer ?file () in
   let vbox                     = GPack.vbox ~spacing:0 () in
   let paned                    = GPack.paned `HORIZONTAL ~packing:vbox#add () in
   let textbox                  = GPack.hbox ~spacing:0 ~packing:paned#add2 () in
   let _                        = textbox#add sw#coerce in (* Text box *)
-  let svbox                    = GPack.vbox ~spacing:1 ~packing:textbox#pack () in (* Vertical scrollbar box *)
   let global_gutter_ebox       = GBin.event_box ~packing:textbox#pack () in (* Global gutter box *)
   let editorbar = new Statusbar.editorbar ~view:ocaml_view () in
-  let hscrollbar = GRange.scrollbar `HORIZONTAL ~adjustment:sw#hadjustment ~packing:editorbar#add_scrollbar () in
   let _ =
-    sw#misc#connect#size_allocate ~callback:begin fun _ ->
-      if hscrollbar#adjustment#page_size = hscrollbar#adjustment#upper
-      then hscrollbar#misc#hide() else hscrollbar#misc#show();
-    end |> ignore;
     if not Oe_config.unify_statusbars then begin
       GMisc.separator `HORIZONTAL ~packing:(vbox#pack ~expand:false) () |> ignore;
       vbox#pack editorbar#coerce;
     end
   in
-  (* TODO: Lablgtk3 issue: remove this? *)
-  let vscrollbar = GRange.scrollbar `VERTICAL ~adjustment:sw#vadjustment (*~update_policy:`DELAYED*) ~packing:svbox#add () in
-  let _ =
-    text_view#event#connect#scroll ~callback:begin fun ev ->
-      let sign = match GdkEvent.Scroll.direction ev with
-        | `UP when sw#vadjustment#value > sw#vadjustment#lower -> (-.1.)
-        | `DOWN when sw#vadjustment#value < sw#vadjustment#upper -. sw#vadjustment#page_size -> 1.
-        | _ -> 0.
-      in
-      if sign <> 0. then begin
-        let value = sw#vadjustment#value +. (sw#vadjustment#step_increment *. sign) in
-        (sw#vadjustment#set_value value);
-      end;
-      false
-    end
-  in
-  (* END TODO *)
   (** Global gutter *)
   let global_gutter = GMisc.drawing_area ~packing:global_gutter_ebox#add
       ~show:Preferences.preferences#get.editor_show_global_gutter () in
   let _ = global_gutter#set_width_request Oe_config.global_gutter_size in
   let _ = global_gutter#misc#set_has_tooltip true in
-  let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in
+  let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in 
   let _                        =
     buffer#create_tag ~name:"tag_matching_delim" [
       `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
@@ -142,7 +117,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     val mutable last_autosave_time = buffer#last_edit_time
     val mutable load_complete = false
     val mutable quick_info = Quick_info.create ocaml_view
-    val error_indication = new Error_indication.error_indication ocaml_view vscrollbar global_gutter
+    val error_indication = new Error_indication.error_indication ocaml_view global_gutter
     val mutable dotview = None
     val mutable word_wrap = editor#word_wrap
     val mutable show_whitespace = editor#show_whitespace_chars
@@ -161,7 +136,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method error_indication = error_indication
 
     method global_gutter = global_gutter
-    method vscrollbar = vscrollbar
 
     method is_changed_after_last_autosave = last_autosave_time < buffer#last_edit_time
     method sync_autosave_time () = last_autosave_time <- Unix.gettimeofday()
@@ -206,7 +180,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method ocaml_view = ocaml_view
     method buffer = buffer
     method project = project
-    method vadjustment = sw#vadjustment
     method status_pos_sel = editorbar#pos_sel, editorbar#pos_sel_chars
     method undo () = if not (buffer#undo#undo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
     method redo () = if not (buffer#undo#redo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
@@ -283,7 +256,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
         in
         Gutter.destroy_markers view#gutter old_markers;
         (*  *)
-        let vv = vscrollbar#adjustment#value in
+        let v_scroll = view#vadjustment#value in
         buffer#block_signal_handlers();
         buffer#delete ~start:buffer#start_iter ~stop:buffer#end_iter;
         ignore (self#load());
@@ -293,8 +266,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
         self#sync_autosave_time ();
         Autosave.delete ~filename:file#filename ();
         (*  *)
-        Gmisclib.Idle.add ~prio:300 (fun () -> vscrollbar#adjustment#set_value vv);
-        Gmisclib.Idle.add ~prio:400 begin fun () ->
+        Gmisclib.Idle.add ~prio:200 (fun () -> view#vadjustment#set_value v_scroll);
+        Gmisclib.Idle.add ~prio:300 begin fun () ->
           let rect = view#visible_rect in
           let where, _ = view#get_line_at_y (Gdk.Rectangle.y rect + Gdk.Rectangle.height rect / 2) in
           buffer#place_cursor ~where
@@ -426,7 +399,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
               editorbar#button_rowspacing_incr;
               editorbar#button_rowspacing_decr; (*button_h_prev; button_h_next; button_h_last*)];
           List.iter (fun b -> b#misc#set_sensitive true) [editorbar#button_toggle_wrap; editorbar#button_toggle_whitespace];
-          hscrollbar#misc#show();
           editorbar#pos_box#misc#show();
       | None ->
           begin
@@ -505,20 +477,13 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       (**  *)
       view#hyperlink#enable();
       (** Expose: Statusbar *)
-      let signal_expose = ref (self#view#misc#connect#after#draw ~callback:begin fun _ ->
-          let iter = self#buffer#get_iter `INSERT in
-          editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
-          editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
-          editorbar#pos_off#set_text (string_of_int iter#offset);
-          false
-        end)
-      in
-      ignore (vscrollbar#connect#value_changed ~callback:begin fun () ->
-          view#misc#handler_block !signal_expose;
-          scroll_changed#call()
-        end);
-      ignore (vscrollbar#connect#after#value_changed ~callback:(fun () ->
-          Gmisclib.Idle.add ~prio:300 (fun () -> view#misc#handler_unblock !signal_expose)));
+      self#view#misc#connect#after#draw ~callback:begin fun _ ->
+        let iter = self#buffer#get_iter `INSERT in
+        editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
+        editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
+        editorbar#pos_off#set_text (string_of_int iter#offset);
+        false
+      end |> ignore;
       (* After focus_in, check if the file is changed on disk *)
       ignore (text_view#event#connect#after#focus_in ~callback:begin fun _ ->
           Gaux.may self#file ~f:begin fun f ->
@@ -611,13 +576,11 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
 
 (** Signals *)
 and file_changed () = object inherit [Editor_file.file option] signal () end
-and scroll_changed () = object inherit [unit] signal () end
 and load () = object inherit [load_event_phase] signal () end
 
-and signals ~file_changed ~scroll_changed ~load =
+and signals ~file_changed ~load =
   object
-    inherit ml_signals [file_changed#disconnect; scroll_changed#disconnect; load#disconnect]
+    inherit ml_signals [file_changed#disconnect; load#disconnect]
     method file_changed = file_changed#connect ~after
-    method scroll_changed = scroll_changed#connect ~after
     method load = load#connect ~after
   end

@@ -59,9 +59,9 @@ let default_values =
         bg_color = { light = "#ffffff"; dark = "#000000" };
         weight = 0; style = `NORMAL; underline = `NONE; scale = 1.0; bg_default = true };
       { name = "custom";
-        color = { light = "black"; dark = "white" };
+        color = { light = "#FF5959"; dark = "#FF5959" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
-        weight = 700; style = `NORMAL; underline = `NONE; scale = 1.0; bg_default = true };
+        weight = 700; style = `ITALIC; underline = `NONE; scale = 1.0; bg_default = true };
       { name = "lident";
         color = { light = "black"; dark = "white" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
