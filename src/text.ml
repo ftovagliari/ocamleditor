@@ -483,7 +483,7 @@ and view ?project ?buffer () =
         prev_line_background <- cur_line;
       end
 
-    method draw_gutter () = (* 0.008 *) margin#draw ();
+    method draw_gutter () = (* 0.008 *) margin#build ();
 
     method private metrics =
       let pango = view#misc#pango_context in
@@ -647,12 +647,10 @@ and view ?project ?buffer () =
       margin#add (margin_markers :> Margin.margin);
       margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;
       view#misc#connect#style_set ~callback:begin fun () ->
-        let fd = self#misc#pango_context#font_description in
-        margin_line_numbers#resize ~desc:fd ();
+        failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
         (* Applies the new font size to labels that have been created after
            the number of lines of text has increased. *)
         Gmisclib.Idle.add ~prio:300 begin fun () ->
-          margin_line_numbers#resize ~desc:fd ();
           Gmisclib.Idle.add self#draw_gutter
         end;
       end |> ignore;
@@ -665,11 +663,11 @@ and view ?project ?buffer () =
       ignore (options#connect#after#line_numbers_changed ~callback:begin fun visible ->
           margin_line_numbers#set_is_visible visible;
           margin_markers#set_size (if visible then 0 else margin_markers#icon_size);
-          margin_line_numbers#reset();
+          failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
           Gmisclib.Idle.add self#draw_gutter
         end);
       ignore (options#connect#line_numbers_font_changed ~callback:begin fun fontname ->
-          margin_line_numbers#resize ~desc:(GPango.font_description_from_string fontname) ()
+          failwith "Not implemented"; (* TODO: Lablgtk3 issue *)
         end);
       options#set_line_numbers_font view#misc#pango_context#font_name;
       ignore (options#connect#after#show_markers_changed ~callback:(fun _ ->
@@ -707,7 +705,8 @@ and view ?project ?buffer () =
          coloring after the insert_text event. *)
       buffer#connect#insert_text ~callback:(fun _ _ -> text_outline <- []) |> ignore;
       (* Expose *)
-      signal_expose <- Some (self#misc#connect#after#draw ~callback:self#expose);
+      signal_expose <- Some (self#misc#connect#after#draw ~callback:(fun _ ->
+          Prf.register Prf.expose self#expose ()));
       (*  *)
       ignore (visible_height#connect#changed ~callback:(fun _ -> self#draw_gutter()));
       (* Refresh gutter and right margin line when scrolling *)

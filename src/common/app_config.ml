@@ -20,8 +20,10 @@
 
 *)
 
-
 open Printf
+
+let () =
+  let open [@warning "-33"] Ocaml_config in ()
 
 (** Alias for [Filename.concat] *)
 let (//) = Filename.concat
@@ -78,13 +80,7 @@ let user_home =
      with Not_found -> failwith "Please set your HOME environment variable.")
 
 let ocamleditor_user_home =
-  let dirname =
-    match Ocaml_config.is_mingw with
-    | true when application_debug -> ".ocamleditor.mingw"
-    | true -> ".ocamleditor.test.mingw"
-    | false when application_debug -> ".ocamleditor.test"
-    | false -> ".ocamleditor"
-  in
+  let dirname = if application_debug then ".ocamleditor.debug" else ".ocamleditor" in
   user_home // dirname
 
 let ensure_ocamleditor_user_home () =

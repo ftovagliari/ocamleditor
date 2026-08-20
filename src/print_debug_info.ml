@@ -71,5 +71,5 @@ let print ~editor () =
   (*  *)
   Names.Cache.dump editor#project;
   (*  *)
-  Prf.print()
+  Prf.print_report()
 ;;

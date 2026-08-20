@@ -1,7 +1,8 @@
 open Gutter
+module ColorOps = Color
 open Preferences
 
-type kind = FOLDING | LINE_NUMBERS | MARKERS | DIFF
+type kind = FOLDING | LINE_NUMBERS | MARKERS | DIFF [@@deriving show]
 
 class virtual margin () =
   object (self)
@@ -11,50 +12,33 @@ class virtual margin () =
     method set_is_visible x = is_visible <- x
     method virtual size : int (* width of the margin in pixels *)
     method virtual index : int
+    method virtual build : start:GText.iter -> stop:GText.iter -> unit
 
     (** Called whenever the margin needs to be redrawn.
         @param top The top edge of the margin area to be drawn, in buffer coordinates.
     *)
-    method virtual draw :
+    method virtual draw_margin :
       view:GText.view ->
       top:int -> left:int -> height:int ->
       start:GText.iter -> stop:GText.iter -> unit
   end
 
 class line_numbers (view : GText.view) =
-  let label_max_chars = 4 in
   object (self)
     inherit margin ()
-    val labels = Line_num_labl.create()
     val mutable size = 0
+    val mutable color = ?? Oe_config.warning_unused_color
+    val mutable font_desc = Pango.Font.from_string Preferences.preferences#get.Settings_j.editor_base_font
+    val mutable numbers = []
 
-    initializer
-      self#resize();
+    initializer () (* TODO: notify pref changes *)
 
     method kind = LINE_NUMBERS
     method size = size
     method index = 0
-    method reset () = Line_num_labl.reset labels
-    method private iter func = Line_num_labl.iter func labels
-    method hide_label id = Line_num_labl.hide id labels
 
-    method resize ?desc () =
-      let desc =
-        match desc with
-        | Some d -> d
-        | _ ->
-            Preferences.preferences#get.Settings_t.editor_base_font
-            |> GPango.font_description_from_string
-      in
-      let char_width = GPango.to_pixels (view#misc#pango_context#get_metrics ~desc ())#approx_digit_width in
-      size <- label_max_chars * char_width;
-      self#iter (fun lab -> lab#misc#modify_font desc)
-
-    method modify_color color =
-      self#iter (fun x -> x#misc#modify_fg [`NORMAL, color])
-
-    method draw ~view ~top ~left ~height ~start ~stop =
-      Line_num_labl.reset labels;
+    method build ~(start : GText.iter) ~(stop : GText.iter) =
+      numbers <- [];
       let iter = start#backward_line in
       let stop = stop#forward_line in
       let y = ref 0 in
@@ -63,39 +47,34 @@ class line_numbers (view : GText.view) =
       while not (iter#equal stop) do
         num := iter#line + 1;
         let yl, hl = view#get_line_yrange iter in
-        y := yl - top + view#pixels_above_lines;
+        y := yl (*- top*) + view#pixels_above_lines;
         h := hl;
-        self#print_numbers ~view ~num:!num ~left ~top:!y labels;
-        iter#nocopy#forward_line |> ignore (* TODO Crashed here *)
+        iter#nocopy#forward_line |> ignore; (* TODO Crashed here *)
+        numbers <- (!num, !y) :: numbers
       done;
-      let y = !y + !h in
-      incr num;
-      self#print_numbers ~view ~num:!num ~left ~top:y labels
 
-    method private print_numbers ~view ~left ~top ~num labels =
-      let open Line_num_labl in
-      let open Settings_t in
-      let text = string_of_int num in
-      let label =
-        match Line_num_labl.get labels with
-        | Some label ->
-            label#set_text text;
-            view#move_child ~child:label#coerce ~x:left ~y:top;
-            label
-        | _ ->
-            let label = GMisc.label ~xalign:1.0 ~yalign:0.5 ~text ~show:false () in
-            let color = Oe_config.warning_unused_color in
-            label#misc#modify_fg [`NORMAL, `NAME ?? color];
-            label#misc#modify_font_by_name Preferences.preferences#get.editor_base_font;
-            label#set_width_chars label_max_chars;
-            view#add_child_in_window ~child:label#coerce ~which_window:`LEFT ~x:left ~y:top;
-            label
-      in
-      (match Line_num_labl.find labels top with Some x -> x#misc#hide() | _ -> ());
-      Line_num_labl.lock labels (top, label);
-      label#misc#show();
-      let width = max label#misc#allocation.Gtk.width labels.max_width in
-      if width > labels.max_width then (labels.max_width <- width)
+    method draw_margin ~view ~top ~left ~height ~start ~stop =
+      match view#get_window `LEFT with
+      | Some window ->
+          (* TODO: Optimize without List.rev *)
+          numbers |> List.rev |> List.iter begin fun (num, y) ->
+            let drawable = Gdk.Cairo.create window in
+            let layout = Cairo_pango.create_layout drawable in
+            Pango.Layout.set_font_description layout font_desc;
+            if size = 0 then begin
+              Pango.Layout.set_text layout "0000";
+              let rect = Pango.Layout.get_pixel_extent layout in
+              size <- rect.Pango.width
+            end;
+            ColorOps.rgb (fun r g b -> Cairo.set_source_rgb drawable r g b) color;
+            Pango.Layout.set_text layout (string_of_int num);
+            let rect = Pango.Layout.get_pixel_extent layout in
+            let x = size - rect.Pango.width in
+            Cairo.move_to drawable (float x) (float (y - top));
+            Cairo_pango.show_layout drawable layout;
+          end;
+      | _ -> ()
+
   end
 
 class markers gutter margin_line_numbers =
@@ -109,7 +88,9 @@ class markers gutter margin_line_numbers =
     method size = size
     method set_size x = size <- x
 
-    method draw ~view ~top ~left ~height ~start ~stop =
+    method build ~start ~stop = ()
+
+    method draw_margin ~view ~top ~left ~height ~start ~stop =
       let left = (if size = 0 then left else left + size) - self#icon_size in (* icon right aligned *)
       positions <- [];
       gutter.markers
@@ -121,7 +102,7 @@ class markers gutter margin_line_numbers =
               | Some mark_iter ->
                   let ym, h = view#get_line_yrange (new GText.iter mark_iter) in
                   let y = ym - top in
-                  margin_line_numbers#hide_label (y + view#pixels_above_lines);
+                  (*margin_line_numbers#hide_label (y + view#pixels_above_lines);*)
                   let y = y + (h - self#icon_size) / 2 in
                   begin
                     match mark.icon_obj with
@@ -171,49 +152,95 @@ class markers gutter margin_line_numbers =
 class container (view : GText.view) =
   let gutter = Gutter.create () in
   let left_spacing = 5 in
-  let right_spacing = 5 in
+  let right_spacing = 0 in
   object (self)
     val update = new update
     val mutable childs : margin list = []
     val mutable width = 0
     val mutable approx_char_width = 0
 
-    initializer
-      view#misc#connect#realize ~callback:begin fun _ ->
-        self#draw();
+    (*initializer*)
+    (*view#misc#connect#realize ~callback:begin fun _ ->
+      self#draw_margin_container();
+      end |> ignore;*)
+    (*view#set_border_window_size ~typ:`TOP ~size:50;*)
+    (*view#buffer#connect#changed ~callback:begin fun () ->
+      Printf.printf "************8\n%!" ;
+      self#test ();
+      end |> ignore;*)
+    (*view#event#connect#button_press ~callback:begin fun _ ->
+      (*self#test ();*)
+      false
       end |> ignore;
+      view#misc#connect#after#draw ~callback:begin fun cr ->
+      self#test ();
+      false
+      end |> ignore;*)
+
+    (*method private test drawable =
+      match view#get_window `TOP with
+      | Some window ->
+          let open Cairo_drawable in
+          let drawable = GDraw.Cairo.create window in
+          let x = 0 and y = 0 in
+          let x1, y1 = view#buffer_to_window_coords ~x ~y ~tag:`TOP in
+          let x2, y2 = view#window_to_buffer_coords ~x ~y ~tag:`TOP in
+          Printf.printf "----> test %d %d -- %d %d\n%!" x1 y1 x2 y2;
+          set_foreground drawable (`NAME "red");
+          rectangle drawable ~x ~y ~width:10 ~height:10 ();
+          set_foreground drawable (`NAME "green");
+          rectangle drawable ~x:x1 ~y:y1 ~width:10 ~height:10 ();
+          set_foreground drawable (`NAME "blue");
+          rectangle drawable ~x:x2 ~y:y2 ~width:10 ~height:10 ();
+      | _ -> ()*)
 
     method gutter = gutter
     method approx_char_width = approx_char_width
 
     method add margin =
-      childs <- margin :: childs |> List.sort (fun m1 m2 -> Stdlib.compare m1#index m2#index)
+      match margin#kind with
+      | LINE_NUMBERS ->
+          (childs <- margin :: childs |> List.sort (fun m1 m2 -> Stdlib.compare m1#index m2#index))
+      | _ -> ()
+
     method remove margin = childs <- childs |> List.filter ((<>) margin)
     method list = childs
 
-    method draw () =
-      (* Check `REALIZED to avoid caching line numbers without parent. *)
-      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized not visible *)
+    method build () =
+      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized, not visible *)
         let vrect = view#visible_rect in
         let height = Gdk.Rectangle.height vrect in
         let top = Gdk.Rectangle.y vrect in
         let start, _ = view#get_line_at_y top in
         let stop, _ = view#get_line_at_y (top + height) in
-        view#set_border_window_size ~typ:`LEFT ~size:(max 50 gutter.size); (* dummy initial size *)
-        let size =
-          childs
-          |> List.fold_left begin fun left margin ->
-            if margin#is_visible then begin
-              (*Gmisclib.Idle.add ~prio:100 (fun () -> *)margin#draw ~view ~top ~left ~height ~start ~stop;
-              left + margin#size
-            end else left
-          end left_spacing
-        in
-        (* TODO Optimize. There is no need to resize with every draw *)
-        let size = size + right_spacing in
-        gutter.size <- size;
-        view#set_border_window_size ~typ:`LEFT ~size;
-        approx_char_width <- GPango.to_pixels (view#misc#pango_context#get_metrics())#approx_digit_width;
+        List.iter (fun child -> child#build ~start ~stop) childs
+      end
+
+    method draw () =
+      (* Check `REALIZED to avoid caching line numbers without parent. *)
+      if view#visible then begin (* TODO: Lablgtk3 issue, check is_realized, not visible *)
+        Prf.register Prf.draw_margins begin fun () ->
+          let vrect = view#visible_rect in
+          let height = Gdk.Rectangle.height vrect in
+          let top = Gdk.Rectangle.y vrect in
+          let start, _ = view#get_line_at_y top in
+          let stop, _ = view#get_line_at_y (top + height) in
+          view#set_border_window_size ~typ:`LEFT ~size:(max 50 gutter.size); (* dummy initial size *)
+          let size =
+            childs
+            |> List.fold_left begin fun left margin ->
+              if margin#is_visible then begin
+                margin#draw_margin ~view ~top ~left ~height ~start ~stop;
+                left + margin#size
+              end else left
+            end left_spacing
+          in
+          (* TODO Optimize. There is no need to resize with every draw *)
+          let size = size + right_spacing in
+          gutter.size <- size;
+          view#set_border_window_size ~typ:`LEFT ~size;
+          approx_char_width <- GPango.to_pixels (view#misc#pango_context#get_metrics())#approx_digit_width;
+        end ();
         update#call ();
       end
 

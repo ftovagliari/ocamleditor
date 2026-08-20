@@ -411,7 +411,9 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
     method is_refresh_pending = is_refresh_pending
 
-    method draw ~view ~top ~left ~height ~start ~stop =
+    method build ~start ~stop = ()
+
+    method draw_margin ~view ~top ~left ~height ~start ~stop =
       if outline#is_valid then begin
         try
           (*Log.println `DEBUG "%s: is_refresh_pending = %b, expanders = %d"

@@ -62,6 +62,8 @@ class widget view =
         false
       end |> ignore
 
+    method build ~start ~stop = ()
+
     method draw_bar drawable = function
       | One ln when start_line <= ln && ln <= stop_line ->
           let iter = view#buffer#get_iter (`LINE (ln - 1)) in
@@ -84,7 +86,7 @@ class widget view =
           polygon drawable ~filled [ 0, y - dy; 0, y + dy; width, y ];
       | One _ | Many _ -> ()
 
-    method draw ~view ~top:t ~left ~height:h ~start ~stop =
+    method draw_margin ~view ~top:t ~left ~height:h ~start ~stop =
       drawing_area#misc#set_size_request ~width:area_width ~height ();
       start_line <- start#line + 1;
       stop_line <- stop#line + 1;
