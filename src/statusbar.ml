@@ -39,9 +39,8 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
 class editorbar ~view ?packing () =
   let icon_font_name = sprintf "FiraCode OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
   let box = GPack.hbox ~spacing:1 ~border_width:0 ?packing () in
-  let paned = GPack.paned `HORIZONTAL ~packing:box#add () in
   let _ = GMisc.separator `VERTICAL ~packing:box#pack () in
-  let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:(paned#pack1 ~resize:true ~shrink:false) () in
+  let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:box#add () in
   let button_font_incr = create_small_button
       ~icon:"\u{f09f4}"
       ~packing:lbox#pack
@@ -144,8 +143,6 @@ class editorbar ~view ?packing () =
   (*let _ = paned#set_position 900 in*)
   object (self)
     inherit GObj.widget box#as_widget
-    method paned = paned
-    method add_scrollbar = paned#pack2 ~resize:true ~shrink:true
     method filename = status_filename
     method modified = status_modified
     method pos_box = pos_box

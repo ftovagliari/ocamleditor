@@ -7,12 +7,21 @@ let [@inline] line drawable x1 y1 x2 y2 =
   move_to drawable (f x1) (f y1);
   line_to drawable (f x2) (f y2);
   stroke drawable
-;;
 
-let rec lines drawable = function
+let lines drawable segments =
+  let open Cairo in
+  match segments with
   | [] -> ()
-  | (x1, y1) :: (x2, y2) :: more -> line drawable x1 y1 x2 y2; lines drawable more
-  | _ -> assert false
+  | (x, y) :: more ->
+      move_to drawable (f x) (f y);
+      let rec draw = function
+        | [] -> ()
+        | (x, y) :: more ->
+            line_to drawable (f x) (f y);
+            draw more
+      in
+      draw more;
+      stroke drawable
 
 let rec segments drawable = function
   | [] -> ()
@@ -26,7 +35,6 @@ let [@inline] rectangle drawable ~x ~y ~width ~height ?(filled = false) () =
 
 let [@inline] rectanglef drawable ~x ~y ~w ~h ?(filled = false) () =
   Cairo.rectangle drawable x y ~w ~h;
-
   if filled then Cairo.fill drawable else Cairo.stroke drawable
 ;;
 

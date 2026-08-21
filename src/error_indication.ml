@@ -77,12 +77,12 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
     val mutable tag_error = tag_error
     val mutable tag_warning = tag_warning
     val mutable tag_warning_unused = tag_warning_unused
-    val mutable phase = 2
+    val mutable phase = 3
 
     method enabled = enabled
     method set_enabled x = enabled <- x
 
-    method set_phase () = phase <- if view#pixels_below_lines <= 2 then 2 else 3
+    method set_phase () = phase <- if view#pixels_below_lines <= 2 then 3 else 3
 
     method flag_underline = flag_underline
     method flag_tooltip = flag_tooltip
@@ -166,14 +166,14 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
         buffer#apply_tag tag ~start ~stop;
         let mark_start = buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Error_indication.do_apply_tag1")*) start in
         if flag_gutter then begin
-          let kind, pixbuf =
+          let kind, icon =
             match kind with
-            | `Warning -> `Warning error.Oe.er_message, (??? Icons.warning_14)
-            | `Error -> `Error error.Oe.er_message, (??? Icons.error_16)
+            | `Warning -> `Warning error.Oe.er_message, "<span color='darkorange'>\u{f071}</span>"
+            | `Error -> `Error error.Oe.er_message, "<span color='red'>\u{f0159}</span>" (*   ⛔ *)
             | _ -> assert false
           in
           let marker = Gutter.create_marker ~kind
-              ~mark:mark_start ~pixbuf ~callback:self#callback_gutter_marker ()
+              ~mark:mark_start ~icon ~callback:self#callback_gutter_marker ()
           in
           tview#gutter.Gutter.markers <- marker :: tview#gutter.Gutter.markers;
           error_gutter_markers <- marker :: error_gutter_markers;
@@ -275,15 +275,14 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
                 (* Create popup *)
                 self#hide_tooltip();
                 let create_popup start stop error displacement =
-                  let popup = GWindow.window ~kind:`POPUP ~type_hint:`MENU ~decorated:false ~focus_on_map:false ~border_width:1 ~show:false () in
+                  let markup = (*(error.Oe.er_location) ^*)
+                    (Print_type.markup3 error.Oe.er_message) in
+                  let label = GMisc.label ~markup ~xpad:5 ~ypad:5 (*~packing:ebox#add*) () in
+                  let popup = Gtk_util.window_tooltip label#coerce ~parent:view#coerce ~x:0 ~y:0 () in
                   tag_popup <- (start, stop, popup) :: tag_popup;
                   sticky_popup <- sticky;
                   popup#misc#modify_bg [`NORMAL, border_color];
-                  let ebox = GBin.event_box ~packing:popup#add () in
-                  ebox#misc#modify_bg [`NORMAL, bg_color];
-                  let markup = (*(error.Oe.er_location) ^*)
-                    (Print_type.markup3 error.Oe.er_message) in
-                  let label = GMisc.label ~markup ~xpad:5 ~ypad:5 ~packing:ebox#add () in
+                  popup#child#misc#modify_bg [`NORMAL, bg_color];
                   label#misc#modify_font_by_name Preferences.preferences#get.editor_completion_font;
                   label#misc#modify_fg [`NORMAL, `BLACK];
                   (* Positioning *)
@@ -427,7 +426,7 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
                 if top#compare !start <= 0 && !start#chars_in_line > 1 then begin
                   start := forward_non_blank !start;
                   let iter =
-                    if !start#ends_line then (raise Exit)
+                    if !start#ends_line then raise Exit
                     else
                       let line_end = !start#forward_to_line_end in
                       if stop#compare line_end <= 0 then stop else line_end
@@ -449,39 +448,42 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
           done;
       | _ -> ()
 
-    method private expose _drawable = false
-    (*if flag_underline then begin
-      match view#get_window `TEXT with
-      | Some window ->
-          let drawable = Gdk.Cairo.create window in
-          let vrect = view#visible_rect in
-          let x0 = Gdk.Rectangle.x vrect in
-          let y0 = Gdk.Rectangle.y vrect in
-          (* Draw exposed area only *)
-          let expose_area = Cairo.clip_extents drawable in
-          let ya = y0 + int_of_float expose_area.y in
-          let top, _ = view#get_line_at_y ya in
-          let bottom, _ = view#get_line_at_y (ya + (int_of_float expose_area.h)) in
-          (*  *)
-          set_line_attributes drawable ~width:1 ~style:`SOLID ~join:`MITER ();
-          let f = self#draw_underline drawable top bottom x0 y0 in
-          set_foreground drawable (?? Oe_config.warning_underline_color);
-          List.iter (f 0) tag_warning_bounds;
-          set_foreground drawable (?? Oe_config.warning_underline_shadow);
-          List.iter (f 1) tag_warning_bounds;
-          begin
-            match Oe_config.error_underline_mode with
-            | `CUSTOM ->
-                set_foreground drawable (?? Oe_config.error_underline_color);
-                List.iter (f 0) tag_error_bounds;
-                set_foreground drawable (?? Oe_config.error_underline_shadow);
-                List.iter (f 1) tag_error_bounds;
-            | _ -> ()
-          end;
-          (*Gdk.GC.set_fill drawable#gc `SOLID;*)
-          false
-      | _ -> false
-      end else false*)
+    method private expose _ =
+      if flag_underline then begin
+        match view#get_window `TEXT with
+        | Some window ->
+            let drawable = Gdk.Cairo.create window in
+            let vrect = view#visible_rect in
+            let x0 = Gdk.Rectangle.x vrect in
+            let y0 = Gdk.Rectangle.y vrect in
+            (* Draw exposed area only *)
+            let expose_area = Cairo.clip_extents drawable in
+            let ya = y0 + int_of_float expose_area.Cairo.y in
+            let top, _ = view#get_line_at_y ya in
+            let bottom, _ = view#get_line_at_y (ya + (int_of_float expose_area.Cairo.h)) in
+            (*  *)
+            let width = 1 in
+            set_line_attributes drawable ~width ~style:`SOLID ~join:`MITER ();
+            let f = self#draw_underline drawable top bottom x0 y0 in
+            (* Underline warnings *)
+            set_foreground drawable (?? Oe_config.warning_underline_shadow);
+            List.iter (f width) tag_warning_bounds;
+            set_foreground drawable (?? Oe_config.warning_underline_color);
+            List.iter (f 0) tag_warning_bounds;
+            (* Underline errors *)
+            begin
+              match Oe_config.error_underline_mode with
+              | `CUSTOM ->
+                  set_foreground drawable (?? Oe_config.error_underline_shadow);
+                  List.iter (f width) tag_error_bounds;
+                  set_foreground drawable (?? Oe_config.error_underline_color);
+                  List.iter (f 0) tag_error_bounds;
+              | _ -> ()
+            end;
+            (*Gdk.GC.set_fill drawable#gc `SOLID;*)
+            false
+        | _ -> false
+      end else false
 
     initializer
       self#set_phase();

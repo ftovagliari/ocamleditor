@@ -392,7 +392,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
   in
   let (!!) pos = sprintf "(%d, %d)" pos.line (pos.col + 1) in
   object (self)
-    inherit margin()
+    inherit [unit] Margin.widget ()
 
     (** The margin is refresh pending when it is requested to be drawn but cannot be
         drawn because the buffer has changed and folding points currently
@@ -413,7 +413,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
     method build ~start ~stop = ()
 
-    method draw_margin ~view ~top ~left ~height ~start ~stop =
+    method draw_margin ~view ~drawable ~top ~left ~height ~start ~stop =
       if outline#is_valid then begin
         try
           (*Log.println `DEBUG "%s: is_refresh_pending = %b, expanders = %d"

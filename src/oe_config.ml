@@ -47,8 +47,8 @@ let error_underline_shadow : dcolor      = { light = `NAME "#FFa0a0"; dark = `NA
 let error_underline_mode                 = (`CUSTOM : [`GTK | `CUSTOM])
 let warning_popup_bg_color : dcolor      = { light = `NAME "#fff4e8"; dark = `NAME "#fecc8f" }
 let warning_popup_border_color : dcolor  = { light = `NAME "#FFB33C"; dark = `NAME "darkorange" }
-let warning_underline_color : dcolor     = { light = `NAME "#fff4e8"; dark = `NAME "#6e3d00" }
-let warning_underline_shadow : dcolor    = { light = `NAME "#FFE36C"; dark = `NAME "#FFE36C" }
+let warning_underline_color : dcolor     = { light = `NAME "#fff4e8"; dark = `NAME "#FFE36C" }
+let warning_underline_shadow : dcolor    = { light = `NAME "#FFE36C"; dark = `NAME "#6e3d00" }
 let warning_unused_color                 = { light = "#a0a0a0"; dark = "#707070" }
 let warning_unused_tag_name              = "tag_warning_unused"
 let warning_tootip_enabled               = false
@@ -68,7 +68,7 @@ let code_folding_expander_color          = `NAME "#ff0000"
 
 let global_gutter_size                   = 30
 let global_gutter_diff_color_add         = { light = "#60b060"; dark = "#13401e" }
-let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#3e181d" }
+let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#ff0000" }
 let global_gutter_diff_color_change      = { light = "#0079FF"; dark = "#0079FF" }
 let global_gutter_diff_style             = (`COLOR false : [`BW | `COLOR of bool])
 let find_replace_history_max_length      = 75

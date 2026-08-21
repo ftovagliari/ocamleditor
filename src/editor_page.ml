@@ -99,12 +99,11 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       ~show:Preferences.preferences#get.editor_show_global_gutter () in
   let _ = global_gutter#set_width_request Oe_config.global_gutter_size in
   let _ = global_gutter#misc#set_has_tooltip true in
-  let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in 
+  let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in
   let _                        =
     buffer#create_tag ~name:"tag_matching_delim" [
       `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
       `BACKGROUND_FULL_HEIGHT_SET true;
-      (*`UNDERLINE (Preferences.tag_underline "highlight");*)
     ]
   in
   object (self)
@@ -317,7 +316,13 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
                       true)
                   else None
                 in
-                let marker = Gutter.create_marker ~mark ?pixbuf:(Bookmark.icon bm.Oe.bm_num) ?callback () in
+                let icon =
+                  match bm.Oe.bm_num with
+                  | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
+                  | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
+                in
+                let marker = Gutter.create_marker ~mark
+                    ~icon:(sprintf "<span color='#4da1ff'>%s</span>" icon) ?callback () in
                 bm.Oe.bm_marker <- Some marker;
                 view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
             end project.Prj.bookmarks;

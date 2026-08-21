@@ -27,6 +27,17 @@
 
 *)
 
+type marker_kind = [`None | `Bookmark of int | `Error of string | `Warning of string] [@@deriving show]
+
+type marker = {
+  kind                    : marker_kind;
+  mark                    : Gtk.text_mark [@opaque];
+  icon                    : string option;
+  mutable icon_obj        : GObj.widget option [@printer fun fmt v ->
+      Format.fprintf fmt "%s" (if Option.is_some v then "Some" else "None")];
+  callback                : (Gtk.text_mark -> bool) option [@opaque];
+} [@@deriving show]
+
 type t = {
   mutable size            : int;
   mutable start_selection : GText.iter option;
@@ -37,14 +48,6 @@ type t = {
   mutable marker_bg_color : GDraw.color;
   mutable markers         : marker list;
 }
-and marker = {
-  kind                    : [`None | `Bookmark of int | `Error of string | `Warning of string];
-  mark                    : Gtk.text_mark;
-  icon_pixbuf             : GdkPixbuf.pixbuf option;
-  mutable icon_obj        : GObj.widget option;
-  callback                : (Gtk.text_mark -> bool) option;
-}
-
 
 (** create *)
 let create () = {
@@ -59,8 +62,8 @@ let create () = {
 }
 
 (** create_marker *)
-let create_marker ?(kind=`None) ~mark ?pixbuf ?callback () =
-  {kind; mark; icon_pixbuf=pixbuf; callback; icon_obj=None}
+let create_marker ?(kind=`None) ~mark ?icon ?callback () =
+  {kind; mark; icon; callback; icon_obj=None}
 
 (** destroy_markers *)
 let destroy_markers gutter markers =
@@ -73,6 +76,7 @@ let destroy_markers gutter markers =
         GtkText.Buffer.delete_mark buffer marker.mark;
   end markers
 
+let to_string m = Printf.sprintf "%s" (show_marker m)
 
 
 

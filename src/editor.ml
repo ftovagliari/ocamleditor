@@ -246,7 +246,13 @@ class editor () =
           with Not_found -> None
         in
         Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
-        let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ?pixbuf:(Bookmark.icon num) ?callback () in
+        let icon =
+          match num with
+          | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
+          | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
+        in
+        let marker = Gutter.create_marker ~mark
+            ~icon:(sprintf "<span color='#4da1ff'>%s</span>" icon) ?callback () in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
         page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
@@ -952,7 +958,7 @@ class editor () =
         end;
       end |> ignore;
       (*Margin_fold.init_editor self;*)
-      (*Global_diff.init_editor self*)
+      Global_diff.init_editor self
   end
 
 (** Signals *)

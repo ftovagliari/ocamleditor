@@ -207,8 +207,8 @@ and view ?project ?buffer () =
     buffer#create_tag ~name:(sprintf "highlight_current_line_tag_%f" (Unix.gettimeofday())) []
   in
   let margin = new Margin.container view in
-  let margin_line_numbers = new Margin.line_numbers view in
-  let margin_markers = new Margin.markers margin#gutter margin_line_numbers in
+  let margin_markers = new Margin.markers margin#gutter view in
+  let margin_line_numbers = new Margin.line_numbers view margin_markers in
   object (self)
     inherit GText.view view#as_view as super
 
@@ -643,7 +643,6 @@ and view ?project ?buffer () =
       margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;
       view#misc#connect#style_set ~callback:begin fun () ->
         (* TODO: Lablgtk3 issue *)
-        Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
         (* Applies the new font size to labels that have been created after
            the number of lines of text has increased. *)
         Gmisclib.Idle.add ~prio:300 begin fun () ->
@@ -656,17 +655,15 @@ and view ?project ?buffer () =
             self#mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
         | _ -> ()
         end);
-      ignore (options#connect#after#line_numbers_changed ~callback:begin fun visible ->
-          margin_line_numbers#set_is_visible visible;
-          margin_markers#set_size (if visible then 0 else margin_markers#icon_size);
+      options#connect#after#line_numbers_changed ~callback:begin fun visible ->
+        margin_line_numbers#set_is_visible visible;
+        (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)
+        Gmisclib.Idle.add self#build_gutter
+      end |> ignore;
+      (*ignore (options#connect#line_numbers_font_changed ~callback:begin fun fontname ->
           (* TODO: Lablgtk3 issue *)
           Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
-          Gmisclib.Idle.add self#build_gutter
-        end);
-      ignore (options#connect#line_numbers_font_changed ~callback:begin fun fontname ->
-          (* TODO: Lablgtk3 issue *)
-          Printf.eprintf "Not implemented\n%s\n%!" (Printexc.raw_backtrace_to_string (Printexc.get_callstack 5));
-        end);
+        end);*)
       options#set_line_numbers_font view#misc#pango_context#font_name;
       ignore (options#connect#after#show_markers_changed ~callback:(fun _ ->
           Gmisclib.Idle.add self#build_gutter));
