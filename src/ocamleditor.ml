@@ -112,6 +112,7 @@ let main () = begin
         end |> ignore;
         splashscreen#present();
   end;
+  Custom_css.apply();
   GtkThread.main ();
 end
 

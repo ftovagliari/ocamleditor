@@ -231,7 +231,7 @@ class widget ~page ?packing () =
           ocamlview#view#options#set_show_whitespace_chars button_ws#get_active;
           ocamlview#buffer#connect#end_user_action ~callback:ocamlview#colorize |> ignore;
           ocamlview#buffer#set_text "";
-          Global_diff.to_buffer ocamlview#buffer#as_gtext_buffer ignore_whitespace filename1 filename2;
+          Diff.to_buffer ocamlview#buffer#as_gtext_buffer ignore_whitespace filename1 filename2;
           oview <- Some ocamlview;
           ocamlview#view#misc#connect#destroy ~callback:(fun () -> oview <- None) |> ignore;
       | _ -> ()

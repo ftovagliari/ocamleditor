@@ -166,14 +166,14 @@ class error_indication (view : Ocaml_text.view) (global_gutter : GMisc.drawing_a
         buffer#apply_tag tag ~start ~stop;
         let mark_start = buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Error_indication.do_apply_tag1")*) start in
         if flag_gutter then begin
-          let kind, icon =
+          let kind, icon, color =
             match kind with
-            | `Warning -> `Warning error.Oe.er_message, "<span color='darkorange'>\u{f071}</span>"
-            | `Error -> `Error error.Oe.er_message, "<span color='red'>\u{f0159}</span>" (*   ⛔ *)
+            | `Warning -> `Warning error.Oe.er_message, "\u{f071}", "darkorange"
+            | `Error -> `Error error.Oe.er_message, "\u{f0159}", "red" (*   ⛔ *)
             | _ -> assert false
           in
           let marker = Gutter.create_marker ~kind
-              ~mark:mark_start ~icon ~callback:self#callback_gutter_marker ()
+              ~mark:mark_start ~icon:(icon, color) ~callback:self#callback_gutter_marker ()
           in
           tview#gutter.Gutter.markers <- marker :: tview#gutter.Gutter.markers;
           error_gutter_markers <- marker :: error_gutter_markers;

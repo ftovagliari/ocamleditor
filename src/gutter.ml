@@ -32,7 +32,7 @@ type marker_kind = [`None | `Bookmark of int | `Error of string | `Warning of st
 type marker = {
   kind                    : marker_kind;
   mark                    : Gtk.text_mark [@opaque];
-  icon                    : string option;
+  icon                    : (string * string) option;
   mutable icon_obj        : GObj.widget option [@printer fun fmt v ->
       Format.fprintf fmt "%s" (if Option.is_some v then "Some" else "None")];
   callback                : (Gtk.text_mark -> bool) option [@opaque];

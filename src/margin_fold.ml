@@ -256,7 +256,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
            else sprintf "<big>%s</big>" Icons.expander_open);
         self#show_region ~segments ?prio ();
         is_expanded <- true;
-        GtkBase.Widget.queue_draw view#as_widget; (* Updates ellipsis *)
+        (*GtkBase.Widget.queue_draw view#as_widget; (* Updates ellipsis *)*)
         toggled#call Expand;
       end
 
@@ -272,7 +272,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
           (if is_debug then sprintf "<span size='x-small'>%d</span>%s" id Icons.expander_closed
            else sprintf "<big>%s</big>" Icons.expander_closed);
         is_expanded <- false;
-        GtkBase.Widget.queue_draw view#as_widget;
+        (*GtkBase.Widget.queue_draw view#as_widget;*)
         toggled#call Collapse
       end
 
@@ -405,7 +405,9 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
     val expander_toggled = new expander_toggled()
     val mutable signals = []
 
+    method scope = Local
     method kind = FOLDING
+    method color = "#505050"
     method index = 30
     method size = size
 
@@ -611,7 +613,7 @@ let pages : (int * margin_fold) list ref = ref []
 
 let init_page (page : Editor_page.page) =
   try
-    page#view#margin_container#list |> List.find_opt (fun m -> m#kind = FOLDING)
+    page#view#margin_container#get FOLDING
     |> begin function
     | None ->
         page#outline |> Option.iter begin fun outline ->
@@ -643,11 +645,11 @@ let init_page (page : Editor_page.page) =
             end
           end |> ignore;
           (* Remove highlights from all expanders when there are no marked occurrences *)
-          page#view#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
+          (*page#view#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
             match page#view#mark_occurrences_manager#words with
             | [] -> GtkBase.Widget.queue_draw page#view#as_widget
             | _ -> ()
-          end |> ignore;
+            end |> ignore;*)
           (* Disable while page is loading. *)
           page#connect#load ~callback:begin
             let old_is_visible = ref margin#is_visible in
@@ -659,7 +661,7 @@ let init_page (page : Editor_page.page) =
                 Gmisclib.Idle.add ~prio:300 begin fun () ->
                   margin#enable();
                   page#view#build_gutter();
-                  GtkBase.Widget.queue_draw page#view#as_widget;
+                  (*GtkBase.Widget.queue_draw page#view#as_widget;*)
                 end
             | _ -> ()
           end |> ignore;

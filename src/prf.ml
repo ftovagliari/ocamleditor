@@ -57,6 +57,7 @@ let prf_draw_white_spces             = create true  "prf_draw_white_spces"
 
 let draw_margins = create __FUNCTION__
 let draw_margin_ln = create __FUNCTION__
+let build_margin_ln = create __FUNCTION__
 let draw_margin_markers = create __FUNCTION__
 let draw_margin_diff = create __FUNCTION__
 let expose = create __FUNCTION__
@@ -91,31 +92,26 @@ let register prf f x =
 let print_report () =
   if !profiles <> [] then
     let total = (Unix.gettimeofday()) -. start_time in
-    (* Intestazione con spaziature corrispondenti esattamente alle specifier %s/%d del ciclo *)
-    printf "%-50s : %7s  %7s  %7s  %7s  %7s  %9s\n%!"
-      (Utils.rpad "Profile Name " '.' 50) "Calls" "Avg" "Tot" "pc %" "ms/1s" "calls/min";
+    printf " %-50s : %7s  %7s  %7s  %7s  %9s\n%!" "" "Calls" "Avg" "Tot" "" "calls/min";
     printf "\
-------------------------------------------------------------------------------------------------------------\n%!";
+----------------------------------------------------------------------------------------------------\n%!";
     let perc = ref 0.0 in
     !profiles
     |> List.sort (fun a b -> Float.compare b.time a.time)
     |> List.iter begin fun prf ->
       if prf.enabled then begin
         let pc = prf.time /. total *. 100. in
-        let ms_per_sec = (prf.time /. total) *. 1000. in
         perc := !perc +. pc;
-        printf "%-50s : %7d  %7.3f  %7.2f  %6.2f%%  %7.1f  %9.2f\n%!"
+        printf " %-50s : %7d  %7.3f  %7.2f  %6.2f%%  %9.2f\n%!"
           (Utils.rpad (prf.name ^ " ") '.' 50)
           prf.calls
           (prf.time /. (float prf.calls))
           prf.time
           pc
-          ms_per_sec
           (((float prf.calls) /. (total *. 60.)) *. 1000.)
       end
     end;
     printf "\
-------------------------------------------------------------------------------------------------------------\n%!";
-    let total_ms_per_sec = (!perc /. 100.) *. 1000. in
-    printf "%-50s : %7d  %7.3f  %7.2f  %6.2f%%  %7.1f\n%!"
-      (Utils.rpad "Total " ' ' 50) 0 0.0 total !perc total_ms_per_sec
+----------------------------------------------------------------------------------------------------\n%!";
+    printf " %-50s   %7d  %7.3f  %7.2f  %6.2f%%\n%!"
+      (Utils.rpad "" ' ' 50) 0 0.0 total !perc

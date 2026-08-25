@@ -644,7 +644,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       let base_font = pref.editor_base_font in
       code_font_family <-
         String.sub base_font 0 (Option.value (String.rindex_opt base_font ' ') ~default:(String.length base_font));
-      GtkBase.Widget.queue_draw view#as_widget;
+      (*GtkBase.Widget.queue_draw view#as_widget;*)
 
   end
 

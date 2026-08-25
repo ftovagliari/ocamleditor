@@ -98,7 +98,7 @@ class manager ~view =
       let col = iter#line_offset in
       if line <> last_merlin_invoke_line || col <> last_merlin_invoke_col then begin
         view#filter_outline_text (function `Ref _ -> false | _ -> true);
-        GtkBase.Widget.queue_draw view#as_widget;
+        (*GtkBase.Widget.queue_draw view#as_widget;*)
         last_merlin_invoke_time <- buffer#last_edit_time;
         let text = buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
         last_merlin_invoke_line <- line;

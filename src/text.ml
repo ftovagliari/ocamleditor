@@ -282,7 +282,7 @@ and view ?project ?buffer () =
         self#scroll_to_iter ~use_align:(self#scroll_to_iter iter) ~xalign:1.0 ~yalign:0.38 iter |> ignore;
         Gmisclib.Idle.add ~prio:200 begin fun () ->
           self#build_gutter();
-          GtkBase.Widget.queue_draw self#as_widget;
+          (*GtkBase.Widget.queue_draw self#as_widget;*)
         end
       end;
 
@@ -303,7 +303,7 @@ and view ?project ?buffer () =
       in
       ignore (self#scroll_to_iter it);
       self#place_cursor_onscreen() |> ignore;
-      Gmisclib.Idle.add ~prio:300 (fun () -> GtkBase.Widget.queue_draw self#as_widget)
+      (*Gmisclib.Idle.add ~prio:300 (fun () -> GtkBase.Widget.queue_draw self#as_widget)*)
 
     method goto () = Dialog_goto.show ~view:self ()
 
@@ -329,7 +329,7 @@ and view ?project ?buffer () =
                (self#buffer#create_mark ~name:"delim_right_stop" rstop)) :: current_matching_tag_bounds;
             self#buffer#apply_tag_by_name "tag_matching_delim" ~start:rstart ~stop:rstop;
             self#add_outline_text (current_matching_tag_bounds |> List.map (fun x -> `Delim x));
-            GtkBase.Widget.queue_draw self#as_widget;
+            (*GtkBase.Widget.queue_draw self#as_widget;*)
             delim
           end else None
       | Some (_, lstop, rstart, _) (*as delim*) when lstop = rstart ->
@@ -504,7 +504,7 @@ and view ?project ?buffer () =
               let adjust      = Oe_config.current_line_border_adjust in
               let hadjust     = int_of_float self#hadjustment#value - self#left_margin in
               let drawable    = GDraw.Cairo.create window in
-              let { Cairo.x; y; w; h } = Cairo.clip_extents drawable in
+              (*let { Cairo.x; y; w; h } = Cairo.clip_extents drawable in*)
               (* Indentation guidelines *)
               if options#show_indent_lines && not options#show_whitespace_chars
               then (Text_indent_lines.draw_indent_lines self drawable) start stop y0;
@@ -640,7 +640,7 @@ and view ?project ?buffer () =
       view#event#add [`FOCUS_CHANGE];
       margin#add (margin_line_numbers :> Margin.margin);
       margin#add (margin_markers :> Margin.margin);
-      margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;
+      (*margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;*)
       view#misc#connect#style_set ~callback:begin fun () ->
         (* TODO: Lablgtk3 issue *)
         (* Applies the new font size to labels that have been created after

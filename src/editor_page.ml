@@ -36,11 +36,13 @@ type load_event_phase = [ `Begin | `End ]
 
 let create_view ~project ~buffer ?file ?packing () =
   let view = new Ocaml_text.view ~project ~buffer () in
-  let sw = GBin.scrolled_window ~width:100 ~height:100 ~shadow_type:`NONE
+  let sw = GBin.scrolled_window ~shadow_type:`NONE
       ~vadjustment:view#vadjustment ~hadjustment:view#hadjustment
       ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
   Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
-  let _  = sw#add view#coerce in
+  sw#add view#coerce;
+  sw#misc#style_context#add_class "editor-scrollbar";
+  (*sw#misc#set_property "overlay-scrolling" (`BOOL false);*) (* TODO: should be a preference? *)
   sw, (view :> Text.view), view
 
 let shortname filename =
@@ -321,8 +323,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
                   | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
                   | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
                 in
-                let marker = Gutter.create_marker ~mark
-                    ~icon:(sprintf "<span color='#4da1ff'>%s</span>" icon) ?callback () in
+                let marker = Gutter.create_marker ~mark ~icon:(icon, "#4da1ff") ?callback () in
                 bm.Oe.bm_marker <- Some marker;
                 view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
             end project.Prj.bookmarks;
