@@ -31,5 +31,6 @@ depends: [
   "merlin" 
   "inotify"
   "ocurl"
+  "ppx_deriving.show"
 ]
 
