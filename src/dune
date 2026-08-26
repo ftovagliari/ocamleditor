@@ -174,19 +174,22 @@
   oebuildlib
   otherwidgets
   atdgen-runtime
+  cairo2
   compiler-libs.common
   curl
   dynlink
   inotify
-  lablgtk2
+  lablgtk3
   ocamldiff
   ocp-indent.lib
   odoc-parser
+  ppx_deriving.show
   str
   threads.posix
   unix
   xml-light
   yojson)
+ (preprocess (pps ppx_deriving.show))
  (flags (:standard -warn-error -A -w -s-y-x-m -g))
  (ocamlopt_flags (:standard -inline 50))
  (link_flags (:standard -g)))
@@ -203,19 +206,22 @@
   oebuildlib
   otherwidgets
   atdgen-runtime
+  cairo2
   compiler-libs.common
   curl
   dynlink
   inotify
-  lablgtk2
+  lablgtk3
   ocamldiff
   ocp-indent.lib
   odoc-parser
+  ppx_deriving.show
   str
   threads.posix
   unix
   xml-light
   yojson)
+ (preprocess (pps ppx_deriving.show))
  (flags (:standard -warn-error -A -w -s-y-x-m -g))
  (ocamlopt_flags (:standard -inline 50))
  (library_flags (:standard -g)))

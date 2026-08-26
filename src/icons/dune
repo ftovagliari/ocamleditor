@@ -18,6 +18,6 @@
  (name icons)
  (wrapped false)
  (modules :standard)
- (libraries common lablgtk2)
+ (libraries common lablgtk3)
  (flags (:standard -warn-error -A -g))
  (library_flags (:standard -g)))
