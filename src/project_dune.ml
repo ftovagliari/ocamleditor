@@ -446,18 +446,35 @@ let render proj =
        else [Sexp.field "link_flags" [standard lflags]])
   in
 
+  let has_ppx pkg =
+    let cmd = Printf.sprintf "ocamlfind printppx %s 2>/dev/null" (Filename.quote pkg) in
+    let ic = Unix.open_process_in cmd in
+    let out = try String.trim (input_line ic) with End_of_file -> "" in
+    let status = Unix.close_process_in ic in
+    status = Unix.WEXITED 0 && out <> ""
+  in
+
   let preprocess_field tg =
-    if String.trim tg.Target.pp = "" then []
+    let ppx_pkgs =
+      Str.split (Utils.regexp "[ ,]+") tg.Target.package
+      |> List.filter has_ppx
+      |> Utils.ListExt.remove_dupl
+    in
+    if String.trim tg.Target.pp = "" then
+      match ppx_pkgs with
+      | [] -> []
+      | pkgs ->
+          [Sexp.field "preprocess" [Sexp.L (Sexp.A "pps" :: Sexp.atoms pkgs)]]
     else
       match Shell.parse_args tg.Target.pp with
       | [single] when Filename.check_suffix single ".exe"
                    || String.length single > 3 && String.sub single 0 3 = "ppx" ->
-          [Sexp.field "preprocess" [Sexp.L [Sexp.A "pps"; Sexp.A single]]]
+          let all_pps = List.sort_uniq String.compare (single :: ppx_pkgs) in
+          [Sexp.field "preprocess" [Sexp.L (Sexp.A "pps" :: Sexp.atoms all_pps)]]
       | tokens ->
           [Sexp.field "preprocess"
              [Sexp.L [Sexp.A "action";
-                      Sexp.L (Sexp.A "run" :: Sexp.atoms (tokens @ ["%{input-file}"]))]]]
-  in
+                      Sexp.L (Sexp.A "run" :: Sexp.atoms (tokens @ ["%{input-file}"]))]]]  in
 
   let enabled_if_field tg =
     let file = dune_file (target_dir tg) in
