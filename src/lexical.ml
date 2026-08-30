@@ -238,9 +238,11 @@ let tag ?start ?stop (tb : GText.buffer) =
               | _, LPAREN, _, _ ->
                   (match !last_but_one with
                    | _, (QUESTION | TILDE), _, _ -> "label"
-                   | _ -> (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom" else "lident"))
+                   | _ ->
+                       (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom" else if lexeme.[0] = '_' then "comment" else "lident"))
               | last ->
-                  (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom" else tag_lident last)
+                  (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom"
+                   else if lexeme.[0] = '_' then "comment" else tag_lident last)
               end
           | COLON ->
               begin match !last with

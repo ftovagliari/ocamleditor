@@ -1,15 +1,8 @@
 module ColorOps = Color
 
-let global_gutter_diff_size = 8
-let global_gutter_diff_sep = 1
-let fact = 0.0
-open Preferences
-
-let color_change = `NAME (?? Oe_config.global_gutter_diff_color_change)
-
 let initialized : (int * (Margin_diff.local * Margin_diff.global)) list ref = ref []
 
-let paint_diffs page diffs =
+let update_models page diffs =
   let open Odiff in
   let diffs = List.sort begin fun a b ->
       match a with
@@ -50,7 +43,7 @@ let try_compare ?(force=false) page =
   if (is_changed || force) && page#view#visible then begin
     compare_with_head page begin fun diffs ->
       try
-        diffs |> paint_diffs page;
+        diffs |> update_models page;
         Option.iter (fun (ml, mg) -> ml#sync_diff_time(); mg#sync_diff_time()) margins
       with Gpointer.Null as ex -> ()
       (*Printf.eprintf "%s\n%s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());*)
@@ -66,8 +59,8 @@ let init_page page =
       page#view#event#connect#focus_in ~callback:(fun _ -> try_compare ~force:true page; false) |> ignore;
       let margin_local = new Margin_diff.local page#view in
       let margin_global = new Margin_diff.global page#view in
-      page#view#margin_container#add (margin_local :> Margin.margin);
-      page#view#margin_container#add (margin_global :> Margin.margin);
+      page#margin_manager#add (margin_local :> Margin.margin);
+      page#margin_manager#add (margin_global :> Margin.margin);
       initialized := (page#get_oid, (margin_local, margin_global)) :: !initialized;
       try_compare ~force:true page;
       Gmisclib.Idle.add page#view#build_gutter
@@ -79,8 +72,8 @@ let init_editor editor =
     begin
       match !initialized |> List.assoc_opt page#get_oid with
       | Some (local, global) ->
-          page#view#margin_container#remove (local :> Margin.margin);
-          page#view#margin_container#remove (global :> Margin.margin)
+          page#margin_manager#remove (local :> Margin.margin);
+          page#margin_manager#remove (global :> Margin.margin)
       | _ -> ()
     end;
     initialized := List.filter (fun (oid, _) -> oid <> page#get_oid) (!initialized);

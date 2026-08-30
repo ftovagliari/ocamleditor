@@ -43,12 +43,12 @@ class "GtkTextView" style "s1"
     then `COLOR (view#misc#style#base `NORMAL)
     else (`NAME pref.editor_bg_color_user)
   in
-  view#mark_occurrences_manager#mark();
+  (*view#mark_occurrences_manager#mark();*)
   view#options#set_mark_occurrences
     (pref.editor_mark_occurrences_enabled,
      pref.editor_mark_occurrences_under_cursor,
      ?? (pref.editor_mark_occurrences_bg_color));
-  view#mark_occurrences_manager#mark();
+  (*view#mark_occurrences_manager#mark();*)
   let show_indent_lines, indent_lines_color_s, pref_editor_indent_lines_color_d = pref.editor_indent_lines in
   view#options#set_show_indent_lines show_indent_lines;
   view#options#set_indent_lines_color_solid (`NAME ?? indent_lines_color_s);

@@ -206,9 +206,6 @@ and view ?project ?buffer () =
   let create_highlight_current_line_tag () =
     buffer#create_tag ~name:(sprintf "highlight_current_line_tag_%f" (Unix.gettimeofday())) []
   in
-  let margin = new Margin.container view in
-  let margin_markers = new Margin.markers margin#gutter view in
-  let margin_line_numbers = new Margin.line_numbers view margin_markers in
   object (self)
     inherit GText.view view#as_view as super
 
@@ -223,7 +220,6 @@ and view ?project ?buffer () =
     val mutable signal_expose : GtkSignal.id option = None
     val hyperlink = Gmisclib.Text.hyperlink ~view ()
     val mutable signal_id_highlight_current_line = None
-    val mutable mark_occurrences_manager = None
     val mutable current_line_border_x1 = 0
     val mutable current_line_border_x2 = 0
 
@@ -233,8 +229,6 @@ and view ?project ?buffer () =
 
     method project = project
 
-    method mark_occurrences_manager = match mark_occurrences_manager with Some x -> x | _ -> assert false
-
     method as_gtext_view = (self :> GText.view)
     method tbuffer = buffer
 
@@ -243,8 +237,6 @@ and view ?project ?buffer () =
     method hyperlink = hyperlink
 
     method signal_expose = signal_expose
-    method gutter = margin#gutter (* Legacy *)
-    method margin_container = margin
 
     method set_buffer buf =
       let tbuf = new buffer ~buffer:buf () in
@@ -477,7 +469,7 @@ and view ?project ?buffer () =
         prev_line_background <- cur_line;
       end
 
-    method build_gutter () = (* 0.008 *) margin#build ();
+    method build_gutter () = ();
 
     method private metrics =
       let pango = view#misc#pango_context in
@@ -638,9 +630,6 @@ and view ?project ?buffer () =
 
     initializer
       view#event#add [`FOCUS_CHANGE];
-      margin#add (margin_line_numbers :> Margin.margin);
-      margin#add (margin_markers :> Margin.margin);
-      (*margin#connect#update ~callback:(fun () -> approx_char_width <- margin#approx_char_width) |> ignore;*)
       view#misc#connect#style_set ~callback:begin fun () ->
         (* TODO: Lablgtk3 issue *)
         (* Applies the new font size to labels that have been created after
@@ -648,17 +637,6 @@ and view ?project ?buffer () =
         Gmisclib.Idle.add ~prio:300 begin fun () ->
           Gmisclib.Idle.add self#build_gutter
         end;
-      end |> ignore;
-      ignore (options#connect#mark_occurrences_changed ~callback:(fun _ -> self#mark_occurrences_manager#mark()));
-      ignore (options#connect#after#mark_occurrences_changed ~callback:begin function
-        | true, _, color ->
-            self#mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
-        | _ -> ()
-        end);
-      options#connect#after#line_numbers_changed ~callback:begin fun visible ->
-        margin_line_numbers#set_is_visible visible;
-        (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)
-        Gmisclib.Idle.add self#build_gutter
       end |> ignore;
       (*ignore (options#connect#line_numbers_font_changed ~callback:begin fun fontname ->
           (* TODO: Lablgtk3 issue *)
@@ -691,7 +669,7 @@ and view ?project ?buffer () =
               self#draw_current_line_background ~force:true (self#buffer#get_iter `INSERT)
         end);
       Text_init.key_press ?project self;
-      Text_init.select_lines_from_gutter self;
+      (*Text_init.select_lines_from_gutter self;*)
       (** Margin and line spacings *)
       (* To avoid strange application crash, avoid to draw the border of
          matching delimiters when we are in the middle of an insert_text event.
@@ -733,5 +711,4 @@ and view ?project ?buffer () =
       ignore (buffer#undo#connect#redo ~callback:before);
       ignore (buffer#undo#connect#after#redo ~callback:after);
       Gmisclib.Idle.add (fun () -> self#draw_current_line_background ~force:true (buffer#get_iter `INSERT));
-      mark_occurrences_manager <- Some (new Mark_occurrences.manager ~view:self);
   end

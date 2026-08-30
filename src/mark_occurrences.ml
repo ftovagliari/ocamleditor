@@ -26,7 +26,7 @@ let _ =
   Log.set_print_timestamp true;
   Log.set_verbosity `DEBUG
 
-class manager ~view =
+class manager view =
   let buffer = view#tbuffer in
   let [@inline] (=>) a b = not a || b in
   let match_whole_word_only = true in
@@ -92,7 +92,7 @@ class manager ~view =
         ?slice:(Some false)
         ?visible:(Some false) ()
 
-    method mark_refs () =
+    method private mark_refs () =
       let iter = buffer#get_iter `INSERT in
       let line = iter#line + 1 in
       let col = iter#line_offset in
@@ -108,7 +108,6 @@ class manager ~view =
         | Merlin.Ok ranges ->
             let open Merlin_j in
             if last_merlin_invoke_time = buffer#last_edit_time then
-              (*Gmisclib.Idle.add begin fun () ->*)
               GtkThread.async begin fun () ->
                 self#clear_refs() |> ignore;
                 ranges
@@ -137,13 +136,13 @@ class manager ~view =
                   end else acc
                 end []
                 |> view#add_outline_text;
-                if ref_marks <> [] then mark_set#call();
+                mark_set#call();
               end ()
         | Merlin.Failure _ | Merlin.Error _ -> ()
         end
       end
 
-    method mark_words () =
+    method private mark_words () =
       self#clear_words() |> ignore;
       match view#options#mark_occurrences with
       | true, under_cursor, _ ->
@@ -174,13 +173,13 @@ class manager ~view =
                   iter := b;
               | _ -> iter := stop
             done;
-            if word_marks <> [] then mark_set#call()
+            mark_set#call()
           end
       | _ -> ()
 
     method mark () =
       self#mark_refs();
-      self#mark_words()
+      self#mark_words();
 
     method connect = new signals ~mark_set
   end

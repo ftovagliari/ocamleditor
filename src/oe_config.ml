@@ -66,7 +66,7 @@ let code_folding_tag_invisible_name      = "fold-invisible"
 let code_folding_tag_highlight_name      = "fold-highlight"
 let code_folding_expander_color          = `NAME "#ff0000"
 
-let global_gutter_size                   = 30
+let overview_ruler_size                  = 30
 let global_gutter_diff_color_add         = { light = "#60b060"; dark = "#13401e" }
 let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#ff0000" }
 let global_gutter_diff_color_change      = { light = "#0079FF"; dark = "#0079FF" }

@@ -135,7 +135,7 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
             replace_compiler_artifact ~project working_directory modname ".cmi";
             replace_compiler_artifact ~project working_directory modname ".cmt";
             let errors = Error.parse_string (Buffer.contents compiler_output) in
-            GtkThread.async page#error_indication#apply_tag errors;
+            GtkThread.async page#error_manager#apply_tag errors;
             (* Outline *)
             let no_errors = errors.Oe.er_errors = [] in
             if editor#show_outline then begin end;

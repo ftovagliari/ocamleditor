@@ -508,10 +508,10 @@ class widget
                 if not page#load_complete then (editor#load_page ?scroll:(Some false) page);
                 page
           in
-          let old_error_indication_enabled = page#error_indication#enabled in
+          let old_error_indication_enabled = page#error_manager#enabled in
           let old_mark_occurrences = page#view#options#mark_occurrences in
           page#view#options#set_mark_occurrences (false, false, "");
-          page#error_indication#set_enabled false;
+          page#error_manager#set_enabled false;
           page#buffer#undo#begin_block ~name:"replace";
           buffers := page#buffer :: !buffers;
           pages := (page, old_mark_occurrences) :: !pages;
@@ -581,7 +581,7 @@ class widget
               end;
               incr i;
             end res.lines;
-            page#error_indication#set_enabled old_error_indication_enabled;
+            page#error_manager#set_enabled old_error_indication_enabled;
             replace_file := "";
           with Skip_file -> ()
         end results;

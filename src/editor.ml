@@ -231,12 +231,12 @@ class editor () =
           try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
           with Not_found -> None
         in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
+        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#margin_manager#gutter [old]);
         Project.Bookmark.remove project num;
         page#view#build_gutter();
       end
 
-    method bookmark_create ~num ?where ?(callback : (Gtk.text_mark -> bool) option) () =
+    method bookmark_create ~num ?where () =
       self#with_current_page begin fun page ->
         let filename = page#get_filename in
         let where = match where with Some x -> x | _ -> page#buffer#get_iter `INSERT in
@@ -245,17 +245,18 @@ class editor () =
           try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
           with Not_found -> None
         in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
-        let icon =
+        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#margin_manager#gutter [old]);
+        let icon = (* TODO refactor *)
           match num with
           | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
           | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
         in
-        let marker = Gutter.create_marker ~mark ~icon:(icon, "#4da1ff") ?callback () in
+        let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ~icon:(icon, "#4da1ff") () in (* TODO refactor *)
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
-        page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
-        page#view#build_gutter();
+        page#margin_manager#gutter.Gutter.markers <- marker :: page#margin_manager#gutter.Gutter.markers;
+        page#margin_manager#build();
+        Gmisclib.Idle.add ~prio:300 (fun () -> page#margin_manager#draw());
       end
 
     method bookmark_goto ~num =
@@ -432,7 +433,7 @@ class editor () =
         let matching_delim_callback () =
           buffer#block_signal_handlers();
           view#matching_delim ();
-          page#error_indication#hide_tooltip();
+          (*page#error_manager#hide_tooltip();*)
           buffer#unblock_signal_handlers();
         in
         let callback iter _ =
@@ -446,8 +447,8 @@ class editor () =
         (* Mark Set *)
         let lab_sel_lines, lab_sel_chars = page#status_pos_sel in
         let activate_mark_occurrences () =
-          Debouncer.schedule debouncer_mark_words page#view#mark_occurrences_manager#mark_words;
-          Debouncer.schedule debouncer_mark_ref page#view#mark_occurrences_manager#mark_refs;
+          Debouncer.schedule debouncer_mark_words page#mark_occurrences_manager#mark;
+          (*Debouncer.schedule debouncer_mark_ref page#mark_occurrences_manager#mark_refs;*)
         in
         let option_occurrences, option_under_cursor, _ = view#options#mark_occurrences in
         buffer#add_signal_handler (buffer#connect#after#mark_set ~callback:begin fun _ mark ->
@@ -531,7 +532,7 @@ class editor () =
       Gdk.Window.set_cursor menu#misc#window (Gdk.Cursor.create `ARROW);
 
     method private callback_query_tooltip (page : Editor_page.page) ~x ~y ~kbd _ =
-      if x > page#view#gutter.Gutter.size && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10 then begin
+      if x > page#margin_manager#gutter.Gutter.size && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10 then begin
         let f () =
           let location = page#view#window_to_buffer_coords ~tag:`WIDGET ~x ~y in
           page#tooltip location;
@@ -539,7 +540,7 @@ class editor () =
         if (*true ||*) preferences#get.editor_annot_type_tooltips_delay = 1 then begin
           Gmisclib.Idle.add ~prio:200 f;
         end else (f());
-      end else (page#error_indication#hide_tooltip ~force:false ());
+      end (*else (page#error_manager#hide_tooltip ~force:false ())*);
       false;
 
     method open_file ~active ~scroll_offset ~offset ?remote filename =
@@ -633,7 +634,7 @@ class editor () =
                      the page was added directly from a user action or whether the browser is opening
                      project pages by reading them from the editor state saved in a file.
                      Conversely, the editor state would be saved again to a file, but with incorrect
-                     values ​​based on an incomplete page load.
+                     values based on an incomplete page load.
                      This means that in the event of a crash, when the browser reopens, the pages
                      the user manually opened won't be in the editor.
                      Acceptable for now. *)
@@ -870,10 +871,12 @@ class editor () =
       (*  *)
       code_folding_enabled#set Preferences.preferences#get.editor_code_folding_enabled;
       (*  *)
-      ignore (show_global_gutter#connect#changed ~callback:begin fun enabled ->
-          List.iter (fun p -> if enabled then p#global_gutter#misc#show()
-                      else p#global_gutter#misc#hide()) (pages @ (snd (List.split pages_cache)))
-        end);
+      (*show_global_gutter#connect#changed ~callback:begin fun enabled ->
+        List.iter begin fun p ->
+          if enabled then p#global_gutter#misc#show()
+          else p#global_gutter#misc#hide()
+        end (pages @ (snd (List.split pages_cache)))
+        end |> ignore;*)
       show_global_gutter#set Preferences.preferences#get.editor_show_global_gutter;
       (*  *)
       self#add_timeouts();

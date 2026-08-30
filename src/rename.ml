@@ -54,7 +54,7 @@ let get_renaming_positions page =
   let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
   let exception Rename_not_supported in
   try
-    page#view#mark_occurrences_manager#refs
+    page#mark_occurrences_manager#refs
     |> List.map begin fun (m1, m2) ->
       let start = page#buffer#get_iter_at_mark m1 in
       let pos = start#offset in

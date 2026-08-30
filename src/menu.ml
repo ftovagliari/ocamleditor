@@ -313,7 +313,7 @@ let search ~browser ~group ~flags items =
     let _ = GMenu.separator_item ~packing:bookmark_menu#add () in
     List.iter2 begin fun num key ->
       let mi = GMenu.menu_item ~label:(sprintf "Bookmark %d" num) ~packing:bookmark_menu#add () in
-      ignore (mi#connect#activate ~callback:(fun () -> editor#bookmark_create ~num ?where:None ?callback:None ()));
+      ignore (mi#connect#activate ~callback:(fun () -> editor#bookmark_create ~num ?where:None ()));
       mi#add_accelerator ~group ~modi:[`MOD1; `CONTROL] key ~flags;
     end [1; 2; 3; 4; 5; 6; 7; 8; 9; 0] [_1; _2; _3; _4; _5; _6; _7; _8; _9; _0];
   end;

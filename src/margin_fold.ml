@@ -613,12 +613,12 @@ let pages : (int * margin_fold) list ref = ref []
 
 let init_page (page : Editor_page.page) =
   try
-    page#view#margin_container#get FOLDING
+    page#margin_manager#get FOLDING
     |> begin function
     | None ->
         page#outline |> Option.iter begin fun outline ->
           let margin = new margin_fold outline page#ocaml_view in
-          page#view#margin_container#add (margin :> Margin.margin);
+          page#margin_manager#add (margin :> Margin.margin);
           margin#connect#begin_expander_toggled ~callback:(fun (expander, nested) ->
               nested := margin#find_nested_expanders expander) |> ignore;
           margin#connect#expander_toggled ~callback:begin fun expander ->
@@ -627,17 +627,17 @@ let init_page (page : Editor_page.page) =
           end |> ignore;
           page#misc#connect#destroy ~callback:begin fun () ->
             pages := List.filter begin fun (oid, margin) ->
-                page#view#margin_container#remove (margin :> Margin.margin);
+                page#margin_manager#remove (margin :> Margin.margin);
                 oid <> page#misc#get_oid
               end !pages
           end |> ignore;
           pages := (page#misc#get_oid, margin) :: !pages;
           (* Highlight expanders that contain marked occurrences *)
-          page#view#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
+          page#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
             margin#iter_expanders begin fun exp ->
               exp#set_contains_mark_occurrence false;
               if not exp#is_expanded then begin
-                if page#view#mark_occurrences_manager#words
+                if page#mark_occurrences_manager#words
                   |> List.exists (fun (m1, _) ->
                       exp#body_contains (page#buffer#get_iter_at_mark m1))
                 then exp#set_contains_mark_occurrence true;

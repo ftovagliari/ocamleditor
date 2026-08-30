@@ -35,7 +35,6 @@ type marker = {
   icon                    : (string * string) option;
   mutable icon_obj        : GObj.widget option [@printer fun fmt v ->
       Format.fprintf fmt "%s" (if Option.is_some v then "Some" else "None")];
-  callback                : (Gtk.text_mark -> bool) option [@opaque];
 } [@@deriving show]
 
 type t = {
@@ -62,8 +61,7 @@ let create () = {
 }
 
 (** create_marker *)
-let create_marker ?(kind=`None) ~mark ?icon ?callback () =
-  {kind; mark; icon; callback; icon_obj=None}
+let create_marker ?(kind=`None) ~mark ?icon () = {kind; mark; icon; icon_obj=None}
 
 (** destroy_markers *)
 let destroy_markers gutter markers =

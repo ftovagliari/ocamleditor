@@ -8,6 +8,8 @@ type diff_item =
   | Bar of { color : GDraw.color; y : int; height : int }
   | Triangle of { color : GDraw.color; y : int }
 
+let size = 13 
+
 class local (view : Text.view) =
   let color_add =
     let sat, value = if Preferences.preferences#get.theme_is_dark then 0.2, 0.4 else 0.4, 0.2 in
@@ -18,7 +20,6 @@ class local (view : Text.view) =
     `NAME (ColorOps.modify (?? Oe_config.global_gutter_diff_color_del) ~sat ~value)
   in
   let color_change = `NAME (?? Oe_config.global_gutter_diff_color_change) in
-  let size = 13 in
   object (self)
     inherit [int * diff_item] Margin.widget ()
     val mutable diffs : Odiff.diffs = []
@@ -34,7 +35,9 @@ class local (view : Text.view) =
     method color = "#005050"
     method index = 20
     method size = size
-    method set_diffs x = diffs <- x
+    method set_diffs x =
+      Prf.register Prf.set_margin_diff (fun () ->
+          diffs <- x) ()
     method is_changed_after_last_diff = last_diff_time < view#tbuffer#last_edit_time
     method sync_diff_time () = last_diff_time <- Unix.gettimeofday()
 
@@ -44,17 +47,19 @@ class local (view : Text.view) =
       end |> ignore;
 
     method build ~start ~stop =
-      model <- [];
-      let buffer = view#buffer in
-      let process_item line_num item = model <- (line_num, item) :: model  in
-      diffs |> List.iter begin function
-      | Add (_, ind, _) ->
-          self#build_bar buffer color_add ind process_item
-      | Delete (_, ind, _) ->
-          self#build_triangle buffer color_del ind process_item
-      | Change (_, _, ind, _) ->
-          self#build_bar buffer color_change ind process_item
-      end
+      Prf.register Prf.build_margin_diff begin fun () ->
+        model <- [];
+        let buffer = view#buffer in
+        let process_item line_num item = model <- (line_num, item) :: model  in
+        diffs |> List.iter begin function
+        | Add (_, ind, _) ->
+            self#build_bar buffer color_add ind process_item
+        | Delete (_, ind, _) ->
+            self#build_triangle buffer color_del ind process_item
+        | Change (_, _, ind, _) ->
+            self#build_bar buffer color_change ind process_item
+        end
+      end ()
 
     method private build_bar buffer color index yield =
       match index with

@@ -270,7 +270,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
         end else begin
           List.iter begin fun page ->
             page#compile_buffer ?join:None ();
-            page#error_indication#remove_tag();
+            page#error_manager#remove_tag();
             (* TODO: Lablgtk3 issue *)
             (*page#global_gutter#misc#draw (Some (Gdk.Rectangle.create
                                                   ~x:page#global_gutter#misc#allocation.Gtk.x
