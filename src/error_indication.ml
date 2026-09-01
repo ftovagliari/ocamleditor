@@ -128,7 +128,7 @@ class manager (view : Ocaml_text.view) =
         | None -> buffer#start_iter
         | Some { Oe.ei_start; _ } -> buffer#get_iter_at_mark (`MARK ei_start)
       in
-      view#scroll_lazy iter;
+      view#scroll_aligned iter;
       buffer#place_cursor ~where:iter
 
     method private do_apply_tag messages kind =

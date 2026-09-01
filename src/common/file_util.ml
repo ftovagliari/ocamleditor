@@ -43,10 +43,6 @@ struct
   (* Convert Windows-style directory separator '\' to caml-style '/' *)
   let caml_dir path = path
 
-  let rec fixpoint ~f v =
-    let v' = f v in
-    if v = v' then v else fixpoint ~f v';;
-
   let unix_regexp s =
     let re = ~! "\\*\\.{\\(.*\\)}" in
     let s =

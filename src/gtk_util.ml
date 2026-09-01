@@ -182,4 +182,30 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
     method button = button
   end
 
+let scroll_aligned (view : GText.view) (where : GText.iter) ~xalign ~yalign =
+  Gmisclib.Idle.add begin fun () ->
+    let fraction = float where#line /. float view#buffer#line_count in
+    let top = view#vadjustment#page_size *. yalign in
+    view#vadjustment#set_value (fraction *. view#vadjustment#upper -. top);
+  end
 
+let rec scroll_aligned_alt =
+  let is_iter_at_yalign (view : GText.view) (iter : GText.iter) (target_yalign : float) : bool =
+    let visible_rect = view#visible_rect in
+    let iter_rect = view#get_iter_location iter in
+    let iter_y = Gdk.Rectangle.y iter_rect in
+    let vis_y = Gdk.Rectangle.y visible_rect in
+    let vis_h = Gdk.Rectangle.height visible_rect in
+    let target_pixel_y = float_of_int vis_y +. (float_of_int vis_h *. target_yalign) in
+    let tolerance = 3.0 in
+    abs_float (float_of_int iter_y -. target_pixel_y) <= tolerance
+  in
+  fun (view : GText.view) ?(max_attempts=10) ~xalign ~yalign iter ->
+    if max_attempts <= 0 then () else
+      view#scroll_to_iter ~use_align:true ~xalign:xalign ~yalign:yalign iter |> ignore;
+    if is_iter_at_yalign view iter yalign then ()
+    else
+      GMain.Timeout.add ~ms:50 ~callback:begin fun () ->
+        scroll_aligned_alt view iter ~xalign ~yalign ~max_attempts:(max_attempts - 1);
+        false
+      end |> ignore

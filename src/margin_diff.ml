@@ -8,7 +8,7 @@ type diff_item =
   | Bar of { color : GDraw.color; y : int; height : int }
   | Triangle of { color : GDraw.color; y : int }
 
-let size = 13 
+let size = 13
 
 class local (view : Text.view) =
   let color_add =
@@ -35,9 +35,7 @@ class local (view : Text.view) =
     method color = "#005050"
     method index = 20
     method size = size
-    method set_diffs x =
-      Prf.register Prf.set_margin_diff (fun () ->
-          diffs <- x) ()
+    method set_diffs x = diffs <- x
     method is_changed_after_last_diff = last_diff_time < view#tbuffer#last_edit_time
     method sync_diff_time () = last_diff_time <- Unix.gettimeofday()
 

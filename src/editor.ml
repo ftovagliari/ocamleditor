@@ -170,11 +170,11 @@ class editor () =
         self#load_mli page#project mli
       end else if filename ^^^ ".mli" then begin
         let ml = (Filename.chop_extension filename) ^ ".ml" in
-        ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 ml)
+        ignore (self#open_file ~active:true ~offset:0 ml)
       end
 
     method private load_mli proj filename =
-      if Sys.file_exists filename then (ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 filename))
+      if Sys.file_exists filename then (ignore (self#open_file ~active:true ~offset:0 filename))
       else begin
         ignore (Dialog.confirm
                   ~title:"Create File"
@@ -205,7 +205,7 @@ class editor () =
       if Sys.file_exists filename then begin
         match self#get_page (`FILENAME filename) with
         | None ->
-            ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 filename);
+            ignore (self#open_file ~active:true ~offset:0 filename);
             self#location_history_goto location
         | Some page ->
             let view = (page#view :> Text.view) in
@@ -221,17 +221,14 @@ class editor () =
                   page#buffer#get_iter (`OFFSET offset);
             in
             view#buffer#place_cursor ~where;
-            ignore (view#scroll_lazy where);
+            ignore (view#scroll_aligned where);
             view#misc#grab_focus();
       end
 
     method bookmark_remove ~num =
       self#with_current_page begin fun page ->
-        let old_marker =
-          try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
-          with Not_found -> None
-        in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#margin_manager#gutter [old]);
+        let bm = Bookmark.find project.Prj.bookmarks num in
+        bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
         Project.Bookmark.remove project num;
         page#view#build_gutter();
       end
@@ -240,21 +237,17 @@ class editor () =
       self#with_current_page begin fun page ->
         let filename = page#get_filename in
         let where = match where with Some x -> x | _ -> page#buffer#get_iter `INSERT in
-        let mark = page#buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Editor.bookmark_create")*) where in
-        let old_marker =
-          try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
-          with Not_found -> None
-        in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#margin_manager#gutter [old]);
+        let mark = page#buffer#create_mark where in
+        let old_bm = Bookmark.find project.Prj.bookmarks num in
+        old_bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
         let icon = (* TODO refactor *)
           match num with
           | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
           | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
         in
-        let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ~icon:(icon, "#4da1ff") () in (* TODO refactor *)
+        let marker = page#margin_markers#add ~kind:(`Bookmark num) ~mark ~icon ~color:"#4da1ff" in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
-        page#margin_manager#gutter.Gutter.markers <- marker :: page#margin_manager#gutter.Gutter.markers;
         page#margin_manager#build();
         Gmisclib.Idle.add ~prio:300 (fun () -> page#margin_manager#draw());
       end
@@ -264,31 +257,29 @@ class editor () =
         let bm = List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks in
         match self#get_page (`FILENAME bm.Oe.bm_filename) with
         | None when Sys.file_exists bm.Oe.bm_filename ->
-            let _ = self#open_file ~active:true ~scroll_offset:0 ~offset:0 bm.Oe.bm_filename in
+            let _ = self#open_file ~active:true ~offset:0 bm.Oe.bm_filename in
             self#bookmark_goto ~num
         | None ->
             Dialog.info ~title:"File does not exist" ~message_type:`INFO
               ~message:(sprintf "File \xC2\xAB%s\xC2\xBB does not exist." bm.Oe.bm_filename) self;
+            Project.Bookmark.remove project num;
+            Bookmark.find project.Prj.bookmarks num
+            |> Option.iter (fun bm -> bm.Oe.bm_marker |> Option.iter (fun m -> Gutter.destroy_markers [m]));
             self#bookmark_remove ~num
         | Some page ->
-            (* TODO: Lablgtk3 issue, misc#get_flag `REALIZED *)
-            if not (page#view#visible) then (self#goto_view page#view);
+            self#goto_view page#view;
             Gmisclib.Idle.add ~prio:300 begin fun () ->
-              Bookmark.apply bm begin function
+              Bookmark.map bm begin function
               | `OFFSET _ ->
                   let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
                   self#bookmark_goto ~num;
-                  -1
               | `ITER it ->
                   let where = new GText.iter it in
-                  page#view#scroll_lazy where;
                   page#buffer#place_cursor ~where;
                   page#view#misc#grab_focus();
-                  -1
-              end |> ignore;
+                  page#view#scroll_aligned where;
+              end;
             end;
-            (* TODO: Lablgtk3 issue, misc#get_flag `REALIZED *)
-            if page#view#visible then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
             Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status ~editor:self project);
       with Not_found -> ()
 
@@ -323,7 +314,7 @@ class editor () =
           let start = buffer#get_iter (`LINE line) in
           let old = page#view#options#mark_occurrences in
           page#view#options#set_mark_occurrences (false, false, "");
-          page#ocaml_view#scroll_lazy start;
+          page#ocaml_view#scroll_aligned start;
           page#buffer#place_cursor ~where:(buffer#get_iter (`LINECHAR (line, col)));
           page#view#options#set_mark_occurrences old;
           self#goto_view page#view;
@@ -332,7 +323,7 @@ class editor () =
           self#location_history_add ~page ~iter ~kind:(`BROWSE : Location_history.kind) ();
           Gmisclib.Idle.add page#view#misc#grab_focus
       | _ ->
-          ignore (self#open_file ~active:false ~scroll_offset:0 ~offset:0 filename);
+          ignore (self#open_file ~active:false ~offset:0 filename);
           self#goto_location filename line col
 
     method dialog_file_select () = Editor_dialog.file_select ~editor:self ()
@@ -532,7 +523,8 @@ class editor () =
       Gdk.Window.set_cursor menu#misc#window (Gdk.Cursor.create `ARROW);
 
     method private callback_query_tooltip (page : Editor_page.page) ~x ~y ~kbd _ =
-      if x > page#margin_manager#gutter.Gutter.size && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10 then begin
+      if x > (page#margin_manager#get_gutter_size()) && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10
+      then begin
         let f () =
           let location = page#view#window_to_buffer_coords ~tag:`WIDGET ~x ~y in
           page#tooltip location;
@@ -543,7 +535,7 @@ class editor () =
       end (*else (page#error_manager#hide_tooltip ~force:false ())*);
       false;
 
-    method open_file ~active ~scroll_offset ~offset ?remote filename =
+    method open_file ~active ~offset ?remote filename =
       try
         let page =
           try
@@ -562,7 +554,7 @@ class editor () =
                 page
               with Not_found -> begin
                   let file = Editor_file.create ?remote filename in
-                  let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
+                  let page = new Editor_page.page ~file ~project ~offset ~editor:self () in
                   ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
                   (* Outline *)
                   page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
@@ -873,8 +865,8 @@ class editor () =
       (*  *)
       (*show_global_gutter#connect#changed ~callback:begin fun enabled ->
         List.iter begin fun p ->
-          if enabled then p#global_gutter#misc#show()
-          else p#global_gutter#misc#hide()
+        if enabled then p#global_gutter#misc#show()
+        else p#global_gutter#misc#hide()
         end (pages @ (snd (List.split pages_cache)))
         end |> ignore;*)
       show_global_gutter#set Preferences.preferences#get.editor_show_global_gutter;

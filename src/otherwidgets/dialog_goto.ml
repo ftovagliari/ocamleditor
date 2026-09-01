@@ -37,7 +37,7 @@ let show ~view () =
           end;
         in
         view#buffer#place_cursor ~where;
-        view#scroll_lazy where;
+        view#scroll_aligned where;
         w#destroy();
       with e -> Dialog.display_exn ~parent:view e
     in

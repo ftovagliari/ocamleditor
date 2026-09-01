@@ -27,5 +27,5 @@ jobs:
         with:
           ocaml-compiler: 5.5.0
 
-      - name: Install dependencies
-        run: opam install .
+      - name: Build only
+        run: opam build .

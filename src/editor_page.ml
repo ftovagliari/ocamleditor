@@ -78,7 +78,7 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
   button;;
 
 (** Editor page *)
-class page ?file ~project ~scroll_offset ~offset ~editor () =
+class page ?file ~project ~offset ~editor () =
   let file_changed             = new file_changed () in
   let load                     = new load () in
   let signals                  = new signals ~file_changed ~load in
@@ -103,7 +103,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
   let error_manager = new Error_indication.manager ocaml_view in
   let mark_occurrences_manager = new Mark_occurrences.manager text_view in
   let margin_manager = new Margin_manager.manager text_view#as_gtext_view in
-  let margin_markers = new Margin_markers.markers margin_manager#gutter text_view#as_gtext_view in
+  let margin_markers = new Margin_markers.markers text_view#as_gtext_view in
   let margin_line_numbers = new Margin_ln.line_numbers text_view#as_gtext_view margin_markers in
   let margin_errors = new Margin_overview.errors text_view#as_gtext_view in
   let margin_occurrences = new Margin_overview.occurrences text_view#as_gtext_view in
@@ -137,6 +137,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method error_manager = error_manager
     method mark_occurrences_manager = mark_occurrences_manager
     method margin_manager = margin_manager
+    method margin_markers = margin_markers
 
     method is_changed_after_last_autosave = last_autosave_time < buffer#last_edit_time
     method sync_autosave_time () = last_autosave_time <- Unix.gettimeofday()
@@ -182,11 +183,10 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method buffer = buffer
     method project = project
     method status_pos_sel = editorbar#pos_sel, editorbar#pos_sel_chars
-    method undo () = if not (buffer#undo#undo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
-    method redo () = if not (buffer#undo#redo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
+    method undo () = if not (buffer#undo#undo()) then (text_view#scroll_aligned (buffer#get_iter `INSERT))
+    method redo () = if not (buffer#undo#redo()) then (text_view#scroll_aligned (buffer#get_iter `INSERT))
 
     method initial_offset : int = offset
-    method scroll_offset = scroll_offset
 
     method redisplay () =
       Colorize.colorize_buffer ocaml_view;
@@ -255,7 +255,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             List.filter_map (fun bm -> bm.Oe.bm_marker) bms
           with Not_found -> []
         in
-        Gutter.destroy_markers self#margin_manager#gutter old_markers;
+        margin_markers#remove old_markers;
         (*  *)
         let v_scroll = view#vadjustment#value in
         buffer#block_signal_handlers();
@@ -285,21 +285,17 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             view#misc#hide();
             load#call `Begin;
             buffer#insert file#read;
-            (* Initial cursor position and syntax highlighting *)
-            Gmisclib.Idle.add begin fun () ->
-              if scroll then begin
-                let where = buffer#get_iter (`OFFSET scroll_offset) in
-                self#view#scroll_to_iter ~use_align:(self#view#scroll_to_iter where) ~xalign:1.0 where |> ignore;
-                let where = buffer#get_iter (`OFFSET offset) in
-                buffer#place_cursor ~where;
-              end;
-              Colorize.colorize_buffer ocaml_view;
-              view#misc#show();
-              view#misc#grab_focus();
-            end;
+            (* Initial cursor position *)
             buffer#set_modified false;
+            view#misc#show();
+            view#misc#grab_focus();
             if not buffer#undo#is_enabled then (buffer#undo#enable());
             load_complete <- true;
+            if scroll then begin
+              let where = buffer#get_iter (`OFFSET offset) in
+              buffer#place_cursor ~where;
+              view#scroll_aligned where;
+            end;
             buffer#save_buffer ~filename:buffer#orig_filename () |> ignore;
             (*buffer#set_last_edit_time (Unix.gettimeofday());*)
             last_autosave_time <- buffer#last_edit_time;
@@ -308,20 +304,19 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             Gmisclib.Idle.add ~prio:300 (fun () -> self#compile_buffer ?join:None ());
             (* Bookmarks: offsets to marks *)
             let redraw = ref false in
-            List.iter begin fun bm ->
-              if bm.Oe.bm_filename = file#filename then
-                let mark = (Bookmark.offset_to_mark (self#buffer :> GText.buffer) bm) in
+            project.Prj.bookmarks |> List.iter begin fun prj_bm ->
+              if prj_bm.Oe.bm_filename = file#filename then
+                let mark = Bookmark.offset_to_mark (self#buffer :> GText.buffer) prj_bm in
                 let icon =
-                  match bm.Oe.bm_num with (* TODO refactor *)
+                  match prj_bm.Oe.bm_num with (* TODO refactor *)
                   | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
                   | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
                 in
-                let marker = (* TODO refactor *)
-                  Gutter.create_marker ~mark ~kind:(`Bookmark bm.Oe.bm_num) ~icon:(icon, "#4da1ff") ()
-                in
-                bm.Oe.bm_marker <- Some marker;
-                self#margin_manager#gutter.Gutter.markers <- marker :: self#margin_manager#gutter.Gutter.markers
-            end project.Prj.bookmarks;
+                let marker = margin_markers#add ~kind:(`Bookmark prj_bm.Oe.bm_num) ~mark ~icon ~color:"#4da1ff" in
+                prj_bm.Oe.bm_marker <- Some marker;
+            end;
+            self#margin_manager#build();
+            Gmisclib.Idle.add ~prio:300 self#margin_manager#draw;
             load#call `End;
             if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
             true
@@ -467,11 +462,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method private init_error_indication () =
       let create_gutter_markers error_indications kind icon color =
         error_indications |> List.iter begin fun x ->
-          let marker =
-            Gutter.create_marker ~kind:(kind x.Oe.ei_error.Oe.er_message)
-              ~mark:x.Oe.ei_start ~icon:(icon, color) ()
-          in
-          self#margin_manager#gutter.Gutter.markers <- marker :: self#margin_manager#gutter.Gutter.markers;
+          let marker = margin_markers#add
+              ~kind:(kind x.Oe.ei_error.Oe.er_message) ~mark:x.Oe.ei_start ~icon ~color in
           error_margin_markers <- marker :: error_margin_markers;
         end
       in
@@ -484,7 +476,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
         self#margin_manager#build();
       end |> ignore;
       error_manager#connect#tag_removed ~callback:begin fun () ->
-        Gutter.destroy_markers self#margin_manager#gutter error_margin_markers;
+        margin_markers#remove error_margin_markers;
         error_margin_markers <- [];
         self#margin_manager#build();
       end |> ignore;

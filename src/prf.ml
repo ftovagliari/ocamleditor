@@ -61,7 +61,6 @@ let build_margin_ln = create __FUNCTION__
 let draw_margin_markers = create __FUNCTION__
 let draw_margin_diff = create __FUNCTION__
 let build_margin_diff = create __FUNCTION__
-let set_margin_diff = create __FUNCTION__
 let expose = create __FUNCTION__
 
 (*let prf_line_numbers          = create true  "prf_line_numbers"

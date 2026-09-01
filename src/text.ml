@@ -261,25 +261,7 @@ and view ?project ?buffer () =
 
     method highlight_current_line_tag = highlight_current_line_tag
 
-    method scroll_lazy iter =
-      Gmisclib.Idle.add ~prio:300 begin fun () ->
-        (* TODO Crashed here
-           Gtk-CRITICAL **: 10:34:26.095: IA__gtk_text_buffer_remove_tag: assertion 'gtk_text_iter_get_buffer (start) == buffer' failed
-           #5  0x00007f78ae7f4721 in gtk_text_view_scroll_to_iter () at /lib/x86_64-linux-gnu/libgtk-x11-2.0.so.0
-           #6  0x00005650c6c5fe1e in ml_gtk_text_view_scroll_to_iter ()
-           #7  0x00005650c6ca6d1b in <signal handler called> ()
-           #8  0x00005650c6b6866c in camlGText.fun_inner_5511 ()
-           #9  0x00005650c665e811 in camlText.fun_4581 () at text.ml:278 (self#scroll_to_iter)
-        *)
-        self#scroll_to_iter ~use_align:(self#scroll_to_iter iter) ~xalign:1.0 ~yalign:0.38 iter |> ignore;
-        Gmisclib.Idle.add ~prio:200 begin fun () ->
-          self#build_gutter();
-          (*GtkBase.Widget.queue_draw self#as_widget;*)
-        end
-      end;
-
-    method scroll_iter_onscreen iter =
-      self#scroll_to_iter ~within_margin:0.1 iter |> ignore;
+    method scroll_aligned iter = Gtk_util.scroll_aligned view iter ~xalign:1.0 ~yalign:0.38
 
     method scroll dir =
       let rect = self#visible_rect in

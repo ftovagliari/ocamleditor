@@ -221,10 +221,12 @@ class browser window =
       (*Project.load_rc_icons proj;*)
       switch_project#call();
       (* Load files *)
+      let is_active_set = ref false in
       List.iteri begin fun i (filename, scroll_offset, offset, active) ->
         let filename = List.fold_left (//) "" (filename_split filename) in
-        let active = active || (List.length proj.editor_view_state = (i + 1)) in
-        editor#open_file ~active ~scroll_offset ~offset ?remote:None filename |> ignore;
+        let active = active || (not !is_active_set && List.length proj.editor_view_state = (i + 1)) in
+        editor#open_file ~active ~offset ?remote:None filename |> ignore;
+        is_active_set := active || !is_active_set;
       end proj.editor_view_state;
       editor#set_history_switch_page_locked false;
       proj.editor_view_state <- [];
@@ -744,7 +746,7 @@ class browser window =
           menu.window_n_childs <- menu.window_n_childs + 1;
           let _ = item#connect#toggled ~callback:begin fun () ->
               if not menu.window_signal_locked then begin
-                ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None page#get_filename)
+                ignore (editor#open_file ~active:true ~offset:0 ?remote:None page#get_filename)
               end
             end in
           menu.window_pages <- (page#misc#get_oid, item) :: menu.window_pages;
@@ -1009,7 +1011,7 @@ class browser window =
           let filenames = List.map String.trim filenames in
           let filenames = Utils.ListExt.remove_dupl filenames in
           List.iter begin fun filename ->
-            editor#open_file ~active:true ~scroll_offset:0 ~offset:0 filename |> ignore;
+            editor#open_file ~active:true ~offset:0 filename |> ignore;
           end filenames;
           let mv = maximized_view_action in
           window#set_modal true;

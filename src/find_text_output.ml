@@ -497,7 +497,7 @@ class widget
           let pagefile = `FILENAME filename in
           let page = match editor#get_page pagefile with
             | None ->
-                ignore (editor#open_file ~active:false ~scroll_offset:0 ~offset:0 ?remote:None filename);
+                ignore (editor#open_file ~active:false ~offset:0 ?remote:None filename);
                 begin
                   match editor#get_page pagefile with
                   | None -> assert false
@@ -567,7 +567,7 @@ class widget
                     entry_find#set_text text;
                     entry_repl#entry#set_text templ;
                     if not !replace_all && !replace_file = "" then begin
-                      page#view#scroll_lazy (page#view#buffer#get_iter_at_mark (`NAME m1));
+                      page#view#scroll_aligned (page#view#buffer#get_iter_at_mark (`NAME m1));
                       match dialog_confirm_replace#run () with
                       | `SKIP -> ();
                       | `SKIP_FILE -> raise Skip_file;
@@ -651,7 +651,7 @@ class widget
         ~start:(iter#set_line_offset 0)
         ~stop:((iter#set_line_offset 0)#forward_to_line_end);
       preview#draw_current_line_background ~force:true iter;
-      preview#scroll_lazy (preview#buffer#get_iter_at_mark `INSERT);
+      preview#scroll_aligned (preview#buffer#get_iter_at_mark `INSERT);
 
       (** get_selected_result *)
     method private get_selected_result () =
@@ -682,7 +682,7 @@ class widget
       try
         let lines_involved = res.lines in
         let filename = res.filename in
-        ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None filename);
+        ignore (editor#open_file ~active:true ~offset:0 ?remote:None filename);
         let page =
           match editor#get_page (`FILENAME filename)
           with None -> raise Not_found | Some page -> page
@@ -696,7 +696,7 @@ class widget
                       page#outline |> Option.iter (fun o -> o#refresh());
                       let where = page#buffer#get_iter_at_mark (`NAME mark_start) in
                       page#buffer#select_range where (page#buffer#get_iter_at_mark (`NAME mark_stop));
-                      page#view#scroll_lazy where;
+                      page#view#scroll_aligned where;
                       if grab_focus then (page#view#misc#grab_focus()) else (preview#misc#grab_focus())
                     with GText.No_such_mark _ -> begin
                         List.iter (fun x -> x.marks <- []) res.lines;

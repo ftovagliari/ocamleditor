@@ -37,7 +37,7 @@ let file_recent_callback ~(file_recent_menu : GMenu.menu) editor =
       let mi = GMenu.menu_item ~label ~packing:(file_recent_menu#insert ~pos:1) () in
       recent_items := mi :: !recent_items;
       ignore (mi#connect#activate ~callback:(fun () ->
-          ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None filename)));
+          ignore (editor#open_file ~active:true ~offset:0 ?remote:None filename)));
       if !count > 30 then (raise Exit)
     end (List.rev editor#file_history.File_history.content);
   with Exit -> ()
@@ -98,7 +98,7 @@ let file ~browser ~group ~flags items =
         else false
       end);
     ignore (widget#connect#open_file ~callback:begin fun (remote, filename) ->
-        ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:(Some remote) filename);
+        ignore (editor#open_file ~active:true ~offset:0 ?remote:(Some remote) filename);
         window#destroy();
       end);
     window#show();

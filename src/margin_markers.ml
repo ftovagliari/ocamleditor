@@ -2,11 +2,12 @@ open Margin
 open Gutter
 open Printf
 
-class markers gutter (view : GText.view) =
+class markers (view : GText.view) =
   let font = "FiraCode OCamlEditor 12" in
   object (self)
     inherit [(int * GObj.widget * int * int) list] widget ()
     val mutable size = 18
+    val mutable markers : Gutter.marker list = []
     val mutable size_extent = 0
     val mutable avail_width = 0
     val font_desc = Pango.Font.from_string font
@@ -20,11 +21,20 @@ class markers gutter (view : GText.view) =
     method model = model
     method set_size_extent x = size_extent <- x
 
+    method add ~kind ~mark ~icon ~color =
+      let marker = {kind; mark; icon=(Some (icon, color)); icon_obj=None} in
+      markers <- marker :: markers;
+      marker
+
+    method remove markers_to_remove =
+      markers <- List.filter (fun x -> not (List.memq x markers)) markers_to_remove;
+      Gutter.destroy_markers markers_to_remove;
+
     method build ~start ~stop =
       avail_width <- size + size_extent;
       model <- [];
       let tmp_model = ref [] in
-      gutter.markers |> List.iter begin fun mark ->
+      markers |> List.iter begin fun mark ->
         mark.icon
         |> Option.iter begin fun (icon, color) ->
           Gmisclib.Util.get_iter_at_mark_opt view#buffer#as_buffer mark.mark

@@ -418,7 +418,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
                     start, start
               in
               buffer#select_range start stop;
-              source_view#scroll_lazy start;
+              source_view#scroll_aligned start;
             with Invalid_linechar pos ->
               Log.println `ERROR "Invalid line/char (file %s, ln %d, cn %d)"
                 buffer#filename pos.line pos.col

@@ -21,12 +21,6 @@
 *)
 
 
-(*
-
- S | chars (varying) | S | B | B | Folding | B | B |
-
-*)
-
 type marker_kind = [`None | `Bookmark of int | `Error of string | `Warning of string] [@@deriving show]
 
 type marker = {
@@ -37,35 +31,7 @@ type marker = {
       Format.fprintf fmt "%s" (if Option.is_some v then "Some" else "None")];
 } [@@deriving show]
 
-type t = {
-  mutable size            : int;
-  mutable start_selection : GText.iter option;
-  mutable fold_size       : int;
-  mutable fold_x          : int;
-  mutable bg_color        : GDraw.color;
-  mutable marker_color    : GDraw.color;
-  mutable marker_bg_color : GDraw.color;
-  mutable markers         : marker list;
-}
-
-(** create *)
-let create () = {
-  size            = 0;
-  start_selection = None;
-  fold_size       = 0;
-  fold_x          = (-1);
-  bg_color        = `WHITE;
-  marker_color    = `WHITE;
-  marker_bg_color = `WHITE;
-  markers         = [];
-}
-
-(** create_marker *)
-let create_marker ?(kind=`None) ~mark ?icon () = {kind; mark; icon; icon_obj=None}
-
-(** destroy_markers *)
-let destroy_markers gutter markers =
-  gutter.markers <- List.filter (fun x -> not (List.memq x markers)) gutter.markers;
+let destroy_markers markers =
   List.iter begin fun marker ->
     Gaux.may marker.icon_obj ~f:(fun i -> i#destroy());
     match GtkText.Mark.get_buffer marker.mark with
@@ -73,8 +39,4 @@ let destroy_markers gutter markers =
     | Some buffer ->
         GtkText.Buffer.delete_mark buffer marker.mark;
   end markers
-
-let to_string m = Printf.sprintf "%s" (show_marker m)
-
-
 

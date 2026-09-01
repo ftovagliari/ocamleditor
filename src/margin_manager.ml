@@ -2,7 +2,6 @@ open Margin
 
 class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
   let overview_widget = GMisc.drawing_area () in
-  let gutter = Gutter.create () in (* tech debt *)
   let rec find_margin x x_offset = function
     | [] -> None
     | m :: rest ->
@@ -36,7 +35,6 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
       end |> ignore;
       view#vadjustment#connect#value_changed ~callback:self#build |> ignore;
 
-    method gutter = gutter (* tech debt *)
     method overview_widget = overview_widget
 
     method add margin =
@@ -50,15 +48,9 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
             | Global ->
                 overview_margins <- margin :: overview_margins |> List.sort compare
           end;
-          let size =
-            if gutter_margins = [] then 0 else
-              gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0
-          in
+          let size = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
           view#set_border_window_size ~typ:`LEFT ~size;
-          let size =
-            if overview_margins = [] then 0 else
-              overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0
-          in
+          let size = overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
           begin
             match overview_ruler_mode with
             | Integrated ->
@@ -102,6 +94,9 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         | Separated ->
             draw_childs overview_margins ~top ~height ~start ~stop overview_widget#misc#window;
       end ();
+
+    method get_gutter_size () = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0
+    method get_overview_size () = overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0
 
     method private gutter_button_press ev =
       (* TODO handle size extent *)
@@ -158,7 +153,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
               false, buffer#get_iter (`LINE line);
             end
           in
-          view#scroll_lazy iter;
+          view#scroll_aligned iter;
           buffer#place_cursor ~where:iter;
           (*if tooltip then begin
           Gmisclib.Idle.add ~prio:300 (fun () -> self#tooltip ~sticky:true (`ITER iter));
@@ -169,7 +164,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
           | None -> buffer#start_iter
           | Some (start, _, _) -> buffer#get_iter_at_mark (`MARK start)
           in
-          view#scroll_lazy iter;
+          view#scroll_aligned iter;
           buffer#place_cursor ~where:iter;*)*)
       end;
       false

@@ -398,7 +398,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
               in
               let parent = project.Prj.root // Prj.default_dir_src in
               let filename = List.fold_left (fun acc x -> acc // x) parent (Utils.filename_split basename) in
-              ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None filename);
+              ignore (editor#open_file ~active:true ~offset:0 ?remote:None filename);
               match editor#get_page (`FILENAME filename) with
               | None -> false
               | Some page ->
@@ -415,7 +415,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
                       let len = Convert.offset_from_pos (buf#get_text ~start:it ~stop:buf#end_iter ()) ~pos:len in
                       buf#select_range where (it#forward_chars len);
                       if (buf#get_iter `INSERT)#compare (buf#get_iter `SEL_BOUND) = 0 then (ignore(buf#select_word()));
-                      ignore (page#view#scroll_lazy where);
+                      ignore (page#view#scroll_aligned where);
                       page#view#misc#grab_focus();
                     end;
                     true

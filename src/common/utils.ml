@@ -23,6 +23,10 @@
 open Str
 open Printf
 
+let rec fixpoint ~f v =
+  let v' = f v in
+  if v = v' then v else fixpoint ~f v';;
+
 let (//) = Filename.concat
 let (!!) = Filename.dirname
 let (!$) = Filename.quote
