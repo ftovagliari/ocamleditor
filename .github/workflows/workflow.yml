@@ -28,4 +28,8 @@ jobs:
           ocaml-compiler: 5.5.0
 
       - name: Build only
-        run: opam build .
+        run: |
+          opam install . --deps-only
+          opam exec -- ocaml build.ml ocamleditor 
+        
+
