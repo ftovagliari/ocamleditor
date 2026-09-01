@@ -29,6 +29,7 @@ jobs:
 
       - name: Build only
         run: |
+          sudo apt-get update -qq
           opam install . --deps-only
           opam exec -- ocaml build.ml ocamleditor 
         
