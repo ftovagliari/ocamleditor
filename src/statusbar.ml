@@ -18,7 +18,7 @@ let create_small_button ?tooltip ?icon ?button ?callback ?packing ?show () =
     | _ -> GButton.button ~relief:`NONE ?packing ?show ()
   in
   button#set_focus_on_click false;
-  button#misc#set_name "smallbutton";
+  button#misc#style_context#add_class "statusbar-button";
   icon |> Option.iter begin fun icon ->
     let icon =
       match font_size with
@@ -165,7 +165,7 @@ class gitbar ?packing () =
   let create_gitbutton icon =
     let button = new Gtk_util.button_icon (*~icon_width:18*) ~icon_spacing:0 ~icon ~packing:box#add ~relief:`NONE () in
     button#button#set_focus_on_click false;
-    button#button#misc#set_name "smallbutton";
+    button#button#misc#style_context#add_class "statusbar-button";
     button
   in
   let button_gitunpushed = create_gitbutton "\u{eaa1}" in

@@ -67,7 +67,7 @@ let create_small_button ?button ?tooltip ?pixbuf ?icon ?callback ?packing ?show 
         icon |> Option.iter (fun icon -> (Gtk_util.label_icon ~width:22 ~height:16 ~packing:button#add icon)#coerce |> ignore)
   end;
   button#set_focus_on_click false;
-  button#misc#set_name "smallbutton";
+  button#misc#style_context#add_class "statusbar-button";
   Gaux.may tooltip ~f:button#misc#set_tooltip_text;
   Gaux.may callback ~f:(fun callback -> ignore (button#connect#clicked ~callback));
   button;;
@@ -102,6 +102,8 @@ class page ?file ~project ~offset ~editor () =
   in
   let error_manager = new Error_indication.manager ocaml_view in
   let mark_occurrences_manager = new Mark_occurrences.manager text_view in
+  let outline = (new Outline.model ~buffer () :> Oe.outline) in
+  let outline_view = new Outline.view ~outline ~source_view:ocaml_view ~packing:paned#add1 () in
   let margin_manager = new Margin_manager.manager text_view#as_gtext_view in
   let margin_markers = new Margin_markers.markers text_view#as_gtext_view in
   let margin_line_numbers = new Margin_ln.line_numbers text_view#as_gtext_view margin_markers in
@@ -285,6 +287,7 @@ class page ?file ~project ~offset ~editor () =
             view#misc#hide();
             load#call `Begin;
             buffer#insert file#read;
+            Gmisclib.Idle.add (fun () -> Colorize.colorize_buffer ocaml_view);
             (* Initial cursor position *)
             buffer#set_modified false;
             view#misc#show();
@@ -507,7 +510,7 @@ class page ?file ~project ~offset ~editor () =
           mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
       | _ -> ()
       end |> ignore;
-
+      paned#set_position 300;
       view#options#connect#after#line_numbers_changed ~callback:begin fun visible ->
         margin_line_numbers#set_is_visible visible;
         (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)

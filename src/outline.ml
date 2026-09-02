@@ -173,7 +173,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let sw                     = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
   let view                   = GTree.view ~model ~headers_visible:false
       ~enable_search:true ~search_column:2
-      ~packing:sw#add ~width:350 ~height:500 ()
+      ~packing:sw#add ()
   in
   let renderer_pixbuf        = GTree.cell_renderer_pixbuf [`YPAD 0; `XPAD 0] in
   let renderer_markup        = GTree.cell_renderer_text [`YPAD 0] in
@@ -186,8 +186,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let _                      = view#append_column vc in
   let _                      = view#misc#set_name "outline_treeview" in
   let _                      = view#misc#set_property "enable-tree-lines" (`BOOL true) in
-
-  (** Comparison functions for different sorting modes. *)
+  (* Comparison functions for different sorting modes. *)
   let compare_position a b = compare a.ol_start b.ol_start in
   let compare_name a b = compare (String.lowercase_ascii a.ol_name) (String.lowercase_ascii b.ol_name) in
   let compare_kind a b = compare (String.lowercase_ascii a.ol_kind) (String.lowercase_ascii b.ol_kind) in
@@ -222,14 +221,13 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
     val tool_follow_cursor = GButton.toggle_tool_button ~active:true ~packing:toolbar#insert ()
 
     initializer
-      toolbar#misc#set_name "oe_menubar";
-      tool_refresh#misc#set_name "outlinebutton";
-      tool_sort_name#misc#set_name "outlinebutton";
-      tool_collapse_all#misc#set_name "outlinebutton";
-      tool_sort_kind#misc#set_name "outlinebutton";
-      tool_show_nested_defs#misc#set_name "outlinebutton";
-      tool_goto_cursor_position#misc#set_name "outlinebutton";
-      tool_follow_cursor#misc#set_name "outlinebutton";
+      tool_refresh#misc#style_context#add_class "outline-button";
+      tool_sort_name#misc#style_context#add_class "outline-button";
+      tool_collapse_all#misc#style_context#add_class "outline-button";
+      tool_sort_kind#misc#style_context#add_class "outline-button";
+      tool_show_nested_defs#misc#style_context#add_class "outline-button";
+      tool_goto_cursor_position#misc#style_context#add_class "outline-button";
+      tool_follow_cursor#misc#style_context#add_class "outline-button";
       (* Set toolbar button icons *)
       let mk_icon = Gtk_util.label_icon ~width:25 ~height:1 ~font_size:"medium" in
       tool_refresh#set_label_widget (mk_icon "\u{f0453}")#coerce;

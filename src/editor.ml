@@ -556,8 +556,6 @@ class editor () =
                   let file = Editor_file.create ?remote filename in
                   let page = new Editor_page.page ~file ~project ~offset ~editor:self () in
                   ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
-                  (* Outline *)
-                  page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
                   (* Tab Label with close button *)
                   let button_close = GButton.button ~relief:`NONE () in
                   let image = Icons.create (??? Icons.button_close) in
@@ -873,20 +871,16 @@ class editor () =
       (*  *)
       self#add_timeouts();
       (* Switch page: update the statusbar and remove annot tag *)
-      ignore (notebook#connect#after#switch_page ~callback:begin fun _ ->
-          (* Current page *)
-          self#with_current_page begin fun page ->
-            if not page#load_complete && not history_switch_page_locked then (self#load_page page);
-            page#update_statusbar();
-            page#view#draw_current_line_background (page#buffer#get_iter `INSERT);
-            if not history_switch_page_locked then (switch_page#call page);
-          end;
-        end);
-      ignore (self#connect#switch_page ~callback:begin fun _ ->
-          self#with_current_page begin fun page ->
-            ()
-          end
-        end);
+      notebook#connect#after#switch_page ~callback:begin fun _ ->
+        (* Current page *)
+        self#with_current_page begin fun page ->
+          if not page#load_complete && not history_switch_page_locked then (self#load_page page);
+          page#update_statusbar();
+          page#view#draw_current_line_background (page#buffer#get_iter `INSERT);
+          Gmisclib.Idle.add page#view#misc#grab_focus;
+          if not history_switch_page_locked then (switch_page#call page);
+        end;
+      end |> ignore;
       (* Record last active page *)
       let rec get_history project =
         match List.assoc_opt project.Prj.name history_switch_page with
