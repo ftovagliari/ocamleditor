@@ -54,7 +54,7 @@ let get_renaming_positions page =
   let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
   let exception Rename_not_supported in
   try
-    page#view#mark_occurrences_manager#refs
+    page#mark_occurrences_manager#refs
     |> List.map begin fun (m1, m2) ->
       let start = page#buffer#get_iter_at_mark m1 in
       let pos = start#offset in
@@ -81,7 +81,7 @@ let get_window_position page renaming_positions =
   let rect = page#view#get_iter_location position_with_cursor in
   let x, y = page#view#buffer_to_window_coords ~tag:`WIDGET
       ~x:(Gdk.Rectangle.x rect) ~y:(Gdk.Rectangle.y rect) in
-  let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+  let pX, pY = Gdk.Window.get_pointer_location (Window.root_window page#view) in
   let win = (match page#view#get_window `WIDGET with None -> assert false | Some w -> w) in
   let px, py = Gdk.Window.get_pointer_location win in
   let x = pX - px + x in

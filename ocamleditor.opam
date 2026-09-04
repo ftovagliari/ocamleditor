@@ -20,16 +20,17 @@ install: [["ocaml" "tools/install.ml" "-prefix" prefix]]
 depends: [
   "ocaml" {>= "5.4.0" & <= "5.5.0"}
   "odoc-parser"
-  "ocamlfind" {>= "1.4.0"}
-  "lablgtk" {>= "2.18.0"}
-  "ocp-indent" { >= "1.8.0" }
-  "ocp-index" { >= "1.3.6" }
+  "ocamlfind" 
+  "lablgtk3" 
+  "ocp-indent" 
+  "ocp-index" 
   "xml-light" {>= "2.5"}
-  "yojson" {>= "2.1"}
-  "atdgen" {>= "2.12"}
+  "yojson" 
+  "atdgen" 
   "ocamldiff" {>= "1.2"}
-  "merlin" {>= "5.5"}
+  "merlin" 
   "inotify"
   "ocurl"
+  "ppx_deriving"
 ]
 

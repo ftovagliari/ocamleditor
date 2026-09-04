@@ -21,6 +21,8 @@
 *)
 
 
+open Printf
+
 let _ = Gmisclib.Util.fade_window_enabled := Oe_config.fade_window_enabled
 
 let create_mark_name =
@@ -40,7 +42,6 @@ let window widget
     ?(focus=true)
     ?(escape=true)
     ?(border_width=1)
-    ?wm_class
     ?(show=true)
     ~x ~y () =
   let window = GWindow.window
@@ -50,7 +51,6 @@ let window widget
       ~deletable:true
       ~focus_on_map:focus
       ?type_hint
-      ?wm_class
       ~show:false ()
   in
   let ebox = GBin.event_box ~packing:window#add () in
@@ -134,11 +134,12 @@ let with_tag ~(buffer : GText.buffer) tag f =
 
 (** increase_font_size *)
 let increase_font_size ?weight ?(increment=3) widget =
-  let fd = widget#misc#pango_context#font_description in
+  let fd : GPango.font_description = widget#misc#pango_context#font_description in
   if increment <> 0 then begin
-    let size = Pango.Font.get_size fd + increment * Pango.scale in
+    let size = fd#size + increment * Pango.scale in
     if size >= 0 then begin
-      Pango.Font.modify fd ?weight ~size ();
+      let size = Some size in
+      fd#modify ?weight ?size ();
       widget#misc#modify_font fd;
     end;
   end;
@@ -156,10 +157,17 @@ let label_icon ?(width=20) ?(height=16) ?(font_name="FiraCode OCamlEditor") ?(fo
   let markup = Printf.sprintf "<span size='%s'>%s</span>" font_size icon in
   let label = GMisc.label ~xalign:0.5 ~yalign:0.5 ~xpad:0 ~ypad:0 ~width ~height ~markup ?packing () in
   label#misc#modify_font_by_name font_name;
-  color |> Option.iter begin fun color ->
-    label#misc#modify_fg [ `NORMAL, `NAME color; `ACTIVE, `NAME color; `PRELIGHT, `NAME color ];
-    label#misc#modify_text [ `NORMAL, `NAME color; `ACTIVE, `NAME color; `PRELIGHT, `NAME color ];
-  end;
+  (* TODO: Lablgtk3 issue, refactor css into a sigle module. *)
+  Option.iter begin fun color ->
+    let css_provider = GObj.css_provider () in
+    css_provider#load_from_data (sprintf {|
+label.%s-button { color: %s; }
+label.%s-button:disabled { color: #808080; }
+|} color color color);
+    label#misc#style_context#add_class (sprintf "%s-button" color);
+    label#misc#style_context#add_provider css_provider 600
+  end color;
+
   label
 
 class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?relief ?packing () =
@@ -174,4 +182,30 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
     method button = button
   end
 
+let scroll_aligned (view : GText.view) (where : GText.iter) ~xalign ~yalign =
+  Gmisclib.Idle.add begin fun () ->
+    let rect = view#get_iter_location where in
+    let top = view#vadjustment#page_size *. yalign in
+    view#vadjustment#set_value (float (Gdk.Rectangle.y rect) -. top);
+  end
 
+let rec scroll_aligned_alt =
+  let is_iter_at_yalign (view : GText.view) (iter : GText.iter) (target_yalign : float) : bool =
+    let visible_rect = view#visible_rect in
+    let iter_rect = view#get_iter_location iter in
+    let iter_y = Gdk.Rectangle.y iter_rect in
+    let vis_y = Gdk.Rectangle.y visible_rect in
+    let vis_h = Gdk.Rectangle.height visible_rect in
+    let target_pixel_y = float_of_int vis_y +. (float_of_int vis_h *. target_yalign) in
+    let tolerance = 3.0 in
+    abs_float (float_of_int iter_y -. target_pixel_y) <= tolerance
+  in
+  fun (view : GText.view) ?(max_attempts=10) ~xalign ~yalign iter ->
+    if max_attempts <= 0 then () else
+      view#scroll_to_iter ~use_align:true ~xalign:xalign ~yalign:yalign iter |> ignore;
+    if is_iter_at_yalign view iter yalign then ()
+    else
+      GMain.Timeout.add ~ms:50 ~callback:begin fun () ->
+        scroll_aligned_alt view iter ~xalign ~yalign ~max_attempts:(max_attempts - 1);
+        false
+      end |> ignore

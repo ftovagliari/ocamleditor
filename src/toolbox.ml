@@ -100,11 +100,11 @@ let specs ~browser =
     900,  `SEP,            I, N, "", ignore, None;
 
     1000, `VIEW_MESSAGES,  B, L ("\u{f10a9}", None), "View Messages",
-    (fun _ -> Messages.vmessages#set_visible  (not Messages.vmessages#visible)),
+    (fun _ -> (Messages.vmessages())#set_visible  (not (Messages.vmessages())#visible)),
     None;
 
     1100, `VIEW_HMESSAGES, B, L ("\u{f10ab}", None), "View Messages (Right Pane)",
-    (fun _ -> Messages.hmessages#set_visible (not Messages.hmessages#visible)),
+    (fun _ -> (Messages.hmessages())#set_visible (not (Messages.hmessages())#visible)),
     None;
 
     1200, `SEP,            I, N, "", ignore, None;
@@ -293,7 +293,7 @@ let create_item ~menu ~(toolbox : GPack.box) ~pos item =
 let populate ~browser ~packing =
   let toolbox = GPack.hbox ~border_width:2 ~spacing:3 ~packing () in
   let button_menu = GButton.button ~relief:`NONE ~packing:toolbox#pack () in
-  button_menu#misc#set_name "smallbutton";
+  button_menu#misc#style_context#add_class "statusbar-button";
   button_menu#set_focus_on_click false;
   let arrow = GMisc.arrow ~kind:`DOWN ~width:8 ~height:8 ~packing:button_menu#add () in
   arrow#misc#modify_fg [`PRELIGHT, `BLACK];

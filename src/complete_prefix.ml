@@ -102,7 +102,6 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
     val first_entry_available = new first_entry_available()
     val loading_complete = new loading_complete()
     val mutable is_destroyed = false
-    val mutable page_signals = []
     val mutable buffer_signals = []
     val mutable view_signals = []
     val mutable current_window_info = []
@@ -127,9 +126,6 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
       window#move ~x ~y
 
     method private connect_signals word_end =
-      page_signals <- [
-        page#connect#scroll_changed ~callback:(fun _ -> self#destroy());
-      ];
       buffer_signals <- [
         view#buffer#connect#mark_set ~callback:begin fun it mark ->
           match GtkText.Mark.get_name mark with
@@ -149,6 +145,7 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
       ];
       view_signals <-
         [
+          view#vadjustment#connect#value_changed ~callback:(fun _ -> self#destroy());
           view#event#connect#key_press ~callback:begin fun ev ->
             let keyval = GdkEvent.Key.keyval ev in
             if keyval = GdkKeysyms._Escape then begin
@@ -171,8 +168,6 @@ class widget ~project ~(page : Editor_page.page) ~x ~y ?packing () =
         ]
 
     method private disconnect_signals () =
-      page_signals |> List.iter page#disconnect;
-      page_signals <- [];
       buffer_signals |> List.iter (GtkSignal.disconnect buffer#as_buffer);
       buffer_signals <- [];
       view_signals |> List.iter (GtkSignal.disconnect view#as_view);

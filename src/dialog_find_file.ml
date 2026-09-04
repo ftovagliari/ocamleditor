@@ -89,7 +89,7 @@ let create ?(all=true) ~(editor : Editor.editor) ~roots () =
   ignore (button_done#connect#clicked ~callback:(fun () -> window#misc#hide(); window#destroy()));
   let pixbuf = pixbuf_open_in_editor () in
   quick_file_chooser#set_default_choose_func begin fun ~filename ~has_cursor ->
-    ignore (editor#open_file ~active:has_cursor ~scroll_offset:0 ~offset:0 ?remote:None filename);
+    ignore (editor#open_file ~active:has_cursor ~offset:0 ?remote:None filename);
     `set pixbuf;
   end;
   ignore (button_open#connect#clicked ~callback:begin fun () ->
@@ -183,7 +183,7 @@ let create ?(all=true) ~(editor : Editor.editor) ~roots () =
               let is_closed = editor#dialog_confirm_close page in
               if is_closed then `clear else `ignore
           | _ ->
-              ignore (editor#open_file ~active:has_cursor ~scroll_offset:0 ~offset:0 ?remote:None filename);
+              ignore (editor#open_file ~active:has_cursor ~offset:0 ?remote:None filename);
               `set (pixbuf_open_in_editor ())
         end ();
         true

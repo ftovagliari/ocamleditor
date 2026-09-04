@@ -65,7 +65,7 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
 
     (** Checks if cached outline is still valid.
         Returns [true] if the buffer hasn't been modified since last refresh. *)
-    method is_valid = buffer#last_edit_time < last_refresh_time
+    method is_valid = buffer#last_edit_time < last_refresh_time || timer_id = None
 
     (** Updates the outline from current buffer content.
 
@@ -173,7 +173,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let sw                     = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
   let view                   = GTree.view ~model ~headers_visible:false
       ~enable_search:true ~search_column:2
-      ~packing:sw#add ~width:350 ~height:500 ()
+      ~packing:sw#add ()
   in
   let renderer_pixbuf        = GTree.cell_renderer_pixbuf [`YPAD 0; `XPAD 0] in
   let renderer_markup        = GTree.cell_renderer_text [`YPAD 0] in
@@ -186,8 +186,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let _                      = view#append_column vc in
   let _                      = view#misc#set_name "outline_treeview" in
   let _                      = view#misc#set_property "enable-tree-lines" (`BOOL true) in
-
-  (** Comparison functions for different sorting modes. *)
+  (* Comparison functions for different sorting modes. *)
   let compare_position a b = compare a.ol_start b.ol_start in
   let compare_name a b = compare (String.lowercase_ascii a.ol_name) (String.lowercase_ascii b.ol_name) in
   let compare_kind a b = compare (String.lowercase_ascii a.ol_kind) (String.lowercase_ascii b.ol_kind) in
@@ -222,14 +221,13 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
     val tool_follow_cursor = GButton.toggle_tool_button ~active:true ~packing:toolbar#insert ()
 
     initializer
-      toolbar#misc#set_name "oe_menubar";
-      tool_refresh#misc#set_name "outlinebutton";
-      tool_sort_name#misc#set_name "outlinebutton";
-      tool_collapse_all#misc#set_name "outlinebutton";
-      tool_sort_kind#misc#set_name "outlinebutton";
-      tool_show_nested_defs#misc#set_name "outlinebutton";
-      tool_goto_cursor_position#misc#set_name "outlinebutton";
-      tool_follow_cursor#misc#set_name "outlinebutton";
+      tool_refresh#misc#style_context#add_class "outline-button";
+      tool_sort_name#misc#style_context#add_class "outline-button";
+      tool_collapse_all#misc#style_context#add_class "outline-button";
+      tool_sort_kind#misc#style_context#add_class "outline-button";
+      tool_show_nested_defs#misc#style_context#add_class "outline-button";
+      tool_goto_cursor_position#misc#style_context#add_class "outline-button";
+      tool_follow_cursor#misc#style_context#add_class "outline-button";
       (* Set toolbar button icons *)
       let mk_icon = Gtk_util.label_icon ~width:25 ~height:1 ~font_size:"medium" in
       tool_refresh#set_label_widget (mk_icon "\u{f0453}")#coerce;
@@ -244,7 +242,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       self#set_follow_cursor true;
 
       view#connect#row_activated ~callback:begin fun _ _ ->
-        self#jump_to_definition();
+        (*self#jump_to_definition();*)
         Gmisclib.Idle.add source_view#misc#grab_focus
       end |> ignore;
 
@@ -418,7 +416,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
                     start, start
               in
               buffer#select_range start stop;
-              source_view#scroll_lazy start;
+              source_view#scroll_aligned start;
             with Invalid_linechar pos ->
               Log.println `ERROR "Invalid line/char (file %s, ln %d, cn %d)"
                 buffer#filename pos.line pos.col
@@ -448,7 +446,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
         and selects it in the tree view. Expands parent nodes and scrolls into view
         if needed. *)
     method goto_cursor_position (mark : Gtk.text_mark) =
-      if self#misc#get_flag `VISIBLE then begin
+      if self#visible then begin
         let iter = buffer#get_iter_at_mark (`MARK mark) in
         let ln = iter#line + 1 in
         let cn = iter#line_offset + 1 in
@@ -492,7 +490,11 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
               | _ ->
                   view#expand_to_path path;
                   view#selection#select_path path;
-                  if view#misc#get_flag `REALIZED && not (Gmisclib.Util.treeview_is_path_onscreen view path) then
+                  (* TODO: Lablgtk3 issue, `get_flag `REALIZED *)
+                  let is_realized =
+                    try view#misc#window |> ignore; true with Gpointer.Null -> false
+                  in
+                  if is_realized && not (Gmisclib.Util.treeview_is_path_onscreen view path) then
                     Gmisclib.Idle.add ~prio:300 (fun () ->
                         view#scroll_to_cell ~align:(0.38, 0.) path vc);
             end
@@ -640,7 +642,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       let base_font = pref.editor_base_font in
       code_font_family <-
         String.sub base_font 0 (Option.value (String.rindex_opt base_font ' ') ~default:(String.length base_font));
-      GtkBase.Widget.queue_draw view#as_widget;
+      (*GtkBase.Widget.queue_draw view#as_widget;*)
 
   end
 

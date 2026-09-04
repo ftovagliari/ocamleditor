@@ -26,17 +26,22 @@ type t = {
   name : string;
   mutable calls : int;
   mutable time : float;
-  mutable enabled : bool
+  mutable enabled : bool;
 }
 
 let start_time = Unix.gettimeofday()
 
-let funcs = ref []
+let profiles : t list ref = ref []
 
-let create enabled name =
-  let cr = {name = name; calls = 0; time = 0.0; enabled = enabled} in
-  funcs := cr :: !funcs;
-  cr
+let create name =
+  let prf = {
+    name = name;
+    calls = 0;
+    time = 0.0;
+    enabled = true;
+  } in
+  profiles := prf :: !profiles;
+  prf
 
 (*
 let prf_draw_markers                 = create true  "prf_draw_markers_view_expose"
@@ -49,6 +54,16 @@ let prf_draw_gutter          = create true  "prf_draw_gutter"
 let prf_none_other_markers           = create true  "prf_none_other_markers"
 let prf_draw_white_spces             = create true  "prf_draw_white_spces"
 *)
+
+let draw_margins = create __FUNCTION__
+let draw_margin_ln = create __FUNCTION__
+let build_margin_ln = create __FUNCTION__
+let draw_margin_markers = create __FUNCTION__
+let draw_margin_diff = create __FUNCTION__
+let draw_margin_fold = create __FUNCTION__
+let show_fold_expander = create __FUNCTION__
+let build_margin_diff = create __FUNCTION__
+let expose = create __FUNCTION__
 
 (*let prf_line_numbers          = create true  "prf_line_numbers"
   let prf_other_markers         = create true  "prf_other_markers"
@@ -63,13 +78,11 @@ let prf_draw_white_spces             = create true  "prf_draw_white_spces"
   let prf_colorize_within_nearest_tag_bounds  = create true  "prf_colorize_within_nearest_tag_bounds"
 *)
 
-
-
-let crono func f x =
-  if not func.enabled then (f x) else
+let register prf f x =
+  if not prf.enabled then (f x) else
     let finally time =
-      func.calls <- func.calls + 1;
-      func.time <- func.time +. (Unix.gettimeofday() -. time);
+      prf.calls <- prf.calls + 1;
+      prf.time <- prf.time +. (Unix.gettimeofday() -. time);
     in
     let time = Unix.gettimeofday() in
     let result = try f x with e -> begin
@@ -79,23 +92,29 @@ let crono func f x =
     finally time;
     result
 
-let print () =
-  if !funcs <> [] then
+let print_report () =
+  if !profiles <> [] then
     let total = (Unix.gettimeofday()) -. start_time in
-    printf "%50s   %5s%8s %8s %7s  %8s \n%!" "" "Calls" "Avg" "Tot" "" "calls/min";
+    printf " %-50s : %7s  %7s  %7s  %7s  %9s\n%!" "" "Calls" "Avg" "Tot" "" "calls/min";
     printf "\
-----------------------------------------------------------------------------------------------\n%!";
+----------------------------------------------------------------------------------------------------\n%!";
     let perc = ref 0.0 in
-    List.iter begin fun cr ->
-      if cr.enabled then begin
-        let pc = cr.time /. total *. 100. in
+    !profiles
+    |> List.sort (fun a b -> Float.compare b.time a.time)
+    |> List.iter begin fun prf ->
+      if prf.enabled then begin
+        let pc = prf.time /. total *. 100. in
         perc := !perc +. pc;
-        printf "%-50s : %5d  %6.3f  %7.2f  %5.2f%%  %4.2f\n%!"
-          (Utils.rpad (cr.name ^ " ") '.' 50) cr.calls (cr.time /. (float cr.calls)) cr.time pc
-          (((float cr.calls) /. (total *. 60.)) *. 1000.)
+        printf " %-50s : %7d  %7.3f  %7.2f  %6.2f%%  %9.2f\n%!"
+          (Utils.rpad (prf.name ^ " ") '.' 50)
+          prf.calls
+          (prf.time /. (float prf.calls))
+          prf.time
+          pc
+          (((float prf.calls) /. (total *. 60.)) *. 1000.)
       end
-    end (List.rev (List.sort (fun a b -> Stdlib.compare a.time b.time) !funcs));
+    end;
     printf "\
-----------------------------------------------------------------------------------------------\n%!";
-    printf "%-50s   %5d  %6.3f  %7.2f  %5.2f%%\n%!" (Utils.rpad " " ' ' 50) 0 0.0 total !perc
-
+----------------------------------------------------------------------------------------------------\n%!";
+    printf " %-50s   %7d  %7.3f  %7.2f  %6.2f%%\n%!"
+      (Utils.rpad "" ' ' 50) 0 0.0 total !perc

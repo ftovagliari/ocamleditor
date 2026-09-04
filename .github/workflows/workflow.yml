@@ -4,6 +4,7 @@ on:
   push:
     branches: [ "develop" ]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [ "develop" ]
 
   # Allows you to run this workflow manually from the Actions tab
@@ -26,5 +27,10 @@ jobs:
         with:
           ocaml-compiler: 5.5.0
 
-      - name: Install dependencies
-        run: opam install .
+      - name: Build only
+        run: |
+          sudo apt-get update -qq
+          opam install . --deps-only
+          opam exec -- ocaml build.ml ocamleditor 
+        
+

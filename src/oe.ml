@@ -80,6 +80,11 @@ type error = {
   er_errors                   : error_message list;
 }
 
+type error_indication = {
+  ei_start : Gtk.text_mark;
+  ei_stop : Gtk.text_mark;
+  ei_error : error_message;
+}
 
 (** Bookmarks *)
 type bm_location = Mark of Gtk.text_mark | Offset of int

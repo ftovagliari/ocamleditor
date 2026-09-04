@@ -47,31 +47,28 @@ let create ~editor ~page () =
     | _ -> assert false
   in
   let gmenu = GMenu.menu () in
-  let cut = GMenu.image_menu_item ~stock:`CUT ~packing:gmenu#append () in
-  let copy = GMenu.image_menu_item ~stock:`COPY ~packing:gmenu#append () in
-  let paste = GMenu.image_menu_item ~stock:`PASTE ~packing:gmenu#append () in
-  let delete = GMenu.image_menu_item ~stock:`DELETE ~packing:gmenu#append () in
-  let select_all = GMenu.image_menu_item ~stock:`SELECT_ALL ~packing:gmenu#append () in
+  let cut = Image_menu.item ~label:"Cut" ~stock:`CUT ~packing:gmenu#append () in
+  let copy = Image_menu.item ~label:"Copy" ~stock:`COPY ~packing:gmenu#append () in
+  let paste = Image_menu.item ~label:"Paste" ~stock:`PASTE ~packing:gmenu#append () in
+  let delete = Image_menu.item ~label:"Delete" ~stock:`DELETE ~packing:gmenu#append () in
+  let select_all = Image_menu.item ~label:"Select All" ~stock:`SELECT_ALL ~packing:gmenu#append () in
   gmenu#append (GMenu.separator_item ());
   (*  *)
-  let indent_all = GMenu.image_menu_item ~label:"Indent All" ~packing:gmenu#append () in
+  let indent_all = Image_menu.item ~label:"Indent All" ~packing:gmenu#append () in
   ignore (indent_all#connect#activate ~callback:begin fun () ->
       editor#with_current_page (fun page -> ignore (Ocp_indent.indent ~project: editor#project ~view:page#view `ALL));
     end);
   gmenu#append (GMenu.separator_item ());
 
   (*  *)
-  let show_doc_at_cursor = GMenu.image_menu_item ~label:"Show Documentation" ~packing:gmenu#append () in
+  let show_doc_at_cursor = Image_menu.item ~label:"Show Documentation" ~packing:gmenu#append () in
   show_doc_at_cursor#connect#activate ~callback:editor#show_doc_at_cursor |> ignore;
   show_doc_at_cursor#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
-  let find_definition = GMenu.image_menu_item ~label:"Find Definition" ~packing:gmenu#append () in
-  find_definition#set_image (GMisc.image ~pixbuf:(??? Icons.definition) ())#coerce;
-  let find_references = GMenu.image_menu_item ~label:"Find References" ~packing:gmenu#append () in
-  find_references#set_image (GMisc.image ~pixbuf:(??? Icons.references) ())#coerce;
+  let find_definition = Image_menu.item ~label:"Find Definition" ~image: (GMisc.image ~pixbuf:(??? Icons.definition) ()) ~packing:gmenu#append () in
+  let find_references = Image_menu.item ~label:"Find References" ~image: (GMisc.image ~pixbuf:(??? Icons.references) ()) ~packing:gmenu#append () in
   (*  *)
   gmenu#append (GMenu.separator_item ());
-  let eval_in_toplevel = GMenu.image_menu_item ~label:"Eval in Toplevel" ~packing:gmenu#append () in
-  eval_in_toplevel#set_image (Icons.create (??? Icons.toplevel))#coerce;
+  let eval_in_toplevel = Image_menu.item ~label:"Eval in Toplevel" ~image:(Icons.create (??? Icons.toplevel)) ~packing:gmenu#append () in
   ignore (eval_in_toplevel#connect#activate ~callback:begin fun () ->
       editor#with_current_page (fun page -> page#ocaml_view#obuffer#send_to_shell ());
     end);
@@ -145,9 +142,7 @@ let create ~editor ~page () =
         let where = page#view#get_iter_at_location ~x ~y in
         let s1, s2 = page#view#buffer#selection_bounds in
         if where#compare s1 <= 0 || where#compare s2 >= 0 then page#buffer#place_cursor ~where;
-        if x < page#view#gutter.Gutter.size - page#view#gutter.Gutter.fold_size then begin
-          (*  *)
-        end else (ignore ((callback ev)));
+        ignore (callback ev);
         true
       end else false
     end);

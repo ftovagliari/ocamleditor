@@ -129,7 +129,7 @@ class incremental () =
             | STOP_AFTER bound when i1#offset >= bound ->
                 false
             | _ ->
-                view#scroll_lazy i1;
+                view#scroll_aligned i1;
                 (*Gmisclib.Idle.add (fun () -> ignore (view#scroll_to_iter ~use_align:true ~xalign:1.0 ~yalign:0.5 i1));*)
                 if status#backward then buffer#select_range i2 i1
                 else buffer#select_range i1 i2;
@@ -149,7 +149,7 @@ class incremental () =
           else Str.search_forward pat text pos in
         let start = buffer#get_iter_at_char pos in
         let stop = buffer#get_iter_at_char (Str.match_end()) in
-        view#scroll_lazy start;
+        view#scroll_aligned start;
         (*Gmisclib.Idle.add (fun () -> ignore (view#scroll_to_iter ~use_align:true ~xalign:1.0 ~yalign:0.5 start));*)
         if status#backward then buffer#select_range stop start
         else buffer#select_range start stop;
@@ -174,7 +174,7 @@ class incremental () =
         self#set_view (Some view);
         let dialog =
           match Sys.os_type with
-          | _ -> GWindow.window ~allow_grow:true
+          | _ -> GWindow.window
                    ?type_hint:(Some `DIALOG)
                    ~decorated:false ~modal:false ~border_width:1 ()
         in
@@ -182,7 +182,7 @@ class incremental () =
         dialog#set_skip_pager_hint true;
         let move () =
           (* Coordinate del puntatore relative al desktop *)
-          let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+          let pX, pY = Gdk.Window.get_pointer_location view#misc#window in
           (* Coordinate del puntatore relative alla vista *)
           let win = (match view#get_window `WIDGET
                      with None -> failwith "Incremental_search.i_search: view#get_window `WIDGET = None" | Some w -> w) in

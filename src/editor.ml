@@ -35,7 +35,7 @@ let set_menu_item_nav_history_sensitive = ref (fun () -> failwith "set_menu_item
 (** Editor *)
 class editor () =
   let hpaned = GPack.paned `HORIZONTAL () in
-  let notebook = GPack.notebook ~tab_border:0 ~show_border:true
+  let notebook = GPack.notebook ~border_width:0 ~show_border:true
       ~packing:(hpaned#pack2 ~resize:true ~shrink:true) ~scrollable:true () in
   let _ = hpaned#set_position Preferences.preferences#get.outline_width in
   let incremental_search = new Incremental_search.incremental () in
@@ -56,8 +56,10 @@ class editor () =
     val mutable pages = []
     val mutable pages_cache = []
     val mutable project = Project.create ~filename:"untitled.xyz" ()
-    val tout_delim = Timeout.create ~delay:1.5 ~len:3 ()
-    val tout_fast = Timeout.create ~delay:0.3 ~len:2 ()
+    val debouncer_matching_delim = Debouncer.create ~ms:1500
+    val debouncer_mark_ref = Debouncer.create ~ms:300
+    val debouncer_colorize = Debouncer.create ~ms:300
+    val debouncer_mark_words = Debouncer.create ~ms:300
     val location_history = Location_history.create()
     val mutable file_history =
       File_history.create
@@ -71,8 +73,6 @@ class editor () =
     val mutable show_outline = true
 
     method status_message = notification#call
-
-    method tout_delim = tout_delim
 
     method paned = hpaned
 
@@ -170,11 +170,11 @@ class editor () =
         self#load_mli page#project mli
       end else if filename ^^^ ".mli" then begin
         let ml = (Filename.chop_extension filename) ^ ".ml" in
-        ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 ml)
+        ignore (self#open_file ~active:true ~offset:0 ml)
       end
 
     method private load_mli proj filename =
-      if Sys.file_exists filename then (ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 filename))
+      if Sys.file_exists filename then (ignore (self#open_file ~active:true ~offset:0 filename))
       else begin
         ignore (Dialog.confirm
                   ~title:"Create File"
@@ -198,14 +198,14 @@ class editor () =
       Location_history.add location_history
         ~kind ~view:(page#view :> GText.view)
         ~filename:page#get_filename ~offset:iter#offset;
-      Timeout.set tout_delim 1 !set_menu_item_nav_history_sensitive;
+      Gmisclib.Idle.add ~prio:300 !set_menu_item_nav_history_sensitive;
 
     method location_history_goto location =
       let filename = location.Location_history.filename in
       if Sys.file_exists filename then begin
         match self#get_page (`FILENAME filename) with
         | None ->
-            ignore (self#open_file ~active:true ~scroll_offset:0 ~offset:0 filename);
+            ignore (self#open_file ~active:true ~offset:0 filename);
             self#location_history_goto location
         | Some page ->
             let view = (page#view :> Text.view) in
@@ -221,36 +221,35 @@ class editor () =
                   page#buffer#get_iter (`OFFSET offset);
             in
             view#buffer#place_cursor ~where;
-            ignore (view#scroll_lazy where);
+            ignore (view#scroll_aligned where);
             view#misc#grab_focus();
       end
 
     method bookmark_remove ~num =
       self#with_current_page begin fun page ->
-        let old_marker =
-          try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
-          with Not_found -> None
-        in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
+        let bm = Bookmark.find project.Prj.bookmarks num in
+        bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
         Project.Bookmark.remove project num;
-        page#view#draw_gutter();
+        page#view#build_gutter();
       end
 
-    method bookmark_create ~num ?where ?(callback : (Gtk.text_mark -> bool) option) () =
+    method bookmark_create ~num ?where () =
       self#with_current_page begin fun page ->
         let filename = page#get_filename in
         let where = match where with Some x -> x | _ -> page#buffer#get_iter `INSERT in
-        let mark = page#buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Editor.bookmark_create")*) where in
-        let old_marker =
-          try (List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks).Oe.bm_marker
-          with Not_found -> None
+        let mark = page#buffer#create_mark where in
+        let old_bm = Bookmark.find project.Prj.bookmarks num in
+        old_bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
+        let icon = (* TODO refactor *)
+          match num with
+          | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
+          | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
         in
-        Gaux.may old_marker ~f:(fun old -> Gutter.destroy_markers page#view#gutter [old]);
-        let marker = Gutter.create_marker ~kind:(`Bookmark num) ~mark ?pixbuf:(Bookmark.icon num) ?callback () in
+        let marker = page#margin_markers#add ~kind:(`Bookmark num) ~mark ~icon ~color:"#4da1ff" in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
-        page#view#gutter.Gutter.markers <- marker :: page#view#gutter.Gutter.markers;
-        page#view#draw_gutter();
+        page#margin_manager#build();
+        Gmisclib.Idle.add ~prio:300 (fun () -> page#margin_manager#draw());
       end
 
     method bookmark_goto ~num =
@@ -258,29 +257,29 @@ class editor () =
         let bm = List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks in
         match self#get_page (`FILENAME bm.Oe.bm_filename) with
         | None when Sys.file_exists bm.Oe.bm_filename ->
-            let _ = self#open_file ~active:true ~scroll_offset:0 ~offset:0 bm.Oe.bm_filename in
+            let _ = self#open_file ~active:true ~offset:0 bm.Oe.bm_filename in
             self#bookmark_goto ~num
         | None ->
             Dialog.info ~title:"File does not exist" ~message_type:`INFO
               ~message:(sprintf "File \xC2\xAB%s\xC2\xBB does not exist." bm.Oe.bm_filename) self;
+            Project.Bookmark.remove project num;
+            Bookmark.find project.Prj.bookmarks num
+            |> Option.iter (fun bm -> bm.Oe.bm_marker |> Option.iter (fun m -> Gutter.destroy_markers [m]));
             self#bookmark_remove ~num
         | Some page ->
-            if not (page#view#misc#get_flag `REALIZED) then (self#goto_view page#view);
+            self#goto_view page#view;
             Gmisclib.Idle.add ~prio:300 begin fun () ->
-              Bookmark.apply bm begin function
+              Bookmark.map bm begin function
               | `OFFSET _ ->
                   let _ = Bookmark.offset_to_mark (page#buffer :> GText.buffer) bm in
                   self#bookmark_goto ~num;
-                  -1
               | `ITER it ->
                   let where = new GText.iter it in
-                  page#view#scroll_lazy where;
                   page#buffer#place_cursor ~where;
                   page#view#misc#grab_focus();
-                  -1
-              end |> ignore;
+                  page#view#scroll_aligned where;
+              end;
             end;
-            if page#view#misc#get_flag `REALIZED then (Gmisclib.Idle.add (*~prio:300*) (fun () -> self#goto_view page#view));
             Gmisclib.Idle.add ~prio:300 (fun () -> Project.save_local_status ~editor:self project);
       with Not_found -> ()
 
@@ -315,7 +314,7 @@ class editor () =
           let start = buffer#get_iter (`LINE line) in
           let old = page#view#options#mark_occurrences in
           page#view#options#set_mark_occurrences (false, false, "");
-          page#ocaml_view#scroll_lazy start;
+          page#ocaml_view#scroll_aligned start;
           page#buffer#place_cursor ~where:(buffer#get_iter (`LINECHAR (line, col)));
           page#view#options#set_mark_occurrences old;
           self#goto_view page#view;
@@ -324,7 +323,7 @@ class editor () =
           self#location_history_add ~page ~iter ~kind:(`BROWSE : Location_history.kind) ();
           Gmisclib.Idle.add page#view#misc#grab_focus
       | _ ->
-          ignore (self#open_file ~active:false ~scroll_offset:0 ~offset:0 filename);
+          ignore (self#open_file ~active:false ~offset:0 filename);
           self#goto_location filename line col
 
     method dialog_file_select () = Editor_dialog.file_select ~editor:self ()
@@ -415,48 +414,49 @@ class editor () =
         let buffer = page#buffer in
         let gtext_buffer = buffer#as_gtext_buffer in
         let view = page#view in
-        let ocaml_view = page#ocaml_view in
-        let cb_tout_fast () =
+        let colorize_callback () =
           if buffer#lexical_enabled then begin
             let iter = buffer#get_iter `INSERT in
             self#colorize_within_nearest_tag_bounds gtext_buffer iter;
           end;
-          view#draw_gutter ();
+          view#build_gutter ();
+        in
+        let matching_delim_callback () =
+          buffer#block_signal_handlers();
+          view#matching_delim ();
+          (*page#error_manager#hide_tooltip();*)
+          buffer#unblock_signal_handlers();
         in
         let callback iter _ =
           Gmisclib.Idle.add ~prio:100 (fun () -> view#draw_current_line_background ~force:true (buffer#get_iter `INSERT));
-          Timeout.set tout_fast 0 cb_tout_fast;
-          Timeout.set tout_delim 0 (self#cb_tout_delim page);
+          Debouncer.schedule debouncer_colorize colorize_callback;
+          Debouncer.schedule debouncer_matching_delim matching_delim_callback;
           self#location_history_add ~page ~iter ~kind:`EDIT ();
         in
         buffer#add_signal_handler (buffer#connect#insert_text ~callback);
         buffer#add_signal_handler (buffer#connect#after#delete_range ~callback:(fun ~start ~stop -> callback start stop));
         (* Mark Set *)
         let lab_sel_lines, lab_sel_chars = page#status_pos_sel in
+        let activate_mark_occurrences () =
+          Debouncer.schedule debouncer_mark_words page#mark_occurrences_manager#mark;
+          (*Debouncer.schedule debouncer_mark_ref page#mark_occurrences_manager#mark_refs;*)
+        in
+        let option_occurrences, option_under_cursor, _ = view#options#mark_occurrences in
         buffer#add_signal_handler (buffer#connect#after#mark_set ~callback:begin fun _ mark ->
-            let mark_occurrences, under_cursor, _ = view#options#mark_occurrences in
-            let is_insert = match GtkText.Mark.get_name mark with Some "insert" -> true | _ -> false in
-            if mark_occurrences && under_cursor then begin
-              Timeout.set tout_fast 1 page#view#mark_occurrences_manager#mark_words;
-              Timeout.set tout_delim 2 page#view#mark_occurrences_manager#mark_refs;
-            end;
+            let is_insert_mark = match GtkText.Mark.get_name mark with Some "insert" -> true | _ -> false in
+            if is_insert_mark && option_occurrences then activate_mark_occurrences();
             if buffer#has_selection then begin
               let start, stop = buffer#selection_bounds in
               let nlines = stop#line - start#line in
               let nchars = stop#offset - start#offset in
               lab_sel_lines#set_text (string_of_int nlines);
               lab_sel_chars#set_text (string_of_int nchars);
-              if is_insert && mark_occurrences && not under_cursor then begin
-                Timeout.set tout_fast 1 page#view#mark_occurrences_manager#mark_words;
-                Timeout.set tout_delim 2 page#view#mark_occurrences_manager#mark_refs;
-              end
             end else begin
-              if mark_occurrences && not under_cursor then
-                page#view#mark_occurrences_manager#clear();
               lab_sel_lines#set_text "0";
               lab_sel_chars#set_text "0";
             end;
-            if is_insert then Timeout.set tout_delim 0 (self#cb_tout_delim page)
+            if is_insert_mark then
+              Debouncer.schedule debouncer_matching_delim matching_delim_callback;
           end);
         (* Paste clipboard *)
         ignore (page#view#connect#paste_clipboard ~callback:page#paste);
@@ -468,15 +468,14 @@ class editor () =
 
     method private create_tab_menu page ev =
       let menu = GMenu.menu () in
+      GtkMenu.Menu.attach_to_widget menu#as_menu page#as_widget;
       let filename = page#get_filename in
       let basename = Filename.basename filename in
-      let item = GMenu.image_menu_item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (Icons.create (??? Icons.close_16))#coerce;
+      let item = Image_menu.item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_16)) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
-      let item = GMenu.image_menu_item ~label:(sprintf "Close All Except \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Close All Except \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#close_all ~except:page ()));
-      let item = GMenu.image_menu_item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`MENU ())#coerce;
+      let item = Image_menu.item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`MENU ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#revert page));
       let _ = GMenu.separator_item ~packing:menu#add () in
       let item = GMenu.menu_item ~label:"Copy Full Path" ~packing:menu#add () in
@@ -494,7 +493,7 @@ class editor () =
           Option.iter (fun cmd -> ignore (Thread.create (fun () -> ignore (Sys.command cmd)) ())) cmd
         end);
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:"Switch to Implementation/Interface" ~packing:menu#add () in
+      let item = Image_menu.item ~label:"Switch to Implementation/Interface" ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#switch_mli_ml page));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       self#with_current_page begin fun page ->
@@ -502,43 +501,41 @@ class editor () =
         ignore (switch_viewer#connect#activate ~callback:page#button_dep_graph#clicked);
         switch_viewer#misc#set_sensitive (Menu_view.get_switch_view_sensitive self#project page)
       end;
-      let item = GMenu.image_menu_item
+      let item = Image_menu.item
           ~image:(GMisc.image ~pixbuf:(??? Icons.history) ())#coerce
           ~label:"Revision History" ~packing:menu#add ()
       in
       ignore (item#connect#activate ~callback:(fun () -> self#with_current_page (fun page -> page#show_revision_history ())));
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:"Save As..." ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.save_as_16) (*~stock:`SAVE_AS*) ~icon_size:`MENU ())#coerce;
+      let item = Image_menu.item ~label:"Save As..." ~image:(GMisc.image ~pixbuf:(??? Icons.save_as_16) (*~stock:`SAVE_AS*) ~icon_size:`MENU ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_save_as page));
-      let item = GMenu.image_menu_item ~label:(sprintf "Rename \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Rename \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_rename page));
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
-      let item = GMenu.image_menu_item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (Icons.create (??? Icons.close_window))#coerce;
+      let item = Image_menu.item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_window)) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:self#dialog_delete_current);
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = GMenu.image_menu_item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
-      item#set_image (GMisc.image ~pixbuf:(??? Icons.compile_file_16) ())#coerce;
+      let item = Image_menu.item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.compile_file_16) ()) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> page#compile_buffer ?join:None ()));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       menu#popup ~time:(GdkEvent.Button.time ev) ~button:3;
       Gdk.Window.set_cursor menu#misc#window (Gdk.Cursor.create `ARROW);
 
     method private callback_query_tooltip (page : Editor_page.page) ~x ~y ~kbd _ =
-      if x > page#view#gutter.Gutter.size && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10 then begin
+      if x > (page#margin_manager#get_gutter_size()) && y > 10 && y < (Gdk.Rectangle.height page#view#visible_rect) - 10
+      then begin
         let f () =
           let location = page#view#window_to_buffer_coords ~tag:`WIDGET ~x ~y in
           page#tooltip location;
         in
         if (*true ||*) preferences#get.editor_annot_type_tooltips_delay = 1 then begin
-          Timeout.set tout_delim 0 (GtkThread.async f);
+          Gmisclib.Idle.add ~prio:200 f;
         end else (f());
-      end else (page#error_indication#hide_tooltip ~force:false ());
+      end (*else (page#error_manager#hide_tooltip ~force:false ())*);
       false;
 
-    method open_file ~active ~scroll_offset ~offset ?remote filename =
+    method open_file ~active ~offset ?remote filename =
       try
         let page =
           try
@@ -557,10 +554,8 @@ class editor () =
                 page
               with Not_found -> begin
                   let file = Editor_file.create ?remote filename in
-                  let page = new Editor_page.page ~file ~project ~scroll_offset ~offset ~editor:self () in
+                  let page = new Editor_page.page ~file ~project ~offset ~editor:self () in
                   ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
-                  (* Outline *)
-                  page#set_outline (new Outline.model ~buffer:page#buffer () :> Oe.outline);
                   (* Tab Label with close button *)
                   let button_close = GButton.button ~relief:`NONE () in
                   let image = Icons.create (??? Icons.button_close) in
@@ -629,7 +624,7 @@ class editor () =
                      the page was added directly from a user action or whether the browser is opening
                      project pages by reading them from the editor state saved in a file.
                      Conversely, the editor state would be saved again to a file, but with incorrect
-                     values ​​based on an incomplete page load.
+                     values based on an incomplete page load.
                      This means that in the event of a crash, when the browser reopens, the pages
                      the user manually opened won't be in the editor.
                      Acceptable for now. *)
@@ -691,7 +686,6 @@ class editor () =
                 ~message:("Delete file\n\n"^page#get_title^"?")
                 ~message_type:`INFO
                 ~position:`CENTER
-                ~allow_grow:false
                 ~destroy_with_parent:false
                 ~modal:true
                 ~buttons:GWindow.Buttons.yes_no () in
@@ -771,10 +765,6 @@ class editor () =
       (List.length (Location_history.get_history_forward self#location_history) = 0),
       ((Location_history.last_edit_location self#location_history) = None)
 
-    method private cb_tout_delim page () =
-      page#view#matching_delim ();
-      page#error_indication#hide_tooltip();
-
     val signals = new signals hpaned#as_widget ~add_page ~switch_page ~remove_page ~changed ~modified_changed
       ~file_history_changed ~outline_visibility_changed ~file_saved ~notification
     method connect = signals
@@ -790,7 +780,7 @@ class editor () =
                 if project.Prj.autocomp_enabled then begin
                   try
                     self#with_current_page begin fun page ->
-                      if page#view#misc#get_flag `HAS_FOCUS && page#buffer#is_changed_after_last_autocomp then begin
+                      if page#view#has_focus && page#buffer#is_changed_after_last_autocomp then begin
                         if Unix.gettimeofday() -. page#buffer#last_edit_time > project.Prj.autocomp_delay (*/. 2.*)
                         then (page#compile_buffer ?join:None ())
                       end
@@ -829,7 +819,7 @@ class editor () =
         | None ->
             id_timeout_delim := Some (GMain.Timeout.add ~ms:1500 ~callback:begin fun () ->
                 self#with_current_page begin fun page ->
-                  if page#view#misc#get_flag `HAS_FOCUS then begin
+                  if page#view#has_focus then begin
                     let offset = (page#buffer#get_iter `INSERT)#offset in
                     if not page#buffer#has_selection && offset <> !last_cursor_offset then begin
                       page#view#matching_delim ();
@@ -871,30 +861,26 @@ class editor () =
       (*  *)
       code_folding_enabled#set Preferences.preferences#get.editor_code_folding_enabled;
       (*  *)
-      ignore (show_global_gutter#connect#changed ~callback:begin fun enabled ->
-          List.iter (fun p -> if enabled then p#global_gutter#misc#show()
-                      else p#global_gutter#misc#hide()) (pages @ (snd (List.split pages_cache)))
-        end);
+      (*show_global_gutter#connect#changed ~callback:begin fun enabled ->
+        List.iter begin fun p ->
+        if enabled then p#global_gutter#misc#show()
+        else p#global_gutter#misc#hide()
+        end (pages @ (snd (List.split pages_cache)))
+        end |> ignore;*)
       show_global_gutter#set Preferences.preferences#get.editor_show_global_gutter;
       (*  *)
       self#add_timeouts();
-      ignore (Timeout.start tout_delim);
-      ignore (Timeout.start tout_fast);
       (* Switch page: update the statusbar and remove annot tag *)
-      ignore (notebook#connect#after#switch_page ~callback:begin fun _ ->
-          (* Current page *)
-          self#with_current_page begin fun page ->
-            if not page#load_complete && not history_switch_page_locked then (self#load_page page);
-            page#update_statusbar();
-            page#view#draw_current_line_background (page#buffer#get_iter `INSERT);
-            if not history_switch_page_locked then (switch_page#call page);
-          end;
-        end);
-      ignore (self#connect#switch_page ~callback:begin fun _ ->
-          self#with_current_page begin fun page ->
-            ()
-          end
-        end);
+      notebook#connect#after#switch_page ~callback:begin fun _ ->
+        (* Current page *)
+        self#with_current_page begin fun page ->
+          if not page#load_complete && not history_switch_page_locked then (self#load_page page);
+          page#update_statusbar();
+          page#view#draw_current_line_background (page#buffer#get_iter `INSERT);
+          Gmisclib.Idle.add page#view#misc#grab_focus;
+          if not history_switch_page_locked then (switch_page#call page);
+        end;
+      end |> ignore;
       (* Record last active page *)
       let rec get_history project =
         match List.assoc_opt project.Prj.name history_switch_page with
@@ -960,7 +946,7 @@ class editor () =
         end;
       end |> ignore;
       Margin_fold.init_editor self;
-      Global_diff.init_editor self
+      Diff.init_editor self
   end
 
 (** Signals *)
@@ -993,4 +979,15 @@ and signals hpaned ~add_page ~switch_page ~remove_page ~changed ~modified_change
     method file_saved = file_saved#connect ~after
     method notification = notification#connect ~after
   end
+
+
+
+
+
+
+
+
+
+
+
 

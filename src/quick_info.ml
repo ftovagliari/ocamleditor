@@ -164,7 +164,7 @@ let display qi start stop =
   let label_fn = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:false ~packing:vbox1#add () in
   let label_typ = GMisc.label ~xpad:10 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:false ~packing:vbox1#add () in
   let label_vars = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~packing:vbox#add ~show:false () in
-  let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add () in
+  let _ = GMisc.separator `HORIZONTAL ~packing:(vbox#pack ~expand:false) () in
   let label_doc = GMisc.label ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~line_wrap:true ~packing:vbox#add () in
   label_typ#set_use_markup true;
   label_fn#set_use_markup true;
@@ -175,7 +175,7 @@ let display qi start stop =
   label_typ#misc#modify_font_by_name preferences#get.editor_completion_font;
   label_fn#misc#modify_font_by_name preferences#get.editor_base_font;
   let x, y =
-    let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+    let pX, pY = Gdk.Window.get_pointer_location (Window.root_window qi.view) in
     let win = (match qi.view#get_window `WIDGET with None -> assert false | Some w -> w) in
     let px, py = Gdk.Window.get_pointer_location win in
     match qi.show_at with
@@ -190,7 +190,7 @@ let display qi start stop =
     Some (qi.view#buffer#create_mark ~name:"qi-start" start,
           qi.view#buffer#create_mark ~name:"qi-stop" stop)
   in
-  let window = Gtk_util.window_tooltip vbox#coerce ~fade:false ~x ~y ~show:false () in
+  let window = Gtk_util.window_tooltip vbox#coerce ~parent:qi.view ~fade:false ~x ~y ~width:500 ~show:false () in
   let wininfo = {
     window;
     range = create_range ();
@@ -225,7 +225,7 @@ let display qi start stop =
       vbox#misc#reparent vp#coerce;
       hide qi;
       close qi "";
-      let window = Gtk_util.window_tooltip sw#coerce ~fade:false ~x ~y ~width:700 ~height:300 ~show:false () in
+      let window = Gtk_util.window_tooltip sw#coerce ~parent:qi.view ~fade:false ~x ~y ~width:700 ~height:300 ~show:false () in
       let wininfo = {
         window;
         range = create_range ();
@@ -278,7 +278,7 @@ let get_iter_at_linechar buffer pos =
 (** Opens a new quick information window with the information received from merlin.
     This function is applied in a separate thread. *)
 let spawn_window qi position (entry : type_enclosing_value) (entry2 : type_enclosing_value option) =
-  if qi.view#misc#get_flag `HAS_FOCUS then begin
+  if qi.view#has_focus then begin
     let start = get_iter_at_linechar qi.view#buffer entry.te_start in
     let stop = get_iter_at_linechar qi.view#buffer entry.te_stop in
     let tail_info, type_expr, type_params = build_content qi entry entry2 in
@@ -365,7 +365,7 @@ let process_location qi ?(is_at_iter=false) x y =
           | Some wi ->
               begin
                 try
-                  let root_window = Gdk.Window.root_parent () in
+                  let root_window = Window.root_window qi.view in
                   let r = wi.window#misc#allocation in
                   let wx, wy = Gdk.Window.get_position wi.window#misc#window in
                   let px, py = Gdk.Window.get_pointer_location root_window in

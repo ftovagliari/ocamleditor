@@ -34,7 +34,6 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let project           = editor#project in
   let vbox              = GPack.vbox ?packing () in
   let hbox              = GPack.hbox ~packing:vbox#add () in
-  let tooltips          = GData.tooltips () in
   let toolbar           = GButton.toolbar ~orientation:`VERTICAL ~style:`ICONS ~packing:hbox#pack () in
   let _                 = toolbar#set_icon_size `MENU in
   let sw                = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:hbox#add () in
@@ -46,37 +45,37 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let button_stop       = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_stop#set_icon_widget (Gtk_util.label_icon ~color:"red" "\u{f04d}")#coerce in
   let _                 = button_stop#misc#set_name "menubarbutton" in
-  let _                 = tooltips#set_tip ~text:"Kill Process" button_stop#coerce in
+  let _                 = button_stop#set_tooltip_text "Kill Process" in
   let button_run        = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_run#misc#set_name "menubarbutton" in
   let _                 = button_run#set_icon_widget begin match task_kind with
       | `OTHER | `RUN ->
-          tooltips#set_tip ~text:"Start" button_run#coerce;
+          button_run#set_tooltip_text "Start";
           (Gtk_util.label_icon ~color:"forestgreen" "\u{f04b}")#coerce;
       | `CLEAN | `CLEANALL ->
-          tooltips#set_tip ~text:task.Task.et_name button_run#coerce;
+          button_run#set_tooltip_text task.Task.et_name;
           (Icons.create (??? Icons.clear_build_16))#coerce;
       | `ANNOT | `COMPILE ->
-          tooltips#set_tip ~text:task.Task.et_name button_run#coerce;
+          button_run#set_tooltip_text task.Task.et_name;
           (Gtk_util.label_icon ~color:"forestgreen" "\u{eba2}")#coerce;
     end#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_clear      = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_clear#misc#set_name "menubarbutton" in
-  let _                 = tooltips#set_tip ~text:"Clear Messages" button_clear#coerce in
+  let _                 = button_clear#set_tooltip_text "Clear Messages" in
   let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf}")#coerce in
   let button_incr_font  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_incr_font#misc#set_name "menubarbutton" in
-  let _                 = tooltips#set_tip ~text:"Increase Font Size" button_incr_font#coerce in
+  let _                 = button_incr_font#set_tooltip_text "Increase Font Size" in
   let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4}")#coerce in
   let button_decr_font  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_decr_font#misc#set_name "menubarbutton" in
-  let _                 = tooltips#set_tip ~text:"Decrease Font Size" button_decr_font#coerce in
+  let _                 = button_decr_font#set_tooltip_text "Decrease Font Size" in
   let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3}")#coerce in
   let button_wrap       = GButton.toggle_tool_button ~packing:toolbar#insert () in
   let _                 = button_wrap#misc#set_name "menubarbutton" in
-  let _                 = tooltips#set_tip ~text:"Word Wrap" button_wrap#coerce in
+  let _                 = button_wrap#set_tooltip_text "Word Wrap" in
   let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80}")#coerce in
   (*  *)
   let view              = GText.view ~editable:(task_kind = `RUN) ~cursor_visible:true ~packing:sw#add () in
@@ -86,8 +85,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
       view#set_wrap_mode (if button_wrap#get_active then `WORD else `NONE)
     end in
   let _                 = button_clear#connect#clicked ~callback:(fun () -> view#buffer#set_text "") in
-  let _                 = button_wrap#set_active true in
-  object (self)
+  let _                 = button_wrap#set_active true in  object (self)
     inherit GObj.widget vbox#as_widget
     inherit Messages.page ~role:"task-console" as super
 
@@ -110,10 +108,9 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
     method set_tab_label label = tab_label <- Some label
     method tab_label = match tab_label with Some x -> x | _ -> assert false
 
-    method! parent_changed messages =
-      super#parent_changed messages;
+    method! holder_changed messages =
       toolbar#misc#hide();
-      if messages = Messages.vmessages then begin
+      if messages = Messages.vmessages() then begin
         toolbar#set_orientation `VERTICAL;
         toolbar#misc#reparent hbox#coerce;
         hbox#set_child_packing ~expand:false ~fill:false toolbar#coerce;
@@ -357,7 +354,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
       ignore (button_detach#connect#clicked ~callback:(fun () -> self#detach button_detach));
       ignore (button_incr_font#connect#clicked ~callback:(fun () -> Gtk_util.increase_font_size ~increment:1 view |> ignore));
       ignore (button_decr_font#connect#clicked ~callback:(fun () -> Gtk_util.increase_font_size ~increment:(-1) view |> ignore));
-      ignore (Messages.vmessages#connect#remove_page ~callback:begin fun child ->
+      ignore ((Messages.vmessages())#connect#remove_page ~callback:begin fun child ->
           if child#misc#get_oid = vbox#misc#get_oid then begin
             match process with None -> () | Some _ ->
               Dialog.process_still_active ~name:task.Task.et_name
@@ -401,7 +398,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
               in
               let parent = project.Prj.root // Prj.default_dir_src in
               let filename = List.fold_left (fun acc x -> acc // x) parent (Utils.filename_split basename) in
-              ignore (editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote:None filename);
+              ignore (editor#open_file ~active:true ~offset:0 ?remote:None filename);
               match editor#get_page (`FILENAME filename) with
               | None -> false
               | Some page ->
@@ -418,7 +415,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
                       let len = Convert.offset_from_pos (buf#get_text ~start:it ~stop:buf#end_iter ()) ~pos:len in
                       buf#select_range where (it#forward_chars len);
                       if (buf#get_iter `INSERT)#compare (buf#get_iter `SEL_BOUND) = 0 then (ignore(buf#select_word()));
-                      ignore (page#view#scroll_lazy where);
+                      ignore (page#view#scroll_aligned where);
                       page#view#misc#grab_focus();
                     end;
                     true
@@ -514,7 +511,7 @@ let create ~editor task_kind task =
       page#set_tab_label label;
       page#set_title task.Task.et_name;
       Gaux.may icon ~f:(fun icon -> page#set_icon (Some icon#pixbuf));
-      if task.Task.et_visible then Messages.vmessages#append_page ~label_widget ~with_spinner:(task_kind <> `RUN) page#as_page;
+      if task.Task.et_visible then (Messages.vmessages())#append_page ~label_widget ~with_spinner:(task_kind <> `RUN) page#as_page;
       page#connect#working_status_changed ~callback:begin fun active ->
         (match set_active_func with None -> page#is_working#set | Some f -> f) active
       end |> ignore;

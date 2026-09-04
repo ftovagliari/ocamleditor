@@ -26,7 +26,6 @@ open Utils
 open Preferences
 open GUtil
 open Settings_t
-open Gtk_util
 
 module Log = Common.Log.Make(struct let prefix = "EDITOR_PAGE" end)
 let _ =
@@ -36,13 +35,15 @@ let _ =
 type load_event_phase = [ `Begin | `End ]
 
 let create_view ~project ~buffer ?file ?packing () =
-  let sw = GBin.scrolled_window ~width:100 ~height:100 ~shadow_type:`NONE
-      ~hpolicy:`NEVER ~vpolicy:`NEVER ?packing () in
   let view = new Ocaml_text.view ~project ~buffer () in
+  let sw = GBin.scrolled_window ~shadow_type:`NONE
+      ~vadjustment:view#vadjustment ~hadjustment:view#hadjustment
+      ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
   Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
-  let tview = (view :> Text.view) in
-  let _  = sw#add view#coerce in
-  sw, tview, view
+  sw#add view#coerce;
+  sw#misc#style_context#add_class "editor-scrollbar";
+  (*sw#misc#set_property "overlay-scrolling" (`BOOL false); *)
+  sw, (view :> Text.view), view
 
 let shortname filename =
   let basename = Filename.basename filename in
@@ -66,7 +67,7 @@ let create_small_button ?button ?tooltip ?pixbuf ?icon ?callback ?packing ?show 
         icon |> Option.iter (fun icon -> (Gtk_util.label_icon ~width:22 ~height:16 ~packing:button#add icon)#coerce |> ignore)
   end;
   button#set_focus_on_click false;
-  button#misc#set_name "smallbutton";
+  button#misc#style_context#add_class "statusbar-button";
   Gaux.may tooltip ~f:button#misc#set_tooltip_text;
   Gaux.may callback ~f:(fun callback -> ignore (button#connect#clicked ~callback));
   button;;
@@ -77,57 +78,41 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
   button;;
 
 (** Editor page *)
-class page ?file ~project ~scroll_offset ~offset ~editor () =
+class page ?file ~project ~offset ~editor () =
   let file_changed             = new file_changed () in
-  let scroll_changed           = new scroll_changed () in
   let load                     = new load () in
-  let signals                  = new signals ~file_changed ~scroll_changed ~load in
+  let signals                  = new signals ~file_changed ~load in
   let buffer                   = new Ocaml_text.buffer ~project ?file () in
   let sw, text_view, ocaml_view = create_view ~project ~buffer ?file () in
   let vbox                     = GPack.vbox ~spacing:0 () in
   let paned                    = GPack.paned `HORIZONTAL ~packing:vbox#add () in
   let textbox                  = GPack.hbox ~spacing:0 ~packing:paned#add2 () in
-  let _                        = textbox#add sw#coerce in (* Text box *)
-  let svbox                    = GPack.vbox ~spacing:1 ~packing:textbox#pack () in (* Vertical scrollbar box *)
-  let global_gutter_ebox       = GBin.event_box ~packing:textbox#pack () in (* Global gutter box *)
   let editorbar = new Statusbar.editorbar ~view:ocaml_view () in
-  let hscrollbar = GRange.scrollbar `HORIZONTAL ~adjustment:sw#hadjustment ~packing:editorbar#add_scrollbar () in
   let _ =
-    sw#misc#connect#size_allocate ~callback:begin fun _ ->
-      if hscrollbar#adjustment#page_size = hscrollbar#adjustment#upper
-      then hscrollbar#misc#hide() else hscrollbar#misc#show();
-    end |> ignore;
     if not Oe_config.unify_statusbars then begin
       GMisc.separator `HORIZONTAL ~packing:(vbox#pack ~expand:false) () |> ignore;
       vbox#pack editorbar#coerce;
     end
   in
-  let vscrollbar = GRange.scrollbar `VERTICAL ~adjustment:sw#vadjustment (*~update_policy:`DELAYED*) ~packing:svbox#add () in
-  let _ =
-    text_view#event#connect#scroll ~callback:begin fun ev ->
-      let sign = match GdkEvent.Scroll.direction ev with
-        | `UP when sw#vadjustment#value > sw#vadjustment#lower -> (-.1.)
-        | `DOWN when sw#vadjustment#value < sw#vadjustment#upper -. sw#vadjustment#page_size -> 1.
-        | _ -> 0.
-      in
-      if sign <> 0. then begin
-        let value = sw#vadjustment#value +. (sw#vadjustment#step_increment *. sign) in
-        (sw#vadjustment#set_value value);
-      end;
-      false
-    end
-  in
-  (** Global gutter *)
-  let global_gutter = GMisc.drawing_area ~width:Oe_config.global_gutter_size ~packing:global_gutter_ebox#add
-      ~show:Preferences.preferences#get.editor_show_global_gutter () in
-  let _ = global_gutter#misc#set_has_tooltip true in
-  let _ = global_gutter#event#add [`BUTTON_PRESS; `BUTTON_RELEASE] in
   let _                        =
     buffer#create_tag ~name:"tag_matching_delim" [
       `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
       `BACKGROUND_FULL_HEIGHT_SET true;
-      (*`UNDERLINE (Preferences.tag_underline "highlight");*)
     ]
+  in
+  let error_manager = new Error_indication.manager ocaml_view in
+  let mark_occurrences_manager = new Mark_occurrences.manager text_view in
+  let outline = (new Outline.model ~buffer () :> Oe.outline) in
+  let outline_view = new Outline.view ~outline ~source_view:ocaml_view ~packing:paned#add1 () in
+  let margin_manager = new Margin_manager.manager text_view#as_gtext_view in
+  let margin_markers = new Margin_markers.markers text_view#as_gtext_view in
+  let margin_line_numbers = new Margin_ln.line_numbers text_view#as_gtext_view margin_markers in
+  let margin_errors = new Margin_overview.errors text_view#as_gtext_view in
+  let margin_occurrences = new Margin_overview.occurrences text_view#as_gtext_view in
+  let margin_current_line = new Margin_overview.current_line text_view#as_gtext_view in
+  let _ =
+    textbox#pack ~expand:true sw#coerce;
+    textbox#pack ~expand:false margin_manager#overview_widget#coerce
   in
   object (self)
     inherit GObj.widget vbox#as_widget
@@ -139,26 +124,20 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     val mutable last_autosave_time = buffer#last_edit_time
     val mutable load_complete = false
     val mutable quick_info = Quick_info.create ocaml_view
-    val error_indication = new Error_indication.error_indication ocaml_view vscrollbar global_gutter
     val mutable dotview = None
     val mutable word_wrap = editor#word_wrap
     val mutable show_whitespace = editor#show_whitespace_chars
     val mutable signal_button_toggle_wrap = None
     val mutable signal_button_toggle_whitespace = None
     val mutable signal_button_dotview = None
-    val mutable global_gutter_tooltips : ((int * int * int * int) * (unit -> GObj.widget)) list = []
-    val mutable outline : Oe.outline option = None
+    val mutable error_margin_markers = []
 
     method outline = outline
-    method set_outline ol = outline <- Some ol
 
-    method global_gutter_tooltips = global_gutter_tooltips
-    method set_global_gutter_tooltips x = global_gutter_tooltips <- x
-
-    method error_indication = error_indication
-
-    method global_gutter = global_gutter
-    method vscrollbar = vscrollbar
+    method error_manager = error_manager
+    method mark_occurrences_manager = mark_occurrences_manager
+    method margin_manager = margin_manager
+    method margin_markers = margin_markers
 
     method is_changed_after_last_autosave = last_autosave_time < buffer#last_edit_time
     method sync_autosave_time () = last_autosave_time <- Unix.gettimeofday()
@@ -203,13 +182,11 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method ocaml_view = ocaml_view
     method buffer = buffer
     method project = project
-    method vadjustment = sw#vadjustment
     method status_pos_sel = editorbar#pos_sel, editorbar#pos_sel_chars
-    method undo () = if not (buffer#undo#undo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
-    method redo () = if not (buffer#undo#redo()) then (text_view#scroll_lazy (buffer#get_iter `INSERT))
+    method undo () = if not (buffer#undo#undo()) then (text_view#scroll_aligned (buffer#get_iter `INSERT))
+    method redo () = if not (buffer#undo#redo()) then (text_view#scroll_aligned (buffer#get_iter `INSERT))
 
     method initial_offset : int = offset
-    method scroll_offset = scroll_offset
 
     method redisplay () =
       Colorize.colorize_buffer ocaml_view;
@@ -220,12 +197,12 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
           `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
           `BACKGROUND_FULL_HEIGHT_SET true;
         ]);
-      self#error_indication#create_tags();
-      self#error_indication#set_flag_underline Preferences.preferences#get.editor_err_underline;
-      self#error_indication#set_flag_tooltip Preferences.preferences#get.editor_err_tooltip;
-      self#error_indication#set_flag_gutter Preferences.preferences#get.editor_err_gutter;
+      self#error_manager#create_tags();
+      self#error_manager#set_flag_underline Preferences.preferences#get.editor_err_underline;
+      self#error_manager#set_flag_tooltip Preferences.preferences#get.editor_err_tooltip;
+      self#error_manager#set_flag_gutter Preferences.preferences#get.editor_err_gutter;
       self#view#create_highlight_current_line_tag();
-      error_indication#set_phase ();
+      error_manager#set_phase ();
 
     method update_statusbar () =
       match self#file with
@@ -278,9 +255,9 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             List.filter_map (fun bm -> bm.Oe.bm_marker) bms
           with Not_found -> []
         in
-        Gutter.destroy_markers view#gutter old_markers;
+        margin_markers#remove old_markers;
         (*  *)
-        let vv = vscrollbar#adjustment#value in
+        let v_scroll = view#vadjustment#value in
         buffer#block_signal_handlers();
         buffer#delete ~start:buffer#start_iter ~stop:buffer#end_iter;
         ignore (self#load());
@@ -290,8 +267,8 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
         self#sync_autosave_time ();
         Autosave.delete ~filename:file#filename ();
         (*  *)
-        Gmisclib.Idle.add ~prio:300 (fun () -> vscrollbar#adjustment#set_value vv);
-        Gmisclib.Idle.add ~prio:400 begin fun () ->
+        Gmisclib.Idle.add ~prio:200 (fun () -> view#vadjustment#set_value v_scroll);
+        Gmisclib.Idle.add ~prio:300 begin fun () ->
           let rect = view#visible_rect in
           let where, _ = view#get_line_at_y (Gdk.Rectangle.y rect + Gdk.Rectangle.height rect / 2) in
           buffer#place_cursor ~where
@@ -308,21 +285,18 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             view#misc#hide();
             load#call `Begin;
             buffer#insert file#read;
-            (* Initial cursor position and syntax highlighting *)
-            Gmisclib.Idle.add begin fun () ->
-              if scroll then begin
-                let where = buffer#get_iter (`OFFSET scroll_offset) in
-                self#view#scroll_to_iter ~use_align:(self#view#scroll_to_iter where) ~xalign:1.0 where |> ignore;
-                let where = buffer#get_iter (`OFFSET offset) in
-                buffer#place_cursor ~where;
-              end;
-              Colorize.colorize_buffer ocaml_view;
-              view#misc#show();
-              view#misc#grab_focus();
-            end;
+            Gmisclib.Idle.add (fun () -> Colorize.colorize_buffer ocaml_view);
+            (* Initial cursor position *)
             buffer#set_modified false;
+            view#misc#show();
+            view#misc#grab_focus();
             if not buffer#undo#is_enabled then (buffer#undo#enable());
             load_complete <- true;
+            if scroll then begin
+              let where = buffer#get_iter (`OFFSET offset) in
+              buffer#place_cursor ~where;
+              view#scroll_aligned where;
+            end;
             buffer#save_buffer ~filename:buffer#orig_filename () |> ignore;
             (*buffer#set_last_edit_time (Unix.gettimeofday());*)
             last_autosave_time <- buffer#last_edit_time;
@@ -331,20 +305,19 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
             Gmisclib.Idle.add ~prio:300 (fun () -> self#compile_buffer ?join:None ());
             (* Bookmarks: offsets to marks *)
             let redraw = ref false in
-            List.iter begin fun bm ->
-              if bm.Oe.bm_filename = file#filename then
-                let mark = (Bookmark.offset_to_mark (self#buffer :> GText.buffer) bm) in
-                let callback =
-                  if bm.Oe.bm_num >= Oe_config.bookmark_limit then Some (fun _ ->
-                      editor#bookmark_remove ~num:bm.Oe.bm_num;
-                      redraw := true;
-                      true)
-                  else None
+            project.Prj.bookmarks |> List.iter begin fun prj_bm ->
+              if prj_bm.Oe.bm_filename = file#filename then
+                let mark = Bookmark.offset_to_mark (self#buffer :> GText.buffer) prj_bm in
+                let icon =
+                  match prj_bm.Oe.bm_num with (* TODO refactor *)
+                  | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
+                  | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
                 in
-                let marker = Gutter.create_marker ~mark ?pixbuf:(Bookmark.icon bm.Oe.bm_num) ?callback () in
-                bm.Oe.bm_marker <- Some marker;
-                view#gutter.Gutter.markers <- marker :: view#gutter.Gutter.markers
-            end project.Prj.bookmarks;
+                let marker = margin_markers#add ~kind:(`Bookmark prj_bm.Oe.bm_num) ~mark ~icon ~color:"#4da1ff" in
+                prj_bm.Oe.bm_marker <- Some marker;
+            end;
+            self#margin_manager#build();
+            Gmisclib.Idle.add ~prio:300 self#margin_manager#draw;
             load#call `End;
             if !redraw then (GtkBase.Widget.queue_draw text_view#as_widget);
             true
@@ -377,7 +350,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
 
     method tooltip ((*(x, y) as*) location) =
       if Preferences.preferences#get.editor_err_tooltip
-      then (error_indication#tooltip (`XY location))
+      then (error_manager#tooltip (`XY location))
 
     method status_modified_icon = editorbar#modified
 
@@ -406,7 +379,7 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
       let hbox = GPack.hbox ~spacing:1 () in
       let _ = GMisc.image ~pixbuf:(??? Icons.history) ~packing:hbox#pack () in
       let label = GMisc.label ~text:(sprintf "\xC2\xAB%s\xC2\xBB history" (Filename.basename self#get_filename)) ~packing:hbox#pack () in
-      Messages.vmessages#append_page ~label_widget:hbox#coerce ~with_spinner:false rev;
+      (Messages.vmessages())#append_page ~label_widget:hbox#coerce ~with_spinner:false (rev :> Messages.page);
       rev#set_title label#text;
       rev#present();
       rev#set_icon None;
@@ -423,7 +396,6 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
               editorbar#button_rowspacing_incr;
               editorbar#button_rowspacing_decr; (*button_h_prev; button_h_next; button_h_last*)];
           List.iter (fun b -> b#misc#set_sensitive true) [editorbar#button_toggle_wrap; editorbar#button_toggle_whitespace];
-          hscrollbar#misc#show();
           editorbar#pos_box#misc#show();
       | None ->
           begin
@@ -488,34 +460,76 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
     method quick_info_at_iter iter =
       Quick_info.at_iter quick_info iter ()
 
-    initializer
-      global_gutter#misc#connect#query_tooltip ~callback:begin fun ~x ~y ~kbd tooltip ->
-        try
-          let _, f = List.find (fun ((x0, y0, w, h), _) -> x0 <= x && x <= x0 + w && y0 <= y && y <= y0 + h) global_gutter_tooltips in
-          GtkBase.Tooltip.set_custom tooltip (f())#as_widget;
-          true
-        with Not_found -> false
-      end |> ignore;
-      ignore (self#misc#connect#destroy ~callback:begin fun () ->
-          Option.iter (fun f -> f#cleanup()) file
-        end);
-      (**  *)
-      view#hyperlink#enable();
-      (** Expose: Statusbar *)
-      let signal_expose = ref (self#view#event#connect#after#expose ~callback:begin fun _ ->
-          let iter = self#buffer#get_iter `INSERT in
-          editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
-          editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
-          editorbar#pos_off#set_text (string_of_int iter#offset);
-          false
-        end)
+    method private init_error_indication () =
+      let create_gutter_markers error_indications kind icon color =
+        error_indications |> List.iter begin fun x ->
+          let marker = margin_markers#add
+              ~kind:(kind x.Oe.ei_error.Oe.er_message) ~mark:x.Oe.ei_start ~icon ~color in
+          error_margin_markers <- marker :: error_margin_markers;
+        end
       in
-      ignore (vscrollbar#connect#value_changed ~callback:begin fun () ->
-          view#misc#handler_block !signal_expose;
-          scroll_changed#call()
-        end);
-      ignore (vscrollbar#connect#after#value_changed ~callback:(fun () ->
-          Gmisclib.Idle.add ~prio:300 (fun () -> view#misc#handler_unblock !signal_expose)));
+      error_manager#connect#tag_applied ~callback:begin fun (warnings, errors) ->
+        if Preferences.preferences#get.editor_err_gutter then begin
+          create_gutter_markers warnings (fun x -> `Warning x) "\u{f071}" "darkorange";
+          create_gutter_markers errors (fun x -> `Error x) "\u{f0159}" "red";
+        end;
+        margin_errors#build_errors ~warnings ~errors;
+        self#margin_manager#build();
+      end |> ignore;
+      error_manager#connect#tag_removed ~callback:begin fun () ->
+        margin_markers#remove error_margin_markers;
+        error_margin_markers <- [];
+        self#margin_manager#build();
+      end |> ignore;
+      let show_error_tooltip iter =
+        GMain.Timeout.add ~ms:300 ~callback:(fun () -> error_manager#tooltip ~sticky:true (`ITER iter); false) |> ignore
+      in
+      margin_errors#event#click ~callback:show_error_tooltip |> ignore;
+      margin_markers#event#click ~callback:show_error_tooltip |> ignore;
+      margin_markers#event#mouseover ~callback:(fun ev ->
+          Gdk.Window.set_cursor (GdkEvent.get_window ev) (Gdk.Cursor.create `HAND2)) |> ignore;
+      margin_markers#event#mouseout ~callback:(fun ev ->
+          Gdk.Window.set_cursor (GdkEvent.get_window ev) (Gdk.Cursor.create `ARROW)) |> ignore;
+
+    method private init_mark_occurrences () =
+      mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
+        margin_occurrences#build_occurrences ~words:mark_occurrences_manager#words ~refs:mark_occurrences_manager#refs;
+      end |> ignore;
+
+    initializer
+      margin_manager#add (margin_line_numbers :> Margin.margin);
+      margin_manager#add (margin_markers :> Margin.margin);
+      margin_manager#add (margin_errors :> Margin.margin);
+      margin_manager#add (margin_occurrences :> Margin.margin);
+      margin_manager#add (margin_current_line :> Margin.margin);
+      view#options#connect#mark_occurrences_changed ~callback:(fun _ -> mark_occurrences_manager#mark()) |> ignore;
+      view#options#connect#after#mark_occurrences_changed ~callback:begin function
+      | true, _, color ->
+          mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
+      | _ -> ()
+      end |> ignore;
+      paned#set_position 300;
+      view#options#connect#after#line_numbers_changed ~callback:begin fun visible ->
+        margin_line_numbers#set_is_visible visible;
+        (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)
+        (*Gmisclib.Idle.add self#build_gutter*)
+      end |> ignore;
+      (*  *)
+      self#init_error_indication();
+      self#init_mark_occurrences();
+      (*  *)
+      self#misc#connect#destroy ~callback:begin fun () ->
+        Option.iter (fun f -> f#cleanup()) file
+      end |> ignore;
+      view#hyperlink#enable();
+      (* Expose: Statusbar *)
+      self#view#misc#connect#after#draw ~callback:begin fun _ ->
+        let iter = self#buffer#get_iter `INSERT in
+        editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
+        editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
+        editorbar#pos_off#set_text (string_of_int iter#offset);
+        false
+      end |> ignore;
       (* After focus_in, check if the file is changed on disk *)
       ignore (text_view#event#connect#after#focus_in ~callback:begin fun _ ->
           Gaux.may self#file ~f:begin fun f ->
@@ -568,35 +582,26 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
           bounds := get_bounds iter
       end |> ignore;
       self#view#hyperlink#connect#activate ~callback:(fun iter -> editor#scroll_to_definition ~page:self ~iter) |> ignore;
-      (*  *)
-      ocaml_view#buffer#connect#mark_set ~callback:begin fun it mark ->
-        match GtkText.Mark.get_name mark with
-        | Some "insert" -> error_indication#paint_global_gutter()
-        | _ -> ()
-      end |> ignore;
-      (** Mark occurrences *)
-      ignore (view#mark_occurrences_manager#connect#mark_set ~callback:error_indication#paint_global_gutter);
-      (**  *)
       let callback _ = self#set_word_wrap (not word_wrap) in
       self#set_word_wrap word_wrap;
       signal_button_toggle_wrap <- Some (editorbar#button_toggle_wrap#connect#clicked ~callback);
       let callback _ = self#set_show_whitespace (not show_whitespace) in
       self#set_show_whitespace show_whitespace;
       signal_button_toggle_whitespace <- Some (editorbar#button_toggle_whitespace#connect#clicked ~callback);
-      (** Dotview *)
+      (* Dotview *)
       if Oe_config.dot_version <> None then begin
         (signal_button_dotview <- Some (editorbar#button_dotview#connect#clicked ~callback:self#show_dep_graph));
         editorbar#button_dotview#misc#set_tooltip_text "Dependency Graph";
         editorbar#button_dotview#misc#set_sensitive (Menu_view.get_switch_view_sensitive editor#project self);
       end
 
-    method show_outline () =
-      match outline with
+    method show_outline () = ()
+    (*match outline with
       | Some outline ->
-          let outline_view = new Outline.view ~outline ~source_view:self#ocaml_view () in
-          paned#add1 (outline_view :> GObj.widget);
-          Gmisclib.Idle.add ~prio:300 outline_view#refresh
-      | _ -> Log.println `ERROR "outline does not exist"
+        let outline_view = new Outline.view ~outline ~source_view:self#ocaml_view () in
+        paned#add1 (outline_view :> GObj.widget);
+        Gmisclib.Idle.add ~prio:300 outline_view#refresh
+      | _ -> Log.println `ERROR "outline does not exist"*)
 
     method hide_outline () =
       try paned#child1#destroy()
@@ -608,13 +613,11 @@ class page ?file ~project ~scroll_offset ~offset ~editor () =
 
 (** Signals *)
 and file_changed () = object inherit [Editor_file.file option] signal () end
-and scroll_changed () = object inherit [unit] signal () end
 and load () = object inherit [load_event_phase] signal () end
 
-and signals ~file_changed ~scroll_changed ~load =
+and signals ~file_changed ~load =
   object
-    inherit ml_signals [file_changed#disconnect; scroll_changed#disconnect; load#disconnect]
+    inherit ml_signals [file_changed#disconnect; load#disconnect]
     method file_changed = file_changed#connect ~after
-    method scroll_changed = scroll_changed#connect ~after
     method load = load#connect ~after
   end
