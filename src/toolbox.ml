@@ -293,7 +293,7 @@ let create_item ~menu ~(toolbox : GPack.box) ~pos item =
 let populate ~browser ~packing =
   let toolbox = GPack.hbox ~border_width:2 ~spacing:3 ~packing () in
   let button_menu = GButton.button ~relief:`NONE ~packing:toolbox#pack () in
-  button_menu#misc#set_name "smallbutton";
+  button_menu#misc#style_context#add_class "statusbar-button";
   button_menu#set_focus_on_click false;
   let arrow = GMisc.arrow ~kind:`DOWN ~width:8 ~height:8 ~packing:button_menu#add () in
   arrow#misc#modify_fg [`PRELIGHT, `BLACK];

@@ -17,7 +17,7 @@ type wave = {
   color : GDraw.color;
 }
 
-type marker = Rect of rect | Wave of wave | Current_line of rect
+type marker = Rect of rect | Wave of wave | Cursor_indicator of rect | Viewport_indicator
 
 type item = { x : int; marker : marker; offset : int }
 
@@ -29,37 +29,44 @@ class virtual base (view : GText.view) =
   object (self)
     inherit [item] Margin.widget ()
     val buffer = view#buffer
-    val bg_color = ColorOps.name_of_gdk (view#misc#style#base `NORMAL)
 
     method color = "#500050"
     method scope = Global
     method build ~start ~stop = ()
 
     method draw_margin ~view ~drawable ~top:offset_top ~left ~height ~start ~stop =
-      (*Cairo_drawable.set_foreground drawable (`NAME bg_color);
-        Cairo_drawable.rectangle drawable ~x:left ~y:0 ~width:self#size ~height ~filled:true ();*)
       Cairo_drawable.set_line_attributes drawable ~width:1 ();
       let line_count = buffer#line_count in
       model
       |> List.iter begin fun (y, { x; marker; offset }) ->
-        let y = float y in
+        let y = float y /. float line_count *. float height |> int_of_float in
         match marker with
-        | Rect r | Current_line r ->
+        | Rect r | Cursor_indicator r ->
             let x = x + left in
-            let y = y /. float line_count *. float height |> int_of_float in
             Cairo_drawable.set_foreground drawable r.color;
             Cairo_drawable.rectangle drawable ~x ~y ~width:r.width ~height:r.height ~filled:r.filled ();
         | Wave s ->
             let lines = ref [] in
             let i = ref 0 in
             let h = s.height in
-            let y = y /. float line_count *. float height |> int_of_float in
             while !i < s.num do
               lines := (left + (!i+1) * h, y + h/2) :: (left + !i * h, y - h/2) :: !lines;
               incr i; incr i;
             done;
             Cairo_drawable.set_foreground drawable s.color;
             Cairo_drawable.lines drawable !lines
+        | Viewport_indicator ->
+            let start, _ = view#get_line_at_y offset_top in
+            let stop, _ = view#get_line_at_y (offset_top + height) in
+            let width = size_current_line + Margin_diff.size + size_errors + size_occurrences - 4 in
+            let x = left - width - 2 in
+            let scale = float height /. float line_count in
+            let y = float (start#line + 1) *. scale |> int_of_float in
+            let height = float (stop#line - start#line) *. scale |> int_of_float in
+            let color = if Preferences.preferences#get.Settings_j.theme_is_dark then `WHITE else `BLACK in
+            Cairo_drawable.set_foreground_a drawable color 0.1;
+            Cairo_drawable.rectangle drawable ~x ~y ~width ~height ~filled:true ();
+
       end
 
     (** Finds the buffer iterator for the model element nearest to the given
@@ -103,28 +110,9 @@ class errors (view : GText.view) =
     method size = size_errors
 
     method build_errors ~(warnings : Oe.error_indication list) ~(errors : Oe.error_indication list) =
-      let visible_lines_before = float in
       model <-
         warnings @ errors
         |> List.map begin fun { Oe.ei_start; ei_stop; ei_error } ->
-
-          (*let line_count, visible_lines_before =
-            match GtkText.TagTable.lookup buffer#tag_table Oe_config.code_folding_tag_invisible_name with
-            | Some tag ->
-                let tag = new GText.tag tag in
-                let visible_lines = ref [] in
-                let iter = ref buffer#end_iter in
-                while !iter#line > buffer#start_iter#line do
-                  if not (!iter#has_tag tag) then visible_lines := !iter#line :: !visible_lines;
-                  iter := !iter#backward_line
-                done;
-                float (List.length !visible_lines),
-                fun ln -> !visible_lines |> Utils.ListExt.count_while ((>) ln) |> float
-            | _ -> float buffer#line_count, float
-            in
-            let { Cairo.x; y; w; h } = Cairo.clip_extents drawable in
-          *)
-
           let start = buffer#get_iter_at_mark (`MARK ei_start) in
           let color =
             match ei_error.Oe.er_level with
@@ -180,19 +168,23 @@ class current_line (view : GText.view) =
     method index = 30
     method size = size_current_line
 
-    method build_current_line () =
-      let color = if Preferences.preferences#get.theme_is_dark then `WHITE else `BLACK in
-      model <- begin
-        let iter = buffer#get_iter `INSERT in
-        let width = size_current_line + (*Margin_diff.size +*) size_errors + size_occurrences in
-        let marker = Current_line { width; height = 4; color; filled = false } in
-        (iter#line, { x = -width; marker; offset = iter#offset })
-      end :: (model |> List.filter (function (_, { marker=Current_line _; _ }) -> false | _ -> true))
+    method build_current_line iter =
+      let color = if Preferences.preferences#get.Settings_j.theme_is_dark then `WHITE else `BLACK in
+      model <-
+        begin
+          let width = size_current_line + (*Margin_diff.size +*) size_errors + size_occurrences in
+          let marker = Cursor_indicator { width; height = 4; color; filled = false } in
+          (iter#line, { x = -width; marker; offset = iter#offset })
+        end ::
+        (0, { x = 0; marker = Viewport_indicator; offset = 0 }) ::
+        (model |> List.filter (function [@warning "-4"]
+             | (_, { marker=Cursor_indicator _; _ }) | (_, { marker=Viewport_indicator; _ }) -> false
+             | _ -> true))
 
     initializer
-      buffer#connect#mark_set ~callback:begin fun _ mark ->
+      buffer#connect#mark_set ~callback:begin fun iter mark ->
         match GtkText.Mark.get_name mark with
-        | Some "insert" -> self#build_current_line()
+        | Some "insert" -> self#build_current_line iter
         | _ -> ()
       end |> ignore;
 

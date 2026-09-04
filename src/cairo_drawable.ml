@@ -44,7 +44,13 @@ let set_foreground drawable color =
   let g = (Gdk.Color.green color |> f) /. 65535.0 in
   let b = (Gdk.Color.blue color |> f) /. 65535.0 in
   Cairo.set_source_rgb drawable r g b
-;;
+
+let set_foreground_a drawable color alpha =
+  let color = GDraw.color color in
+  let r = (Gdk.Color.red color |> f) /. 65535.0 in
+  let g = (Gdk.Color.green color |> f) /. 65535.0 in
+  let b = (Gdk.Color.blue color |> f) /. 65535.0 in
+  Cairo.set_source_rgba drawable r g b alpha
 
 let set_background drawable color =
   set_foreground drawable color;

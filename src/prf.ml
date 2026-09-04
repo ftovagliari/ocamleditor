@@ -60,6 +60,8 @@ let draw_margin_ln = create __FUNCTION__
 let build_margin_ln = create __FUNCTION__
 let draw_margin_markers = create __FUNCTION__
 let draw_margin_diff = create __FUNCTION__
+let draw_margin_fold = create __FUNCTION__
+let show_fold_expander = create __FUNCTION__
 let build_margin_diff = create __FUNCTION__
 let expose = create __FUNCTION__
 

@@ -4,6 +4,19 @@ open Preferences
 class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
   let padding_left = 0 in
   let padding_right = 0 in
+  let invisible_tag = ref None in
+  let is_invisible_line line_num =
+    match !invisible_tag with
+    | Some tag ->
+        let start_iter = view#buffer#get_iter (`LINE line_num) in
+        let end_iter =
+          let it = start_iter#copy in
+          if not it#ends_line then ignore (it#forward_to_line_end);
+          it
+        in
+        start_iter#has_tag tag || end_iter#has_tag tag (*|| List.mem tag start_iter#tags*)
+    | _ -> false
+  in
   object (self)
     inherit [int] widget ()
     val mutable size = 0
@@ -21,6 +34,14 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
     method index = 10
 
     initializer
+      view#misc#connect#map ~callback:begin fun () ->
+        invisible_tag :=
+          begin
+            match GtkText.TagTable.lookup view#buffer#tag_table Oe_config.code_folding_tag_invisible_name with
+            | None -> None
+            | Some tag -> Some (new GText.tag tag);
+          end;
+      end |> ignore;
       font_family <- Pango.Font.get_family font_desc;
       let pango_size = Pango.Font.get_size font_desc in
       let is_absolute = Pango.Font.get_size_is_absolute font_desc in
@@ -46,13 +67,14 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
           |> List.filter_map (fun (ln, ms) -> if List.length ms > 0 then Some ln else None)
         in
         for line_idx = start_line to stop_line do
-          let num = line_idx + 1 in
-          if not (List.mem num marks_by_ln) then begin
-            let line_iter = buffer#get_iter (`LINE line_idx) in
-            let yl, _ = view#get_line_yrange line_iter in
-            let y = yl + view#pixels_above_lines in
-            model <- (num, y) :: model
-          end
+          if is_invisible_line line_idx then () else
+            let num = line_idx + 1 in
+            if not (List.mem num marks_by_ln) then begin
+              let line_iter = buffer#get_iter (`LINE line_idx) in
+              let yl, _ = view#get_line_yrange line_iter in
+              let y = yl + view#pixels_above_lines in
+              model <- (num, y) :: model
+            end
         done
       end ()
 

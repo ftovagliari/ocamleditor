@@ -184,9 +184,9 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
 
 let scroll_aligned (view : GText.view) (where : GText.iter) ~xalign ~yalign =
   Gmisclib.Idle.add begin fun () ->
-    let fraction = float where#line /. float view#buffer#line_count in
+    let rect = view#get_iter_location where in
     let top = view#vadjustment#page_size *. yalign in
-    view#vadjustment#set_value (fraction *. view#vadjustment#upper -. top);
+    view#vadjustment#set_value (float (Gdk.Rectangle.y rect) -. top);
   end
 
 let rec scroll_aligned_alt =

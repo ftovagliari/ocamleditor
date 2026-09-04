@@ -91,7 +91,9 @@ textview text selection {
 }
 textview, textview text {
   background-color: %s;
-} " bg_color fg_color default_bg_color
+}
+border.left { background-color: transparent; border: none; }
+" bg_color fg_color default_bg_color
       in
       let css_provider = GObj.css_provider () in
       css_provider#load_from_data css;

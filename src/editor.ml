@@ -945,7 +945,7 @@ class editor () =
         | _ -> ()
         end;
       end |> ignore;
-      (*Margin_fold.init_editor self;*)
+      Margin_fold.init_editor self;
       Diff.init_editor self
   end
 

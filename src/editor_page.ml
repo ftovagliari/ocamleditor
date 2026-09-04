@@ -130,11 +130,9 @@ class page ?file ~project ~offset ~editor () =
     val mutable signal_button_toggle_wrap = None
     val mutable signal_button_toggle_whitespace = None
     val mutable signal_button_dotview = None
-    val mutable outline : Oe.outline option = None
     val mutable error_margin_markers = []
 
     method outline = outline
-    method set_outline ol = outline <- Some ol
 
     method error_manager = error_manager
     method mark_occurrences_manager = mark_occurrences_manager

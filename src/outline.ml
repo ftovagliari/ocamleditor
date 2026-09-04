@@ -65,7 +65,7 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
 
     (** Checks if cached outline is still valid.
         Returns [true] if the buffer hasn't been modified since last refresh. *)
-    method is_valid = buffer#last_edit_time < last_refresh_time
+    method is_valid = buffer#last_edit_time < last_refresh_time || timer_id = None
 
     (** Updates the outline from current buffer content.
 
@@ -242,7 +242,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       self#set_follow_cursor true;
 
       view#connect#row_activated ~callback:begin fun _ _ ->
-        self#jump_to_definition();
+        (*self#jump_to_definition();*)
         Gmisclib.Idle.add source_view#misc#grab_focus
       end |> ignore;
 

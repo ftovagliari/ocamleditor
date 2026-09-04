@@ -261,7 +261,8 @@ and view ?project ?buffer () =
 
     method highlight_current_line_tag = highlight_current_line_tag
 
-    method scroll_aligned iter = Gtk_util.scroll_aligned view iter ~xalign:1.0 ~yalign:0.38
+    method scroll_aligned iter =
+      Gtk_util.scroll_aligned view iter ~xalign:1.0 ~yalign:0.38;
 
     method scroll dir =
       let rect = self#visible_rect in

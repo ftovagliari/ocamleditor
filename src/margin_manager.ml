@@ -1,6 +1,7 @@
 open Margin
+open Preferences
 
-class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
+class manager ?(overview_ruler_mode=Integrated) (view : GText.view) =
   let overview_widget = GMisc.drawing_area () in
   let rec find_margin x x_offset = function
     | [] -> None
@@ -9,11 +10,23 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         if x_offset < x && x <= next_offset then Some m
         else find_margin x next_offset rest
   in
-  let draw_childs childs ~top ~height ~start ~stop window =
+  let bg_color =
+    let pref = Preferences.preferences#get in
+    let open Settings_j in
+    `NAME begin
+      if pref.editor_bg_color_theme then ?? (Preferences.default_values.editor_bg_color_user)
+      else ?? (pref.editor_bg_color_user)
+    end
+  in
+  let draw_childs childs ~top ~height ~start ~stop ?(paint_background=false) window =
+    let drawable = Gdk.Cairo.create window in
+    (*if paint_background then begin
+      Cairo_drawable.set_foreground drawable bg_color;
+      Cairo_drawable.rectangle drawable ~x:0 ~y:0 ~width:100 ~height ~filled:true ();
+      end;*)
     childs
     |> List.fold_left begin fun left margin ->
       if margin#is_visible then begin
-        let drawable = Gdk.Cairo.create window in
         (*Cairo_drawable.set_foreground drawable (`NAME margin#color);
           Cairo_drawable.rectangle drawable ~x:left ~y:0 ~width:(margin#size) ~height ~filled:true ();*)
         margin#draw_margin ~view ~drawable ~top ~left ~height ~start ~stop;
@@ -29,6 +42,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
       overview_widget#event#add [`BUTTON_PRESS];
       overview_widget#event#connect#button_press ~callback:self#overview_button_press |> ignore;
       (*view#event#connect#button_press ~callback:self#gutter_button_press |> ignore;*)
+      overview_widget#misc#style_context#add_class "overview-ruler";
       view#misc#connect#after#draw ~callback:begin fun _ ->
         self#draw ();
         false
@@ -38,28 +52,25 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
     method overview_widget = overview_widget
 
     method add margin =
-      match margin#kind with
-      | LINE_NUMBERS | MARKERS | DIFF | GLOBAL_DIFF | ERRORS | OCCURRENCES | CURRENT_LINE ->
-          begin
-            let compare m1 m2 = Stdlib.compare m1#index m2#index in
-            match margin#scope with
-            | Local ->
-                gutter_margins <- margin :: gutter_margins |> List.sort compare
-            | Global ->
-                overview_margins <- margin :: overview_margins |> List.sort compare
-          end;
-          let size = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
-          view#set_border_window_size ~typ:`LEFT ~size;
-          let size = overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
-          begin
-            match overview_ruler_mode with
-            | Integrated ->
-                view#set_border_window_size ~typ:`RIGHT ~size;
-            | Separated ->
-                overview_widget#misc#set_size_request ~width:size ();
-          end;
-          self#build ();
-      | FOLDING -> ()
+      begin
+        let compare m1 m2 = Stdlib.compare m1#index m2#index in
+        match margin#scope with
+        | Local ->
+            gutter_margins <- margin :: gutter_margins |> List.sort compare
+        | Global ->
+            overview_margins <- margin :: overview_margins |> List.sort compare
+      end;
+      let size = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
+      view#set_border_window_size ~typ:`LEFT ~size;
+      let size = overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
+      begin
+        match overview_ruler_mode with
+        | Integrated ->
+            view#set_border_window_size ~typ:`RIGHT ~size;
+        | Separated ->
+            overview_widget#misc#set_size_request ~width:size ();
+      end;
+      self#build ();
 
     method remove margin =
       match margin#scope with
@@ -92,7 +103,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         | Integrated ->
             (view#get_window `RIGHT) |> Option.iter (draw_childs overview_margins ~top ~height ~start ~stop);
         | Separated ->
-            draw_childs overview_margins ~top ~height ~start ~stop overview_widget#misc#window;
+            draw_childs overview_margins ~top ~height ~start ~stop ~paint_background:true overview_widget#misc#window;
       end ();
 
     method get_gutter_size () = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0
