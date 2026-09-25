@@ -34,3 +34,6 @@ depends: [
   "ppx_deriving"
 ]
 
+pin-depends: [
+  ["lablgtk3.3.1.5" "git+https://github.com/ftovagliari/lablgtk3.git#GMisc.popover"]
+]

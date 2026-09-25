@@ -295,7 +295,7 @@ let display qi tooltip_x tooltip_y start stop =
       let _, ystart = qi.view#buffer_to_window_coords ~tag:`WIDGET
           ~x:(Gdk.Rectangle.x rstart) ~y:(Gdk.Rectangle.y rstart) in
       let x, y =
-        let pX, pY = Gdk.Window.get_pointer_location (Window.root_window qi.view) in
+        let pX, pY = Gdk.Window.get_pointer_location qi.view#misc#toplevel#misc#window in
         let win = (match qi.view#get_window `WIDGET with None -> assert false | Some w -> w) in
         let px, py = Gdk.Window.get_pointer_location win in
         let enable_check = false in

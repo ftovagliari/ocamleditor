@@ -90,7 +90,7 @@ let apply ~project (view : Ocaml_text.view) (templ : Templates.t) =
         buffer#insert text
     | `NONE -> buffer#insert text
   in
-  (** Parse template *)
+  (* Parse template *)
   begin
     match templ with
     | Templ templ ->
@@ -127,7 +127,7 @@ let apply ~project (view : Ocaml_text.view) (templ : Templates.t) =
     | Action func -> func view
   end;
   let mark_end = buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Templ.apply4")*) (buffer#get_iter `INSERT) in
-  (** Place cursor *)
+  (* Place cursor *)
   (match !mark_i, !mark_s with
    | None, None -> ()
    | (Some mark), None -> buffer#place_cursor ~where:(buffer#get_iter_at_mark (`MARK mark));
@@ -136,20 +136,13 @@ let apply ~project (view : Ocaml_text.view) (templ : Templates.t) =
   view#tbuffer#undo#end_block();
   Gaux.may !mark_i ~f:(fun mark -> buffer#delete_mark (`MARK mark));
   Gaux.may !mark_s ~f:(fun mark -> buffer#delete_mark (`MARK mark));
-  (** Indent block *)
+  (* Indent block *)
   let start = buffer#get_iter_at_mark (`MARK mark_begin) in
   let start = start#set_line_index 0 in
   let stop = buffer#get_iter_at_mark (`MARK mark_end) in
   let stop = stop#forward_line#set_line_index 0 in
   ignore (Ocp_indent.indent ~project ~view (`BOUNDS (start, stop)));
-  (** Fix bug in draw_current_line_background *)
-  (*let iter = ref (buffer#get_iter_at_mark (`MARK mark_begin)) in
-    let stop = buffer#get_iter_at_mark (`MARK mark_end) in
-    while !iter#compare stop <= 0 do
-    view#draw_current_line_background ~force:true !iter;
-    iter := !iter#forward_line;
-    done;*)
-  (** Colorize *)
+  (* Colorize *)
   let remove_marks () =
     buffer#delete_mark (`MARK mark_begin);
     buffer#delete_mark (`MARK mark_end);
@@ -180,46 +173,46 @@ class widget ~project ~(view : Ocaml_text.view) ?packing ()=
   let vc_name = GTree.view_column ~renderer:(renderer, ["markup", col_name]) ~title:"Name" () in
   let vc_descr = GTree.view_column ~renderer:(renderer, ["markup", col_descr]) ~title:"Description" () in
   let sw = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
-  let lview = GTree.view ~model:model ~headers_visible:true ~reorderable:false ~width:800 ~height:200 ~packing:sw#add () in
+  let lview = GTree.view ~model ~headers_visible:true ~reorderable:false (*~width:800 ~height:200 *)~packing:sw#add () in
   let _ = lview#append_column vc_name in
   let _ = lview#append_column vc_descr in
   let _ = lview#set_headers_visible false in
+  let popover = Gtk_util.popover_at_iter ~width:700 ~height:200 ~view:view#as_gtext_view vbox#coerce in
   object (self)
     inherit GObj.widget vbox#as_widget
+
     initializer
       (*lview#misc#modify_base [`NORMAL, `NAME Preferences.preferences#get.Preferences.pref_bg_color_popup];*)
       let font_name = Preferences.preferences#get.editor_base_font in
-      let family = String.sub font_name 0 (Option.value (String.rindex_opt font_name ' ') ~default:(String.length font_name)) in
+      let family =
+        String.sub font_name 0 (Option.value (String.rindex_opt font_name ' ') ~default:(String.length font_name))
+      in
       List.iter begin fun (_, name, descr, templ) ->
         let row = model#append () in
         model#set ~row ~column:col_key name;
-        model#set ~row ~column:col_name (sprintf {|<b><span face="%s" size="small">%s</span></b>|} family (Glib.Markup.escape_text name));
+        model#set ~row ~column:col_name
+          (sprintf {|<b><span face="%s" size="small">%s</span></b>|} family (Glib.Markup.escape_text name));
         model#set ~row ~column:col_descr (
           sprintf {|<span face="%s" size="small">%s</span>|} family (Glib.Markup.escape_text descr));
       end !Templates.spec;
-      ignore (lview#connect#row_activated ~callback:begin fun path _ ->
-          let row = model#get_iter path in
-          let name = model#get ~row ~column:col_key in
-          try
-            let _, _, _, templ = List.find (fun (_, x, _, _) -> name = x) !Templates.spec in
-            apply ~project view templ;
-            Gaux.may (GWindow.toplevel vbox#coerce) ~f:(fun w -> w#destroy())
-          with Not_found -> ()
-        end)
+      lview#connect#row_activated ~callback:begin fun path _ ->
+        let row = model#get_iter path in
+        let name = model#get ~row ~column:col_key in
+        try
+          let _, _, _, templ = List.find (fun (_, x, _, _) -> name = x) !Templates.spec in
+          apply ~project view templ;
+          view#misc#grab_focus();
+          popover.Gtk_util.popdown();
+          GMain.Timeout.add ~ms:1000 ~callback:(fun () -> popover.Gtk_util.destroy(); false) |> ignore;
+        with Not_found -> ()
+      end |> ignore;
+
+    method show () =
+      popover.Gtk_util.popup (view#buffer#get_iter `INSERT);
+      Gmisclib.Idle.add lview#misc#grab_focus;
   end
 
 (** popup *)
 let popup project (view : Ocaml_text.view) =
-  let x, y = view#get_location_at_cursor () in
   let widget = new widget ~project ~view () in
-  ignore (Gtk_util.window widget#coerce ~parent:view ~x ~y ())
-
-
-
-
-
-
-
-
-
-
+  widget#show()

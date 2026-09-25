@@ -275,12 +275,12 @@ class manager (view : Ocaml_text.view) =
                     popup#move ~x:(-1000) ~y:(-1000);
                     match location with
                     | `ITER _ ->
-                        let x, y = view#get_location_at_iter iter in
+                        let x, y, _ = Gtk_util.get_location_at_iter view#as_gtext_view iter `ABOVE in
                         popup#show();
                         let y = y - popup#misc#allocation.Gtk.height - 5 - displacement in
                         popup#move ~x ~y;
                     | `XY _ ->
-                        let x, y = Gdk.Window.get_pointer_location (Window.root_window view) in
+                        let x, y = Gdk.Window.get_pointer_location view#misc#toplevel#misc#window in
                         popup#show();
                         popup#move ~x ~y:(y - popup#misc#allocation.Gtk.height - 12 - displacement);
                   end;

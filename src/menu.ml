@@ -141,7 +141,7 @@ let edit ~browser ~group ~flags
   let complet = GMenu.menu_item ~label:"Completion" ~packing:menu#add () in
   ignore (complet#connect#activate ~callback:begin fun () ->
       browser#with_current_project begin fun project ->
-        editor#with_current_page (fun page -> Complete_prefix.create_window ~project ~page |> ignore)
+        editor#with_current_page (fun page -> Completion.create ~project ~page |> ignore)
       end
     end);
   complet#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._space ~flags;

@@ -399,38 +399,6 @@ and view ?project ?buffer () =
 
     method current_matching_tag_bounds = current_matching_tag_bounds
 
-    method get_location_at_cursor () =
-      let iter = self#buffer#get_iter `INSERT in
-      let rect_it = self#get_iter_location iter in
-      let rect_vis = self#visible_rect in
-      let win = (match self#get_window `WIDGET
-                 with None -> failwith "Text.text#get_location_at_cursor `WIDGET = None" | Some w -> w) in
-      let x, y = Gdk.Window.get_position win in
-      let win = Gdk.Window.get_parent win in
-      let x1, y1 = Gdk.Window.get_position win in
-      let vxs, vys = x + x1, y + y1 in
-      let xb, yb = Gdk.Rectangle.x rect_it, Gdk.Rectangle.y rect_it in
-      let vxb, vyb = Gdk.Rectangle.x rect_vis, Gdk.Rectangle.y rect_vis in
-      (vxs + xb - vxb + (self#get_border_window_size `LEFT)),
-      (vys + yb - vyb + Gdk.Rectangle.height rect_it)
-
-    method get_location_at_iter iter =
-      let rect = view#get_iter_location iter in
-      let x = Gdk.Rectangle.x rect in
-      let y = Gdk.Rectangle.y rect in
-      let x0, y0 =
-        let pX, pY = Gdk.Window.get_pointer_location (Window.root_window self) in
-        let win = (match view#get_window `TEXT with None -> assert false | Some w -> w) in
-        let px, py = Gdk.Window.get_pointer_location win in
-        (pX - px), (pY - py)
-      in
-      let vrect = view#visible_rect in
-      let x = x - Gdk.Rectangle.x vrect in
-      let y = y - Gdk.Rectangle.y vrect in
-      let x = x0 + x in
-      let y = y0 + y in
-      x, y
-
     method get_scroll_top () =
       let vrect = self#visible_rect in
       let y0 = Gdk.Rectangle.y vrect in
@@ -483,16 +451,6 @@ and view ?project ?buffer () =
               (* Indentation guidelines *)
               if options#show_indent_lines && not options#show_whitespace_chars
               then (Text_indent_lines.draw_indent_lines self drawable) start stop y0;
-              (* Right margin line *)
-              (*begin
-                match options#visible_right_margin with
-                | Some (column, color) ->
-                    let x = approx_char_width * column - hadjust - 1 in (* -1 per evitare sovrapposizione col cursore *)
-                    set_line_attributes drawable ~style:`SOLID ();
-                    set_foreground drawable color;
-                    line drawable x 0 x h0;
-                | _ -> ()
-                end;*)
               (* ocamldoc_paragraph_bgcolor_enabled *)
               (*if Oe_config.ocamldoc_paragraph_border_enabled
                 then (self#draw_paragraph_border drawable start stop y0 w0);*)

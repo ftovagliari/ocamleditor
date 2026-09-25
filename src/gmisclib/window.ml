@@ -91,11 +91,3 @@ module GeometryMemo = struct
     end;;
 
 end
-
-
-let root_window widget : Gdk.window =
-  widget#misc#toplevel#misc#window
-
-let root_window2 widget : Gtk.window Gtk.obj =
-  widget#misc#toplevel#as_widget |> GtkWindow.Window.cast
-

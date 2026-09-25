@@ -223,7 +223,7 @@ class incremental () =
           status#set_incremental inc;
           self#find ~control:STOP ~view ()
         in
-        let _ = GMisc.label ~markup:"<b><big>Search for: </big></b>\n<span size='xx-small'>Ctrl+F for Find/Replace</span>"
+        let _ = GMisc.label ~markup:"<b>Search for: </b>\n<span size='48%'>Ctrl+F for Find/Replace</span>"
             ~xalign:0.0 ~xpad:0 ~packing:(box#pack ~expand:true ~fill:true) () in
         let entry = GEdit.entry ~width_chars:20 ~packing:(box#pack ~expand:false ~fill:false) () in
         entry#connect#changed ~callback:begin
@@ -270,7 +270,13 @@ class incremental () =
         view#add_child_in_window ~child ~which_window:`WIDGET ~x:0 ~y;
         child#misc#connect#size_allocate ~callback:begin fun alloc ->
           let r = view#visible_rect in
-          let x = view#get_border_window_size `LEFT + Gdk.Rectangle.width r - child#misc#allocation.Gtk.width in
+          let scrollbar_width = 25 in
+          let x =
+            view#get_border_window_size `LEFT +
+            Gdk.Rectangle.width r -
+            child#misc#allocation.Gtk.width -
+            scrollbar_width
+          in
           Gmisclib.Idle.add begin fun () ->
             view#move_child ~child ~x ~y;
             box#misc#style_context#add_class "incremental-search-visible";

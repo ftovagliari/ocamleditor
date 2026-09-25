@@ -32,6 +32,7 @@ let create_mark_name =
 
 (** window *)
 let window widget
+    ?(kind=`TOPLEVEL)
     ?type_hint
     ?modal
     ?(decorated=false)
@@ -45,6 +46,7 @@ let window widget
     ?(show=true)
     ~x ~y () =
   let window = GWindow.window
+      ~kind
       ~decorated
       ?modal
       ~border_width
@@ -145,6 +147,28 @@ let increase_font_size ?weight ?(increment=3) widget =
   end;
   fd;;
 
+let window_motion (window : GWindow.window) x y k =
+  let duration_steps = 10 in
+  let step = ref 0 in
+  let x0 = window#misc#allocation.Gtk.x in
+  let y0 = window#misc#allocation.Gtk.y in
+  window#show();
+  let update () =
+    if !step < duration_steps then begin
+      incr step;
+      let t = float_of_int !step /. float_of_int duration_steps in
+      let x = float_of_int x0 +. t *. (float_of_int x -. float_of_int x0) |> int_of_float in
+      let y = float_of_int y0 +. t *. (float_of_int y -. float_of_int y0) |> int_of_float in
+      Gmisclib.Idle.add ~prio:300 (fun () -> window#move ~x ~y);
+      true
+    end else begin
+      Gmisclib.Idle.add ~prio:300 (fun () -> window#move ~x ~y);
+      k();
+      false
+    end
+  in
+  Some (Glib.Timeout.add ~ms:15 ~callback:update)
+
 (** try_font *)
 let try_font context family =
   try
@@ -209,3 +233,54 @@ let rec scroll_aligned_alt =
         scroll_aligned_alt view iter ~xalign ~yalign ~max_attempts:(max_attempts - 1);
         false
       end |> ignore
+
+let get_location_at_iter (view : GText.view) iter linepos =
+  let loc = view#get_iter_location iter in
+  let xv, yv = view#buffer_to_window_coords ~tag:`WIDGET
+      ~x:(Gdk.Rectangle.x loc) ~y:(Gdk.Rectangle.y loc) in
+  let x0, y0 = Gdk.Window.get_origin view#misc#window in
+  let _, lh = view#get_line_yrange iter in
+  match linepos with
+  | `ABOVE -> x0 + xv, y0 + yv, lh
+  | `BELOW -> x0 + xv, y0 + yv + lh (*- view#pixels_below_lines*), lh
+
+let get_location_at_cursor (view : GText.view) linepos =
+  get_location_at_iter view (view#buffer#get_iter `INSERT) linepos
+
+type popover_at_iter = { popup : GText.iter -> unit; popdown : unit -> unit; destroy : unit -> unit }
+
+let popover_at_iter ?width ?height ~(view : GText.view) widget =
+  let popover = GBin.popover ~relative_to:view#coerce () in
+  popover#set_position `BOTTOM;
+  popover#add widget;
+  popover#misc#set_size_request ?width ?height ();
+  { popup =
+      begin fun (iter : GText.iter)  ->
+        let vrect = view#visible_rect in
+        let rect = view#get_iter_location iter in
+        let x, y = view#buffer_to_window_coords ~tag:`WIDGET
+            ~x:(Gdk.Rectangle.x rect) ~y:(Gdk.Rectangle.y rect) in
+        let w = Gdk.Rectangle.width rect in
+        let h = Gdk.Rectangle.height rect in
+        let x, y =
+          match width, height with
+          | Some width, Some _ ->
+              popover#misc#style_context#add_class "no-arrow";
+              (* subtract transparent border of the popover 16x10 *)
+              min (x + width / 2 - 16) (Gdk.Rectangle.width vrect),  y - 10
+          | _ -> x, y
+        in
+        popover#set_pointing_to (Gdk.Rectangle.create ~x ~y ~width:w ~height:h);
+        popover#popup();
+      end;
+    popdown = popover#popdown;
+    destroy = popover#destroy
+  }
+
+let is_iter_visible (view : GText.view) (iter : GText.iter) =
+  let rect = view#visible_rect in
+  let x, y = Gdk.Rectangle.x rect, Gdk.Rectangle.y rect in
+  let w, h = Gdk.Rectangle.width rect, Gdk.Rectangle.height rect in
+  let start_iter = view#get_iter_at_location ~x ~y in
+  let end_iter = view#get_iter_at_location ~x:(x + w) ~y:(y + h) in
+  (iter#compare start_iter >= 0) && (iter#compare end_iter <= 0)

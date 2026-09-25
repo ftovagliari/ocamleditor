@@ -25,7 +25,11 @@ let as_cps merlin_func ?name ~filename ~buffer cont =
   merlin_func ~filename ~buffer |> Async.start_with_continuation ?name cont
 
 let check_configuration ~filename ~buffer =
-  [ "check-configuration" ] |> execute_async filename buffer
+  [ "check-configuration" ]
+  |> execute_async filename buffer
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
+    Printf.printf "%s\n%!" json;
+  end
 
 let errors ~filename ~buffer =
   [ "errors" ] |> execute_async filename buffer

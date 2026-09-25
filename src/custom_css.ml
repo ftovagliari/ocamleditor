@@ -48,6 +48,28 @@ let apply () =
         box.incremental-search { background-color: @theme_bg_color; border: 1px solid @theme_selected_bg_color; padding: 5px}
         box.incremental-search-hidden { opacity: 0.0}
         box.incremental-search-visible { opacity: 1.0}
+
+        popover.no-arrow > treeview.view:selected,
+        treeview.view:selected:focus,
+        treeview.view:selected:backdrop {
+            background-color: @theme_selected_bg_color;
+            color: @theme_selected_fg_color;
+        }
+        popover.no-arrow {
+          background-color: transparent;
+          border: none;
+          margin: 0px;
+        }
+        popover.no-arrow > box {
+          border: 1px solid @borders;
+          background-color: @theme_base_color;
+        }
+        popover.quick-info {
+          border: 1px solid @borders;
+          background-color: @theme_base_color;
+        }
+        popover.quick-info > * { background-color: @theme_base_color; }
+
       |} (*bg_sel_color*))
     end#as_css_provider
     GtkData.StyleContext.ProviderPriority.application;
