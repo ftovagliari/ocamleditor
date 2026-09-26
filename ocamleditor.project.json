@@ -294,10 +294,7 @@
           ],
           "outputs": [ [ true, "oebuild_script.ml" ] ],
           "deps": [
-            [
-              true,
-              "\u0015¤\u0017W\u0005\u0000\u0000\u0000_oebuild_script.ml"
-            ],
+            [ true, "generate_oebuild_script.ml" ],
             [ true, "../header" ],
             [ true, "common/utils.ml" ],
             [ true, "common/file_util.ml" ],

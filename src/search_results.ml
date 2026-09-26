@@ -358,10 +358,10 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
                             ignore (self#set_locations entry);
                             view_lines#selection#select_path path;
                         | Mark ((_, buffer, mark_start, mark_stop) :: _) ->
-                            let start = buffer#get_iter (`MARK mark_start) in
-                            let stop = buffer#get_iter (`MARK mark_stop) in
                             let old = page#view#options#mark_occurrences in
                             page#view#options#set_mark_occurrences (false, false, "");
+                            let start = buffer#get_iter (`MARK mark_start) in
+                            let stop = buffer#get_iter (`MARK mark_stop) in
                             buffer#select_range start stop;
                             page#ocaml_view#scroll_aligned start;
                             editor#goto_view page#view;
