@@ -57,19 +57,16 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
 
     method build ~start:iter ~stop =
       Prf.register Prf.build_margin_ln begin fun () ->
+        (*markers#build ~start:iter ~stop;*)
         model <- [];
         let buffer = view#buffer in
         let start_line = iter#line in
         let stop_line = stop#line in
-        let marks_by_ln =
-          markers#model
-          |> Utils.ListExt.group_by (fun (ln, _) -> ln)
-          |> List.filter_map (fun (ln, ms) -> if List.length ms > 0 then Some ln else None)
-        in
+        let lines_with_markers = markers#get_lines_with_markers() in
         for line_idx = start_line to stop_line do
           if is_invisible_line line_idx then () else
             let num = line_idx + 1 in
-            if not (List.mem num marks_by_ln) then begin
+            if not (List.mem num lines_with_markers) then begin
               let line_iter = buffer#get_iter (`LINE line_idx) in
               let yl, _ = view#get_line_yrange line_iter in
               let y = yl + view#pixels_above_lines in

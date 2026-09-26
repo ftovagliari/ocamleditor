@@ -186,7 +186,7 @@ let project ~browser ~group ~flags items =
 
   (* Run current *)
   let project_run = Image_menu.item ~label:"Run" ~image:(Icons.create (??? Icons.start_16))#coerce ~packing:menu#add () in
-  project_run#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F11 ~flags;
+  project_run#add_accelerator ~group ~modi:[] ~flags GdkKeysyms._F5;
   ignore (project_run#connect#activate ~callback:begin fun () ->
       browser#with_current_project (fun project ->
           browser#with_default_runtime_config ~open_dialog:true (fun rc ->

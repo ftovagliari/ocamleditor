@@ -718,6 +718,7 @@ class browser window =
       let menu_item_view_messages = ref [] in
       let menu_item_view_hmessages = ref [] in
       let accel_group = GtkData.AccelGroup.create () in
+      window#add_accel_group accel_group;
       let group = accel_group in
       let menu_items = Menu.create ~browser:self ~group
           ~get_menu_item_undo
@@ -1000,7 +1001,6 @@ class browser window =
       end;
       (*  *)
       self#set_geometry();
-      window#add_accel_group accel_group;
       (* Listen for launcher *)
       let launcher_list = App_config.launcher_filename in
       let id_timeout = ref None in

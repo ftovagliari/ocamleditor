@@ -290,6 +290,10 @@ class widget
 
     (** find *)
     method find ?all () =
+      Async.create ~name:__FUNCTION__ (fun () -> self#find_async ?all ())
+      |> Async.start
+
+    method private find_async ?all () =
       if String.length self#options.text_find#get > 0 then begin
         self#clear();
         find_all <- all;
@@ -308,7 +312,7 @@ class widget
         begin
           try
             if all <> (Some false) then begin
-              GtkThread.sync search_started#call ();
+              GtkThread.async search_started#call ();
               begin
                 match buffer with
                 | None ->

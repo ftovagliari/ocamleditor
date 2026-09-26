@@ -4,6 +4,7 @@ open Printf
 
 class markers (view : GText.view) =
   let font = "FiraCode OCamlEditor 12" in
+  let last_id = Atomic.make 0 in
   object (self)
     inherit [(int * GObj.widget * int * int) list] widget ()
     val mutable size = 18
@@ -22,13 +23,18 @@ class markers (view : GText.view) =
     method set_size_extent x = size_extent <- x
 
     method add ~kind ~mark ~icon ~color =
-      let marker = {kind; mark; icon=(Some (icon, color)); icon_obj=None} in
+      let marker = {id = Atomic.fetch_and_add last_id 1; kind; mark; icon=(Some (icon, color)); icon_obj=None} in
       markers <- marker :: markers;
       marker
 
     method remove markers_to_remove =
-      markers <- List.filter (fun x -> not (List.memq x markers)) markers_to_remove;
+      markers <- markers |> List.filter (fun m -> not (List.exists (fun r -> r.id = m.id) markers_to_remove)) ;
       Gutter.destroy_markers markers_to_remove;
+
+    method get_lines_with_markers () =
+      model
+      |> Utils.ListExt.group_by (fun (ln, _) -> ln)
+      |> List.filter_map (fun (ln, ms) -> if List.length ms > 0 then Some ln else None)
 
     method build ~start ~stop =
       avail_width <- size + size_extent;

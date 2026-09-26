@@ -61,9 +61,6 @@ let create ~editor ~page () =
   gmenu#append (GMenu.separator_item ());
 
   (*  *)
-  let show_doc_at_cursor = Image_menu.item ~label:"Show Documentation" ~packing:gmenu#append () in
-  show_doc_at_cursor#connect#activate ~callback:editor#show_doc_at_cursor |> ignore;
-  show_doc_at_cursor#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
   let find_definition = Image_menu.item ~label:"Find Definition" ~image: (GMisc.image ~pixbuf:(??? Icons.definition) ()) ~packing:gmenu#append () in
   let find_references = Image_menu.item ~label:"Find References" ~image: (GMisc.image ~pixbuf:(??? Icons.references) ()) ~packing:gmenu#append () in
   (*  *)
@@ -130,6 +127,8 @@ let create ~editor ~page () =
     List.iter (fun (w, s) -> w#misc#handler_unblock s) sigids;
     gmenu#connect#deactivate ~callback:(fun () -> Quick_info.set_active page#quick_info true) |> ignore;
     Quick_info.set_active page#quick_info false;
+    gmenu#misc#realize();
+    Gdk.Window.set_transient_for gmenu#misc#window page#view#misc#window;
     gmenu#popup ~button:3 ~time:(GdkEvent.Button.time ev);
     Gdk.Window.set_cursor gmenu#misc#window (Gdk.Cursor.create `ARROW);
     true

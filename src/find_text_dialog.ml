@@ -24,6 +24,11 @@ open Printf
 open Find_text
 open Preferences
 
+module Log = Common.Log.Make(struct let prefix = "FIND-DIALOG" end)
+let _ =
+  Log.set_print_timestamp true;
+  Log.set_verbosity `DEBUG
+
 (** create *)
 let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     ?(search_word_at_cursor=false)
@@ -245,9 +250,11 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     widget#set_selected_text_bounds (if check_selected_text_only#active then selected_text_bounds else None);
   in
   let callback ?all () =
-    set_options();
     dialog#misc#hide();
-    ignore (Thread.create (fun () -> widget#find ?all ()) ());
+    Gmisclib.Idle.add begin fun () ->
+      set_options();
+      widget#find ?all ();
+    end;
   in
   button_find_all#connect#clicked ~callback:(fun () -> callback ~all:true ()) |> ignore;
   button_find#connect#clicked ~callback:begin fun () ->

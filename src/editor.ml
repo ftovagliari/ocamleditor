@@ -851,8 +851,6 @@ class editor () =
         end;
       end |> ignore;
 
-    method show_doc_at_cursor () = ()
-
     initializer
       File_history.read file_history;
       (*  *)

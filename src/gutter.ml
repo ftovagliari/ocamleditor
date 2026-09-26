@@ -24,6 +24,7 @@
 type marker_kind = [`None | `Bookmark of int | `Error of string | `Warning of string] [@@deriving show]
 
 type marker = {
+  id                      : int;
   kind                    : marker_kind;
   mark                    : Gtk.text_mark [@opaque];
   icon                    : (string * string) option;

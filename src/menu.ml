@@ -159,10 +159,6 @@ let edit ~browser ~group ~flags
   ignore (quick_info_mouse#connect#toggled ~callback:(fun () ->
       Preferences.preferences#get.Settings_j.editor_quick_info_enabled <- quick_info_mouse#active;
       Preferences.save()));
-  (** Show documentation *)
-  let show_doc_at_cursor = Image_menu.item ~label:"Show Documentation" ~packing:menu#add () in
-  show_doc_at_cursor#connect#activate ~callback:editor#show_doc_at_cursor |> ignore;
-  show_doc_at_cursor#add_accelerator ~group ~modi:[] GdkKeysyms._F1 ~flags;
   let _ = GMenu.separator_item ~packing:menu#add () in
   (** Eval in Toplevel *)
   let to_shell = Image_menu.item ~image:(Icons.create (??? Icons.toplevel)) ~label:"Eval in Toplevel" ~packing:menu#add () in
@@ -432,10 +428,6 @@ let view ~browser ~group ~flags
   (* Expand All folds *)
   let unfold_all = GMenu.menu_item ~label:"Expand All Folds [Ctrl+K J]" ~packing:code_folding_menu#add () in
   unfold_all#connect#activate ~callback:(fun () -> editor#with_current_page Margin_fold.expand_all) |> ignore;
-  (** Select in Structure Pane *)
-  let select_in_outline = Image_menu.item
-      ~image:(GMisc.image ~pixbuf:(??? Icons.select_in_structure) ~icon_size:`MENU ())#coerce
-      ~label:"Select in Structure Pane" ~packing:menu#add () in
   (** Show Whitespace Characters *)
   let show_whitespace_chars = GMenu.check_menu_item
       ~active:editor#show_whitespace_chars
@@ -469,7 +461,6 @@ let view ~browser ~group ~flags
   ignore (view#misc#connect#state_changed ~callback:begin fun _ ->
       Menu_view.update_labels
         ~code_folding
-        ~select_in_outline
         ~enable_code_folding
         ~collapse_enclosing
         ~unfold_all
@@ -552,6 +543,19 @@ let window ~browser ~group ~flags
       browser#goto_location `PREV; browser#set_menu_item_nav_history_sensitive()));
   let _ = GMenu.separator_item ~packing:backward_menu#add () in
   browser#create_menu_history `BACK ~menu:backward_menu;
+  browser#window#event#connect#button_release ~callback:begin fun ev ->
+    begin
+      match GdkEvent.Button.button ev with
+      | 8 ->
+          browser#goto_location `PREV;
+          browser#set_menu_item_nav_history_sensitive()
+      | 9 ->
+          browser#goto_location `NEXT;
+          browser#set_menu_item_nav_history_sensitive()
+      | _ -> ()
+    end;
+    false
+  end |> ignore;
   (** Navigation Forward *)
   let forward_menu = GMenu.menu ~packing:forward#set_submenu () in
   let next = GMenu.menu_item ~label:"Next Location" ~packing:forward_menu#add () in

@@ -25,6 +25,11 @@ open Printf
 open Utils
 open Convert
 
+module Log = Common.Log.Make(struct let prefix = "FIND-TEXT" end)
+let _ =
+  Log.set_print_timestamp true;
+  Log.set_verbosity `DEBUG
+
 exception Buffer_changed of int * string * string
 exception Skip_file
 exception Found_step of int * int * int
@@ -36,30 +41,26 @@ type direction = Backward | Forward
 type path = Project_source | Specified of string | Only_open_files
 
 type history_model = {
-  model                  : GTree.list_store;
-  column                 : string GTree.column;
+  model : GTree.list_store;
+  column : string GTree.column;
 }
 
 type status = {
-  mutable text_find      : string GUtil.variable;
-  mutable text_repl      : string;
-  mutable use_regexp     : bool;
-  mutable case_sensitive : bool;
+  mutable text_find        : string GUtil.variable;
+  mutable text_repl        : string;
+  mutable use_regexp       : bool;
+  mutable case_sensitive   : bool;
   mutable match_whole_word : bool;
-  mutable direction      : direction;
-  mutable path           : path;
-  mutable recursive      : bool;
-  mutable pattern        : string option;
-  mutable current_regexp : Str.regexp option;
-  mutable hist_find_list : string list;
-  mutable hist_repl_list : string list;
-  mutable hist_path_list : string list;
-  mutable hist_pattern_list : string list;
-  h_find                 : history_model;
-  h_repl                 : history_model;
-  h_path                 : history_model;
-  h_pattern              : history_model;
-  status_filename        : string;
+  mutable direction        : direction;
+  mutable path             : path;
+  mutable recursive        : bool;
+  mutable pattern          : string option;
+  mutable current_regexp   : Str.regexp option;
+  mutable h_find           : history_model;
+  mutable h_repl           : history_model;
+  mutable h_path           : history_model;
+  mutable h_pattern        : history_model;
+  status_filename          : string;
 }
 
 type result_entry = {
@@ -89,13 +90,21 @@ let path_of_atd_path (p : Find_text_t.path_type) =
 
 let default_patterns = [ "*.{ml,mli,mll,mly,txt}" ]
 
-let populate_model (model : GTree.list_store) column list =
-  model#clear ();
+let create_history_model () =
+  let cols = new GTree.column_list in
+  let column      = cols#add Gobject.Data.string in
+  {model = GTree.list_store cols; column = column}
+
+let populate_model data =
+  (* Here, we rebuild the data model because clearing the pre-existing model
+     using `history.model#clear()` turns out to be very slow, even
+     for just a few dozen elements. *)
+  let history = create_history_model () in
   List.iter begin fun x ->
-    let safe_x = Bytes.to_string (Bytes.of_string x) in
-    let row = model#append () in
-    model#set ~row ~column safe_x
-  end list
+    let row = history.model#append () in
+    history.model#set ~row ~column:history.column x
+  end data;
+  history
 
 (** status *)
 let status =
@@ -116,54 +125,41 @@ let status =
     recursive       = false;
     pattern         = Some "*.ml";
     current_regexp  = None;
-    hist_find_list    = [];
-    hist_repl_list    = [];
-    hist_path_list    = [];
-    hist_pattern_list = [];
-    h_find          =
-      (let cols = new GTree.column_list in
-       let column      = cols#add Gobject.Data.string in
-       {model = GTree.list_store cols; column = column});
-    h_repl          =
-      (let cols = new GTree.column_list in
-       let column      = cols#add Gobject.Data.string in
-       {model = GTree.list_store cols; column = column});
-    h_path          =
-      (let cols = new GTree.column_list in
-       let column      = cols#add Gobject.Data.string in
-       {model = GTree.list_store cols; column = column});
-    h_pattern       =
-      (let cols = new GTree.column_list in
-       let column      = cols#add Gobject.Data.string in
-       {model = GTree.list_store cols; column = column});
+    h_find          = create_history_model ();
+    h_repl          = create_history_model ();
+    h_path          = create_history_model ();
+    h_pattern       = create_history_model ();
   }
 
+let read_history history =
+  let tmp = ref [] in
+  history.model#foreach begin fun _ row ->
+    tmp := (history.model#get ~row ~column:history.column) :: !tmp;
+    false
+  end;
+  List.rev !tmp
+
 let write_status () =
-  let update_list prepend current_list (model : GTree.list_store) column =
-    (* 1. Aggiorna la lista OCaml pura *)
-    let filtered = if prepend <> "" then List.filter ((<>) prepend) current_list else current_list in
-    let updated = if prepend <> "" then prepend :: filtered else filtered in
-    let final_list =
-      if List.length updated > Oe_config.find_replace_history_max_length then
-        List.filteri (fun i _ -> i < Oe_config.find_replace_history_max_length) updated
-      else
-        updated
+  let update_model prepend history =
+    let hist = read_history history in
+    let new_data =
+      if prepend <> ""
+      then prepend :: (hist |> List.filter ((<>) prepend))
+      else hist
     in
-    (* 2. Sincronizza il modello GTK per la GUI *)
-    populate_model model column final_list;
-
-    final_list
+    let new_data =
+      if List.length new_data > Oe_config.find_replace_history_max_length then
+        List.filteri (fun i _ -> i < Oe_config.find_replace_history_max_length) new_data
+      else new_data
+    in
+    populate_model new_data
   in
-
-  (* Aggiorna e salva usando le liste OCaml *)
-  status.hist_find_list <- update_list status.text_find#get status.hist_find_list status.h_find.model status.h_find.column;
-  status.hist_repl_list <- update_list status.text_repl status.hist_repl_list status.h_repl.model status.h_repl.column;
-
+  status.h_find <- update_model status.text_find#get status.h_find;
+  status.h_repl <- update_model status.text_repl status.h_repl;
   let path_str = match status.path with Project_source -> "" | Specified x -> x | Only_open_files -> "" in
-  status.hist_path_list <- update_list path_str status.hist_path_list status.h_path.model status.h_path.column;
-
+  status.h_path <- update_model path_str status.h_path;
   let pat_str = match status.pattern with None -> "" | Some x -> x in
-  status.hist_pattern_list <- update_list pat_str status.hist_pattern_list status.h_pattern.model status.h_pattern.column;
+  status.h_pattern <- update_model pat_str status.h_pattern;
 
   let atd_status = {
     Find_text_t.use_regexp = status.use_regexp;
@@ -172,17 +168,14 @@ let write_status () =
     recursive = status.recursive;
     pattern_enabled = (status.pattern <> None);
     path = atd_path_of_path status.path;
-    history_find = List.map to_utf8 status.hist_find_list;
-    history_repl = List.map to_utf8 status.hist_repl_list;
-    history_path = List.map to_utf8 status.hist_path_list;
-    history_pattern = List.map to_utf8 status.hist_pattern_list;
+    history_find = read_history status.h_find;
+    history_repl = read_history status.h_repl;
+    history_path = read_history status.h_path;
+    history_pattern = read_history status.h_pattern;
   } in
   try
     let json_str = Find_text_j.string_of_find_text_status atd_status |> Yojson.Safe.prettify in
-    let ochan = open_out status.status_filename in
-    Fun.protect
-      ~finally:(fun () -> close_out ochan)
-      (fun () -> output_string ochan json_str)
+    Out_channel.with_open_bin status.status_filename (fun oc -> Out_channel.output_string oc json_str);
   with ex ->
     eprintf "Failed to write find_text status to %s: %s\n%!" status.status_filename (Printexc.to_string ex)
 
@@ -192,24 +185,19 @@ let read_status () =
       let chan = open_in_bin status.status_filename in
       let content = really_input_string chan (in_channel_length chan) in
       close_in chan;
-      let atd_status = Find_text_j.find_text_status_of_string content in
-      status.use_regexp <- atd_status.use_regexp;
-      status.case_sensitive <- atd_status.case_sensitive;
-      status.match_whole_word <- atd_status.match_whole_word;
-      status.recursive <- atd_status.recursive;
-      status.pattern <- if atd_status.pattern_enabled then Some "" else None;
-      status.path <- path_of_atd_path atd_status.path;
+      let module J = Find_text_j in
+      let atd_status = J.find_text_status_of_string content in
+      status.use_regexp <- atd_status.J.use_regexp;
+      status.case_sensitive <- atd_status.J.case_sensitive;
+      status.match_whole_word <- atd_status.J.match_whole_word;
+      status.recursive <- atd_status.J.recursive;
+      status.pattern <- if atd_status.J.pattern_enabled then Some "" else None;
+      status.path <- path_of_atd_path atd_status.J.path;
 
-      (* Salva nelle liste OCaml e popola GTK *)
-      status.hist_find_list <- atd_status.history_find;
-      status.hist_repl_list <- atd_status.history_repl;
-      status.hist_path_list <- atd_status.history_path;
-      status.hist_pattern_list <- atd_status.history_pattern;
-
-      populate_model status.h_find.model status.h_find.column status.hist_find_list;
-      populate_model status.h_repl.model status.h_repl.column status.hist_repl_list;
-      populate_model status.h_path.model status.h_path.column status.hist_path_list;
-      populate_model status.h_pattern.model status.h_pattern.column status.hist_pattern_list;
+      status.h_find <- populate_model atd_status.J.history_find;
+      status.h_repl <- populate_model atd_status.J.history_repl;
+      status.h_path <- populate_model atd_status.J.history_path;
+      status.h_pattern <- populate_model atd_status.J.history_pattern;
     with ex ->
       eprintf "Failed to read find_text status from %s: %s\n%!" status.status_filename (Printexc.to_string ex);
       if Sys.file_exists status.status_filename then (try Sys.remove status.status_filename with _ -> ())
@@ -266,9 +254,6 @@ let clear_history () =
   status.h_find.model#clear();
   status.h_repl.model#clear();
   status.h_pattern.model#clear();
-  status.hist_find_list <- [];
-  status.hist_repl_list <- [];
-  status.hist_pattern_list <- default_patterns;
   write_status()
 
 let _ = begin
@@ -278,27 +263,3 @@ let _ = begin
   end;
   read_status ()
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
