@@ -81,7 +81,7 @@ let init_editor editor =
   (* Timeout *)
   let id_timeout_diff = ref None in
   let create_timeout_diff () =
-    Option.iter GMain.Timeout.remove !id_timeout_diff;
+    Option.iter Gmisclib.Timeout.remove !id_timeout_diff;
     id_timeout_diff := None;
     let callback () =
       try
@@ -94,7 +94,7 @@ let init_editor editor =
           __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
         true
     in
-    id_timeout_diff := Some (GMain.Timeout.add ~ms:1000 ~callback);
+    id_timeout_diff := Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:1000 ~callback);
   in
   let main _ =
     create_timeout_diff();
@@ -104,7 +104,7 @@ let init_editor editor =
         false
       end |> ignore;
       w#event#connect#focus_out ~callback:begin fun _ ->
-        Gaux.may !id_timeout_diff ~f:GMain.Timeout.remove;
+        Gaux.may !id_timeout_diff ~f:Gmisclib.Timeout.remove;
         id_timeout_diff := None;
         false
       end |> ignore;

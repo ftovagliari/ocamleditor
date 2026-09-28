@@ -1001,38 +1001,9 @@ class browser window =
       end;
       (*  *)
       self#set_geometry();
-      (* Listen for launcher *)
-      let launcher_list = App_config.launcher_filename in
-      let id_timeout = ref None in
-      let check_launcher () =
-        if Sys.file_exists launcher_list then begin
-          let text = File_util.read launcher_list in
-          let filenames = Str.split (Utils.regexp "\n") (Buffer.contents text) in
-          let filenames = List.map String.trim filenames in
-          let filenames = Utils.ListExt.remove_dupl filenames in
-          List.iter begin fun filename ->
-            editor#open_file ~active:true ~offset:0 filename |> ignore;
-          end filenames;
-          let mv = maximized_view_action in
-          window#set_modal true;
-          window#present();
-          if Sys.file_exists launcher_list then Sys.remove launcher_list;
-          window#set_modal false;
-          self#set_maximized_view mv;
-          self#set_maximized_view mv;
-        end;
-      in
-      window#event#connect#focus_out ~callback:begin fun _ ->
-        id_timeout := Some (GMain.Timeout.add ~ms:300 ~callback:begin fun () ->
-            check_launcher();
-            true
-          end);
-        false
-      end |> ignore;
       window#event#connect#focus_in ~callback:begin fun _ ->
         self#set_title();
         self#update_git_status();
-        (match !id_timeout with Some id -> GMain.Timeout.remove id; id_timeout := None | _ -> ());
         false
       end |> ignore;
       (* Key sequences ("chords") *)
@@ -1050,7 +1021,7 @@ class browser window =
           let ms = 5000 in
           (* TODO: Lablgtk3 issue, flash_message *)
           (*statusbar#flash_message ~delay:ms "Ctrl+K was pressed. Waiting for a second key...";*)
-          GMain.Timeout.add ~ms ~callback:(fun () -> window#destroy(); false) |> ignore;
+          Gmisclib.Timeout.add __FUNCTION__ ~ms ~callback:(fun () -> window#destroy(); false) |> ignore;
           window#event#connect#key_press ~callback:begin fun ev ->
             let state = GdkEvent.Key.state ev in
             let keyval = GdkEvent.Key.keyval ev in
@@ -1077,8 +1048,6 @@ class browser window =
           true
         end else false
       end |> ignore;
-      (*  *)
-      check_launcher()
 
     method connect = new signals ~startup ~switch_project ~project_history_changed
 

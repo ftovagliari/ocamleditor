@@ -253,7 +253,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     dialog#misc#hide();
     Gmisclib.Idle.add begin fun () ->
       set_options();
-      widget#find ?all ();
+      widget#find_async ?all ();
     end;
   in
   button_find_all#connect#clicked ~callback:(fun () -> callback ~all:true ()) |> ignore;
@@ -265,10 +265,12 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
         dialog#destroy();
   end |> ignore;
   button_repl#connect#clicked ~callback:begin fun () ->
-    set_options();
     dialog#misc#hide();
-    widget#find();
-    widget#replace();
+    set_options();
+    Gmisclib.Idle.add begin fun () ->
+      widget#find();
+      widget#replace();
+    end
   end |> ignore;
   button_cancel#connect#clicked ~callback:begin fun () ->
     if widget#misc#parent <> None then (dialog#misc#hide ()) else (dialog#destroy ());

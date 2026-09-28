@@ -602,8 +602,6 @@ let help ~browser ~group ~flags items =
     Gdk.Window.set_cursor menu#misc#window cursor;
     false;
   end |> ignore;
-  let gc_compact = GMenu.menu_item ~label:"Force Garbage Collection" ~packing:menu#add () in
-  ignore (gc_compact#connect#activate ~callback:Gc.compact);
   let clear_cache = GMenu.menu_item ~label:"Clear Editor Cache" ~packing:menu#add () in
   ignore (clear_cache#connect#activate ~callback:editor#clear_cache);
   let crono = GMenu.menu_item ~label:"Print Debug Info" ~packing:menu#add () in

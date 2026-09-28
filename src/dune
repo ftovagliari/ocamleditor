@@ -16,13 +16,12 @@
 ; INFO: target "ocamleditor": required library "ocamlcommon" resolved to dune library "compiler-libs.common".
 ; INFO: target "ocamleditor": required library "ocamlcommon" resolved to dune library "compiler-libs.common".
 ; INFO: target "ocamleditor": depends on "oebuild", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
-; INFO: target "ocamleditor": depends on "launcher", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
 ; INFO: target "ocamleditor": depends on "prepare-build", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
 ; WARNING: target "ocamleditor": unknown dependency ids 19, 16, 22, 17, 18; ignored.
 ; INFO: target "ocamleditor-lib": package "compiler-libs" is not a dune library name; using "compiler-libs.common".
 ; INFO: target "ocamleditor-lib": depends on "oebuild", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
-; INFO: target "ocamleditor-lib": depends on "launcher", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
 ; INFO: target "ocamleditor-lib": depends on "prepare-build", which is not a library; a dune stanza cannot depend on it. Generation rules establish the ordering instead.
+; WARNING: target "ocamleditor-lib": unknown dependency id 28; ignored.
 
 ; target "prepare-build" / task "err_lexer.ml"
 (rule
@@ -197,8 +196,7 @@
 (library
  (name ocamleditor_lib)
  (wrapped false)
- (modules
-  (:standard \ generate_oebuild_script ocamleditor ocamleditor_launcher))
+ (modules (:standard \ generate_oebuild_script ocamleditor))
  (libraries
   common
   gmisclib
@@ -225,13 +223,3 @@
  (flags (:standard -warn-error -A -w -s-y-x-m -g))
  (ocamlopt_flags (:standard -inline 50))
  (library_flags (:standard -g)))
-
-(executable
- (name ocamleditor_launcher)
- (public_name ocamleditorw)
- (modules ocamleditor_launcher)
- (libraries common str unix)
- (flags (:standard -warn-error -A))
- (ocamlopt_flags (:standard -compact))
- (link_flags (:standard -compact))
- (enabled_if (<> %{system} mingw)))

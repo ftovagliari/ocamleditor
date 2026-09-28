@@ -519,8 +519,10 @@ module App_config = struct (*
 
 *)
 
-
 open Printf
+
+let () =
+  let open [@warning "-33"] Ocaml_config in ()
 
 (** Alias for [Filename.concat] *)
 let (//) = Filename.concat
@@ -577,13 +579,7 @@ let user_home =
      with Not_found -> failwith "Please set your HOME environment variable.")
 
 let ocamleditor_user_home =
-  let dirname =
-    match Ocaml_config.is_mingw with
-    | true when application_debug -> ".ocamleditor.mingw"
-    | true -> ".ocamleditor.test.mingw"
-    | false when application_debug -> ".ocamleditor.test"
-    | false -> ".ocamleditor"
-  in
+  let dirname = if application_debug then ".ocamleditor.debug" else ".ocamleditor" in
   user_home // dirname
 
 let ensure_ocamleditor_user_home () =
@@ -3231,7 +3227,7 @@ let external_tasks = [
     et_cmd                   = "ocaml";
     et_args                  = [true,"-I"; true,"+unix"; true,"-I"; true,"+str"; true,"str.cma"; true,"unix.cma"; true,"generate_oebuild_script.ml"];
     et_outputs               = [true,"oebuild_script.ml"];
-    et_deps                  = [true,"\021\164\023W\005\000\000\000_oebuild_script.ml"; true,"../header"; true,"common/utils.ml"; true,"common/file_util.ml"; true,"common/argc.ml"; true,"common/log.ml"; true,"common/shell.ml"; true,"common/ocaml_config.ml"; true,"common/app_config.ml"; true,"common/spawn.ml"; true,"task.ml"; true,"build_script_command.ml"; true,"oebuild/oebuild_util.ml"; true,"oebuild/oebuild_table.ml"; true,"oebuild/oebuild_dag.ml"; true,"oebuild/oebuild_dep.ml"; true,"oebuild/oebuild_dep_dag.ml"; true,"oebuild/oebuild_parallel.ml"; true,"oebuild/oebuild.ml"; true,"build_script_util.ml"];
+    et_deps                  = [true,"generate_oebuild_script.ml"; true,"../header"; true,"common/utils.ml"; true,"common/file_util.ml"; true,"common/argc.ml"; true,"common/log.ml"; true,"common/shell.ml"; true,"common/ocaml_config.ml"; true,"common/app_config.ml"; true,"common/spawn.ml"; true,"task.ml"; true,"build_script_command.ml"; true,"oebuild/oebuild_util.ml"; true,"oebuild/oebuild_table.ml"; true,"oebuild/oebuild_dag.ml"; true,"oebuild/oebuild_dep.ml"; true,"oebuild/oebuild_dep_dag.ml"; true,"oebuild/oebuild_parallel.ml"; true,"oebuild/oebuild.ml"; true,"build_script_util.ml"];
     et_phase                 = Some Compile;
     et_always_run_in_project = true;
     et_always_run_in_script  = true;
@@ -3712,37 +3708,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 6 *)
-  "launcher", {
-    descr                = "Utility to open OCaml files from the file manager";
-    num                  = 6;
-    id                   = 28;
-    output_name          = "ocamleditorw";
-    target_type          = Executable;
-    compilation_bytecode = false;
-    compilation_native   = true;
-    toplevel_modules     = "ocamleditor_launcher.ml";
-    package              = "unix,str";
-    search_path          = "common"; (* -I *)
-    required_libraries   = "common";
-    compiler_flags       = "-compact";
-    linker_flags         = "-compact";
-    thread               = false;
-    vmthread             = false;
-    pp                   = "";
-    inline               = None;
-    nodep                = false;
-    dontlinkdep          = false;
-    dontaddopt           = true;
-    library_install_dir  = ""; (* Relative to the Standard Library Directory *)
-    other_objects        = "";
-    external_tasks       = [];
-    restrictions         = ["OCAML(system<>mingw)"];
-    dependencies         = [];
-    show                 = true;
-  };
-  
-  (* 6 *)
+  (* 5 *)
   "tools", {
     descr                = "";
     num                  = 0;
@@ -3772,7 +3738,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 6 *)
+  (* 5 *)
   "FINDLIB-TOOLS", {
     descr                = "";
     num                  = 0;

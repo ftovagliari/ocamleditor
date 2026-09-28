@@ -168,7 +168,7 @@ let reset ?(hide=true) ?(ms=0) () =
     end;
     false
   in
-  if ms > 0 then GMain.Timeout.add ~ms ~callback |> ignore
+  if ms > 0 then Gmisclib.Timeout.add __FUNCTION__ ~ms ~callback |> ignore
   else callback () |> ignore
 
 let set_active qi value = qi.is_active <- value;;
@@ -269,14 +269,14 @@ let show qi hover x y =
         hover.last_pos <- (x, y);
       end
   | Some Motion -> (* TODO Not tested *)
-      hover.effect_timer |> Option.iter GMain.Timeout.remove;
+      hover.effect_timer |> Option.iter Gmisclib.Timeout.remove;
       hover.effect_timer <- Effect.motion hover x y begin fun () ->
           hover.last_pos <- (x, y);
           hover.effect_timer <- None
         end;
       hover.doc_label#misc#show(); (* Resize the window to fit content *)
   | Some Fade ->
-      hover.effect_timer |> Option.iter GMain.Timeout.remove;
+      hover.effect_timer |> Option.iter Gmisclib.Timeout.remove;
       hover.window#set_opacity 0.0;
       hover.window#show();
       hover.doc_label#misc#show(); (* Resize the window to fit content *)
@@ -533,14 +533,14 @@ let connect_to_view qi (view : Ocaml_text.view) =
     false
   end |> ignore;
   view#event#connect#scroll ~callback:begin fun _ ->
-    GMain.Timeout.add ~ms:200 ~callback:begin fun () ->
+    Gmisclib.Timeout.add __FUNCTION__ ~ms:200 ~callback:begin fun () ->
       reset ();
       false
     end  |> ignore;
     false
   end |> ignore;
   view#event#connect#focus_in ~callback:begin fun _ ->
-    GMain.Timeout.add ~ms:500 ~callback:begin fun () ->
+    Gmisclib.Timeout.add __FUNCTION__ ~ms:500 ~callback:begin fun () ->
       view#misc#set_has_tooltip qi.is_active;
       false
     end |> ignore;
@@ -552,7 +552,7 @@ let connect_to_view qi (view : Ocaml_text.view) =
     false
   end |> ignore;
   view#event#connect#leave_notify ~callback:begin fun _ ->
-    GMain.Timeout.add ~ms:500 ~callback:begin fun () ->
+    Gmisclib.Timeout.add __FUNCTION__ ~ms:500 ~callback:begin fun () ->
       reset ();
       false
     end |> ignore;

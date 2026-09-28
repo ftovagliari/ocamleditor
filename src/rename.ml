@@ -14,21 +14,21 @@ let do_rename page renaming_positions new_name cont =
       match token with
       | `Label when is_use ->
           Log.println `DEBUG "%d `Label USE" start#offset;
-          page#buffer#insert_interactive ?iter:(Some stop) ?default_editable:None (":" ^ new_name) |> ignore;
+          page#buffer#insert ?iter:(Some stop) ?tag_names:None ?tags:None (":" ^ new_name) |> ignore;
           count + 1
       | `Label ->
           Log.println `DEBUG "%d `Label DEF" start#offset;
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
-          page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
+          page#buffer#delete ~start ~stop |> ignore;
+          page#buffer#insert ?iter:(Some start) ?tag_names:None ?tags:None new_name |> ignore;
           count + 1
       | `Record_label_semi ->
           Log.println `DEBUG "%d `Record_label_semi" start#offset;
-          page#buffer#insert_interactive ?iter:(Some stop) ?default_editable:None (" = " ^ new_name) |> ignore;
+          page#buffer#insert ?iter:(Some stop) ?tag_names:None ?tags:None (" = " ^ new_name) |> ignore;
           count + 1
       | `Lident ->
           Log.println `DEBUG "%d `Lident %s" start#offset (if is_use then "USE" else "DEF");
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
-          page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
+          page#buffer#delete ~start ~stop |> ignore;
+          page#buffer#insert ?iter:(Some start) ?tag_names:None ?tags:None new_name |> ignore;
           count + 1
       | `Record_label_equal
       | `Dot_lident
@@ -36,8 +36,8 @@ let do_rename page renaming_positions new_name cont =
           assert false
       | `None ->
           Log.println `DEBUG "%d `None %s" start#offset (if is_use then "USE" else "DEF");
-          page#buffer#delete_interactive ~start ~stop ?default_editable:None () |> ignore;
-          page#buffer#insert_interactive ?iter:(Some start) ?default_editable:None new_name |> ignore;
+          page#buffer#delete ~start ~stop |> ignore;
+          page#buffer#insert ?iter:(Some start) ?tag_names:None ?tags:None new_name |> ignore;
           count + 1
     end 0
   in
@@ -129,7 +129,7 @@ let rename editor =
               (* TODO Support prefix and infix symbols *)
               let cont () =
                 popover.Gtk_util.popdown();
-                GMain.Timeout.add ~ms:1000 ~callback:(fun () -> popover.Gtk_util.destroy();false) |> ignore;
+                Gmisclib.Timeout.add __FUNCTION__ ~ms:1000 ~callback:(fun () -> popover.Gtk_util.destroy();false) |> ignore;
               in
               try
                 if Str.string_match re_ocaml_ident new_name 0 then begin

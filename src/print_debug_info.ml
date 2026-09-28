@@ -77,5 +77,7 @@ let print ~editor () =
     Merlin.check_configuration ~filename:page#get_filename
       ~buffer:(page#view#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
     |> Async.start
-  end
+  end;
+  Gmisclib.Timeout.print();
+  Gc.compact()
 ;;

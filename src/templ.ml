@@ -203,7 +203,7 @@ class widget ~project ~(view : Ocaml_text.view) ?packing ()=
           apply ~project view templ;
           view#misc#grab_focus();
           popover.Gtk_util.popdown();
-          GMain.Timeout.add ~ms:1000 ~callback:(fun () -> popover.Gtk_util.destroy(); false) |> ignore;
+          Gmisclib.Timeout.add __FUNCTION__ ~ms:1000 ~callback:(fun () -> popover.Gtk_util.destroy(); false) |> ignore;
         with Not_found -> ()
       end |> ignore;
 

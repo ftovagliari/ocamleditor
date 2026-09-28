@@ -481,7 +481,7 @@ class page ?file ~project ~offset ~editor () =
         self#margin_manager#build();
       end |> ignore;
       let show_error_tooltip iter =
-        GMain.Timeout.add ~ms:300 ~callback:(fun () -> error_manager#tooltip ~sticky:true (`ITER iter); false) |> ignore
+        Gmisclib.Timeout.add __FUNCTION__ ~ms:300 ~callback:(fun () -> error_manager#tooltip ~sticky:true (`ITER iter); false) |> ignore
       in
       margin_errors#event#click ~callback:show_error_tooltip |> ignore;
       margin_markers#event#click ~callback:show_error_tooltip |> ignore;

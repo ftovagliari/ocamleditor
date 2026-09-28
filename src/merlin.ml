@@ -252,7 +252,7 @@ let outline ~filename ~buffer =
     match Merlin_j.outline_answer_of_string json with
     | Return outline ->
         Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
-        Ok outline.value
+        Ok (outline.value, Hashtbl.hash json)
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
         Failure msg.value

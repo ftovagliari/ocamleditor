@@ -81,7 +81,8 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
         last_refresh_time <- Unix.gettimeofday();
         (merlin source_code)@@Merlin.outline
         |> Async.start_with_continuation ~name:__FUNCTION__ begin function
-        | Merlin.Ok (ol : Merlin_j.outline list) ->
+        | Merlin.Ok ((ol : Merlin_j.outline list), hash) ->
+            (*let hash = Hashtbl.hash source_code in*)
             (* Extract comments from source and convert to outline entries *)
             let comments =
               let open Location in
@@ -101,7 +102,6 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
               end
             in
             let ol = List.rev_append comments ol in
-            let hash = Hashtbl.hash ol in
             (* Only update if content changed and buffer hasn't been modified *)
             if outline_hash <> hash || force then
               if self#is_valid then begin
@@ -124,7 +124,7 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
     method private start_timer () =
       match timer_id with
       | None ->
-          timer_id <- Some (GMain.Timeout.add ~ms:100 ~callback:(fun () -> self#update(); true));
+          timer_id <- Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:500 ~callback:(fun () -> self#update(); true));
       | _ -> ()
 
     (** Stops the refresh timer and resets timestamps. *)
@@ -135,7 +135,7 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
         | Some id ->
             timer_id <- None;
             last_refresh_time <- 0.0;
-            GMain.Timeout.remove id
+            Gmisclib.Timeout.remove id
       end;
 
     method connect = new outline_signals ~changed
@@ -239,7 +239,6 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       tool_sort_kind#set_label_widget (mk_icon "\u{f1385}")#coerce;
       self#update_preferences();
       Preferences.preferences#connect#changed ~callback:(fun _ -> self#update_preferences ()) |> ignore;
-      self#set_follow_cursor true;
 
       view#connect#row_activated ~callback:begin fun _ _ ->
         (*self#jump_to_definition();*)
@@ -335,7 +334,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       (*Collapse all with smart re-activation of cursor following *)
       tool_collapse_all#connect#clicked ~callback:begin fun () ->
         if tool_follow_cursor#get_active then begin
-          Option.iter GMain.Timeout.remove timer_follow_cursor;
+          Option.iter Gmisclib.Timeout.remove timer_follow_cursor;
           timer_follow_cursor <- None;
           let sig_mark_set = ref None in
           sig_mark_set := Some (buffer#connect#mark_set ~callback:begin fun _ mark ->
@@ -555,7 +554,8 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       tool_goto_cursor_position#misc#set_sensitive (not active);
       if active then
         timer_follow_cursor <- Some begin
-            GMain.Timeout.add ~ms:1000 ~callback:begin fun () ->
+            let name = sprintf "timer_follow_cursor-%s" source_view#obuffer#filename in
+            Gmisclib.Timeout.add name ~ms:1000 ~callback:begin fun () ->
               let mark = buffer#get_mark `INSERT in
               Gmisclib.Idle.add ~prio:300 begin fun () ->
                 if timer_follow_cursor <> None then begin
@@ -570,7 +570,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       else begin
         Option.iter begin fun id ->
           timer_follow_cursor <- None;
-          GMain.Timeout.remove id
+          Gmisclib.Timeout.remove id;
         end timer_follow_cursor
       end
 
@@ -671,9 +671,9 @@ class search (view : GTree.view) =
     (** Resets the auto-close timer.
         Window closes automatically after 4.5 seconds of inactivity. *)
     method add_timer () =
-      timer |> Option.iter GMain.Timeout.remove;
+      timer |> Option.iter Gmisclib.Timeout.remove;
       timer <-
-        Some (GMain.Timeout.add ~ms:4500 ~callback:begin fun () ->
+        Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:4500 ~callback:begin fun () ->
             window#destroy();
             false
           end)

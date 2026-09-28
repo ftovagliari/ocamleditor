@@ -99,7 +99,7 @@ let main () = begin
              caught by the C wrapper and reduced to "GSourceFunc: callback raised
              an exception", with no indication of what failed and the splash
              screen left on screen. Report it ourselves. *)
-          GMain.Timeout.add ~ms:100 ~callback:begin fun () ->
+          Gmisclib.Timeout.add __FUNCTION__ ~ms:100 ~callback:begin fun () ->
             begin
               try start (Some splashscreen)
               with ex ->

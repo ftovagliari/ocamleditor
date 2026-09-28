@@ -229,7 +229,7 @@ let rec scroll_aligned_alt =
       view#scroll_to_iter ~use_align:true ~xalign:xalign ~yalign:yalign iter |> ignore;
     if is_iter_at_yalign view iter yalign then ()
     else
-      GMain.Timeout.add ~ms:50 ~callback:begin fun () ->
+      Gmisclib.Timeout.add __FUNCTION__ ~ms:50 ~callback:begin fun () ->
         scroll_aligned_alt view iter ~xalign ~yalign ~max_attempts:(max_attempts - 1);
         false
       end |> ignore
@@ -284,3 +284,4 @@ let is_iter_visible (view : GText.view) (iter : GText.iter) =
   let start_iter = view#get_iter_at_location ~x ~y in
   let end_iter = view#get_iter_at_location ~x:(x + w) ~y:(y + h) in
   (iter#compare start_iter >= 0) && (iter#compare end_iter <= 0)
+

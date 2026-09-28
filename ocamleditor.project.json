@@ -321,22 +321,6 @@
       "subsystem": [ "Some", "Console" ]
     },
     {
-      "id": 28,
-      "name": "launcher",
-      "descr": "Utility to open OCaml files from the file manager",
-      "byt": false,
-      "opt": true,
-      "libs": "common",
-      "files": "ocamleditor_launcher.ml",
-      "package": "unix,str",
-      "includes": "common",
-      "dontaddopt": true,
-      "cflags": "-compact",
-      "lflags": "-compact",
-      "outname": "ocamleditorw",
-      "restrictions": [ "OCAML(system<>mingw)" ]
-    },
-    {
       "id": 13,
       "name": "tools",
       "target_type": "External",
@@ -469,7 +453,6 @@
       { "target_id": 12 },
       {},
       { "target_id": 20, "show": false },
-      { "target_id": 28 },
       { "target_id": 13, "show": false },
       { "target_id": 27, "show": false }
     ],

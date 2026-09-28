@@ -305,7 +305,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
           true
         end
       in
-      GMain.Timeout.add ~ms:25 ~callback:step |> ignore;
+      Gmisclib.Timeout.add __FUNCTION__ ~ms:25 ~callback:step |> ignore;
 
     method hide_region ?(cont=ignore) () =
       let hide = buffer#apply_tag tag_invisible in

@@ -86,8 +86,6 @@ let ocamleditor_user_home =
 let ensure_ocamleditor_user_home () =
   if not (Sys.file_exists ocamleditor_user_home) then (Unix.mkdir ocamleditor_user_home 509)
 
-let launcher_filename = ocamleditor_user_home // "launcher.list"
-
 let get_application_dir name =
   let exe_dir = !! Sys.executable_name in
   let path = exe_dir // name in

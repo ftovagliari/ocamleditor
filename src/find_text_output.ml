@@ -289,11 +289,11 @@ class widget
     method restart () = ignore (Thread.create (fun () -> self#find ?all:find_all ()) ())
 
     (** find *)
-    method find ?all () =
-      Async.create ~name:__FUNCTION__ (fun () -> self#find_async ?all ())
+    method find_async ?all () =
+      Async.create ~name:__FUNCTION__ (fun () -> self#find ?all ())
       |> Async.start
 
-    method private find_async ?all () =
+    method find ?all () =
       if String.length self#options.text_find#get > 0 then begin
         self#clear();
         find_all <- all;

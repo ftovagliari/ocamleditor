@@ -775,7 +775,7 @@ class editor () =
       let create_timeout_autocomp () =
         match !id_timeout_autocomp with
         | None ->
-            id_timeout_autocomp := Some (GMain.Timeout.add ~ms:500 ~callback:begin fun () ->
+            id_timeout_autocomp := Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:500 ~callback:begin fun () ->
                 if project.Prj.autocomp_enabled then begin
                   try
                     self#with_current_page begin fun page ->
@@ -796,7 +796,7 @@ class editor () =
         match !id_timeout_autosave with
         | None ->
             if Oe_config.autosave_enabled then begin
-              id_timeout_autosave := Some (GMain.Timeout.add ~ms:Autosave.interval ~callback:begin fun () ->
+              id_timeout_autosave := Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:Autosave.interval ~callback:begin fun () ->
                   (*Prf.crono Prf.prf_autosave*) (List.iter begin fun page ->
                   if page#is_changed_after_last_autosave then begin
                     let filename = page#get_filename in
@@ -816,7 +816,7 @@ class editor () =
       let create_timeout_delim () =
         match !id_timeout_delim with
         | None ->
-            id_timeout_delim := Some (GMain.Timeout.add ~ms:1500 ~callback:begin fun () ->
+            id_timeout_delim := Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:1500 ~callback:begin fun () ->
                 self#with_current_page begin fun page ->
                   if page#view#has_focus then begin
                     let offset = (page#buffer#get_iter `INSERT)#offset in
@@ -840,9 +840,9 @@ class editor () =
             false
           end |> ignore;
           w#event#connect#focus_out ~callback:begin fun _ ->
-            Gaux.may !id_timeout_autocomp ~f:GMain.Timeout.remove;
-            Gaux.may !id_timeout_autosave ~f:GMain.Timeout.remove;
-            Gaux.may !id_timeout_delim ~f:GMain.Timeout.remove;
+            Gaux.may !id_timeout_autocomp ~f:Gmisclib.Timeout.remove;
+            Gaux.may !id_timeout_autosave ~f:Gmisclib.Timeout.remove;
+            Gaux.may !id_timeout_delim ~f:Gmisclib.Timeout.remove;
             id_timeout_autocomp := None;
             id_timeout_autosave := None;
             id_timeout_delim := None;
@@ -943,7 +943,7 @@ class editor () =
         end;
       end |> ignore;
       Margin_fold.init_editor self;
-      Diff.init_editor self
+      self#misc#connect#map ~callback:(fun () -> Diff.init_editor self) |> ignore;
   end
 
 (** Signals *)
