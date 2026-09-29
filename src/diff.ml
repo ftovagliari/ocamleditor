@@ -18,6 +18,8 @@ let update_models page diffs =
     | _ -> ()
   end
 
+let mutex = Mutex.create()
+
 let compare_with_head page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
   | Some filename ->
@@ -28,7 +30,7 @@ let compare_with_head page continue_with =
         ~continue_with:begin fun _ ->
           GtkThread.sync begin fun () ->
             let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
-            try continue_with (Odiff.strings_diffs (Buffer.contents buf) text)
+            try continue_with (Mutex.protect mutex (fun () -> Odiff.strings_diffs (Buffer.contents buf) text))
             with ex ->
               Printf.eprintf "%s, %s (%s)\n%!" __LOC__ (Printexc.to_string ex) filename;
           end ()
@@ -85,9 +87,8 @@ let init_editor editor =
     id_timeout_diff := None;
     let callback () =
       try
-        editor#with_current_page begin fun page ->
-          if page#view#has_focus then (try_compare page);
-        end;
+        editor#with_current_page (fun page ->
+            if page#view#has_focus then (try_compare page));
         true
       with ex ->
         Printf.eprintf "%s\n%s\n%s\n%!"
@@ -98,17 +99,23 @@ let init_editor editor =
   in
   let main _ =
     create_timeout_diff();
-    Gaux.may (GWindow.toplevel editor#coerce) ~f:begin fun (w : GWindow.window) ->
-      w#event#connect#focus_in ~callback:begin fun _ ->
-        create_timeout_diff();
-        false
-      end |> ignore;
-      w#event#connect#focus_out ~callback:begin fun _ ->
-        Gaux.may !id_timeout_diff ~f:Gmisclib.Timeout.remove;
-        id_timeout_diff := None;
-        false
-      end |> ignore;
-    end;
+    let connect_focus_change () =
+      GWindow.toplevel editor#coerce
+      |> Option.iter begin fun w ->
+        w#event#connect#focus_in ~callback:begin fun _ ->
+          create_timeout_diff();
+          false
+        end |> ignore;
+        w#event#connect#focus_out ~callback:begin fun _ ->
+          Gaux.may !id_timeout_diff ~f:Gmisclib.Timeout.remove;
+          id_timeout_diff := None;
+          false
+        end |> ignore;
+      end
+    in
+    match GWindow.toplevel editor#coerce with
+    | Some _ -> connect_focus_change ()
+    | _ -> editor#misc#connect#realize ~callback:connect_focus_change |> ignore;
   in
   begin
     try main ()

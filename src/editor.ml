@@ -943,7 +943,7 @@ class editor () =
         end;
       end |> ignore;
       Margin_fold.init_editor self;
-      self#misc#connect#map ~callback:(fun () -> Diff.init_editor self) |> ignore;
+      Diff.init_editor self;
   end
 
 (** Signals *)

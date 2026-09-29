@@ -111,12 +111,12 @@ module Timeout = struct
   let table : t list ref = ref []
 
   let print () =
-    Printf.printf "--------------- Timeouts --------------\n%!" ;
+    Printf.printf "----------------------- Timeouts ----------------------\n%!" ;
     !table
     |> List.iter begin fun info ->
       Printf.printf "%7d: %-50s (%d ms)\n%!" info.id info.name info.ms;
     end;
-    Printf.printf "---------------------------------------\n%!"
+    Printf.printf "-------------------------------------------------------\n%!"
 
   let add name ~ms ~callback =
     let id = Atomic.fetch_and_add last_id 1 in
