@@ -136,7 +136,7 @@ let update ?(is_init=false) db filename =
       ~filename
       ~buffer:(File_util.read filename |> Buffer.contents)
     |> Async.start_with_continuation ~name:(sprintf "%s-outline-%s" __MODULE__ modname) begin function
-    | Merlin.Ok (outline, _) ->
+    | Merlin.Ok outline ->
         add_outline db mod_entry modname outline;
         Mutex.protect mx_name_db (fun () -> mod_entry.timestamp <- Unix.gettimeofday());
     | Merlin.Failure _ | Merlin.Error _ -> ()

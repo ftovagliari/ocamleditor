@@ -26,7 +26,7 @@ class local (view : Text.view) =
     val mutable color_base = `COLOR (view#misc#style#bg `NORMAL)
     val mutable last_diff_time = view#tbuffer#last_edit_time
     val bar_width = size / 2
-    val tri_half_height =size / 2
+    val tri_half_height = size / 3
     val filled = true
     val size = size
 
@@ -136,8 +136,8 @@ class global (view : Text.view) =
           set_foreground drawable color;
           let y = int_of_float (float y /. full_height *. height) in
           polygon drawable ~filled [
-            x + size, y - tri_half_height;
-            x + size, y + tri_half_height;
+            x + bar_width, y - tri_half_height;
+            x + bar_width, y + tri_half_height;
             x, y
           ]
 

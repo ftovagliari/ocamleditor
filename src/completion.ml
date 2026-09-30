@@ -433,7 +433,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
           model#set ~row ~column:col_name (List.hd !m_names);
           model#set ~row ~column:col_desc entry.Merlin_j.desc;
           model#set ~row ~column:col_info entry.Merlin_j.info;
-          let path = model#get_path row in
+          let path = model#get_path row in (* TODO Crash here. Gpointer.Null *)
           model_entries <- (ref score, ref path, entry) :: model_entries;
           trigger_load_complete is_last
         end;

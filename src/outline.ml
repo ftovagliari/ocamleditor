@@ -1,88 +1,42 @@
-(** Outline view for OCaml code structure visualization.
-
-    This module provides an interactive tree view that displays the structure
-    of OCaml source code, including modules, types, values, methods, and comments.
-    It integrates with Merlin to extract structural information and provides
-    features like fuzzy search, cursor tracking, and sorting. *)
-
 open Oe
 open Printf
 open Settings_j
 open Merlin_j
 open Preferences
-open Fuzzy_search
+open Outline_diff
 
 module Log = Common.Log.Make(struct let prefix = "OUTLINE" end)
 let _ =
   Log.set_print_timestamp true;
-  Log.set_verbosity `WARN
+  Log.set_verbosity `DEBUG
 
-(** Exception raised when a matching tree iterator is found during traversal. *)
 exception Break of Gtk.tree_iter
 
-(** Exception raised when a fuzzy search match is found.
-    Contains the name path and match score. *)
 exception Found of string list * float
 
-(** Enable experimental fuzzy search functionality. *)
 let enable_fuzzy_search = true
 
 open GUtil
 
-(** Model managing the outline data extracted from OCaml source code.
-
-    This class handles communication with Merlin to extract code structure,
-    maintains a cached outline that's periodically refreshed, and notifies
-    listeners when the outline changes. The model validates that cached data
-    is still current by comparing buffer modification times. *)
 class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
   let merlin text func = func ~filename:buffer#filename ~buffer:text in
   object (self)
-    (** Current outline structure from Merlin. *)
     val mutable outline = []
-
-    (** Hash of current outline for change detection. *)
-    val mutable outline_hash = 0
-
-    (** Timer ID for periodic outline updates. *)
     val mutable timer_id = None
-
-    (** Timestamp of last successful outline refresh. *)
     val mutable last_refresh_time = 0.0
-
-    (** Signal emitted when outline data changes. *)
-    val changed = new changed()
-
-    (** Returns the current outline structure. *)
+    val reset = new reset()
+    val changes = new changes()
     method get = outline
-
-    (** Starts the automatic refresh timer.
-        Updates occur every 300ms while attached. *)
     method attach = self#start_timer
-
-    (** Stops the automatic refresh timer and resets state. *)
     method detach = self#stop_timer
-
-    (** Checks if cached outline is still valid.
-        Returns [true] if the buffer hasn't been modified since last refresh. *)
     method is_valid = buffer#last_edit_time < last_refresh_time || timer_id = None
-
-    (** Updates the outline from current buffer content.
-
-        @param force If [true], update even if cache is valid
-
-        Queries Merlin for code structure, extracts comments using the lexer,
-        and merges them into a single outline. Emits [changed] signal if the
-        structure has changed. Updates are skipped if the buffer was modified
-        during the async Merlin call (detected via timestamps). *)
     method private update ?(force=false) () =
       if not self#is_valid || force then begin
         let source_code = buffer#get_text () in
         last_refresh_time <- Unix.gettimeofday();
         (merlin source_code)@@Merlin.outline
         |> Async.start_with_continuation ~name:__FUNCTION__ begin function
-        | Merlin.Ok ((ol : Merlin_j.outline list), hash) ->
-            (*let hash = Hashtbl.hash source_code in*)
+        | Merlin.Ok (ol : Merlin_j.outline list) ->
             (* Extract comments from source and convert to outline entries *)
             let comments =
               let open Location in
@@ -90,11 +44,16 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
               |> List.map begin fun (c, loc) ->
                 let _, start_ln, start_cn = Location.get_pos_info loc.loc_start in
                 let _, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in
+                let ol_start = { line = start_ln; col = start_cn } in
+                let ol_stop = { line = stop_ln; col = stop_cn } in
                 {
                   ol_kind = "Comment";
-                  ol_name = "";
-                  ol_start = { line = start_ln; col = start_cn };
-                  ol_stop = { line = stop_ln; col = stop_cn };
+                  ol_name = "comment";
+                  ol_start;
+                  ol_stop;
+                  ol_selection = { start = ol_start; stop = ol_stop };
+                  ol_type = None;
+                  ol_deprecated = false;
                   ol_parent = None;
                   ol_children = [];
                   ol_level = 0;
@@ -102,32 +61,32 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
               end
             in
             let ol = List.rev_append comments ol in
-            (* Only update if content changed and buffer hasn't been modified *)
-            if outline_hash <> hash || force then
-              if self#is_valid then begin
-                outline_hash <- hash;
-                outline <- ol;
-                GtkThread.async changed#call ();
-              end else
-                Log.println `WARN
-                  "*** not up-to-date (%s) %.2f %.2f ***"
-                  (Filename.basename buffer#filename)
-                  buffer#last_edit_time last_refresh_time;
+            if force then begin
+              outline <- [];
+              GtkThread.sync reset#call ();
+            end;
+            let diff = compare_outlines outline ol in
+            if diff.changed <> [] ||  diff.added <> [] || diff.removed <> [] then begin
+              Log.println `DEBUG "%a" (fun oc diff ->
+                  output_string oc
+                    (sprintf "-------> DIFF (%d, %d, %d), %b, force=%b"
+                       (List.length diff.added) (List.length diff.removed) (List.length diff.changed) self#is_valid force))
+                diff;
+              outline <- ol;
+              GtkThread.async changes#call diff;
+            end;
         | Merlin.Failure _ | Merlin.Error _ -> ()
         end
       end
 
     method refresh () = self#update ~force:true ()
 
-    (** Starts the periodic refresh timer if not already running.
-        Performs an immediate update followed by updates every 300ms. *)
     method private start_timer () =
       match timer_id with
       | None ->
           timer_id <- Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:500 ~callback:(fun () -> self#update(); true));
       | _ -> ()
 
-    (** Stops the refresh timer and resets timestamps. *)
     method private stop_timer () =
       begin
         match timer_id with
@@ -138,41 +97,40 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
             Gmisclib.Timeout.remove id
       end;
 
-    method connect = new outline_signals ~changed
+    method connect = new outline_signals ~reset ~changes
 
   end
 
-and changed () = object inherit [unit] signal () end
-and outline_signals ~changed =
+and reset () = object inherit [unit] signal () end
+and changes () = object inherit [Outline_diff.t] signal () end
+and outline_signals ~reset ~changes =
   object
-    inherit ml_signals [changed#disconnect]
-    method changed = changed#connect ~after
+    inherit ml_signals [reset#disconnect; changes#disconnect]
+    method reset = reset#connect ~after
+    method changes = changes#connect ~after
   end
 
-(** GTK tree model column definitions for outline view. *)
 let cols               = new GTree.column_list
 let col_markup         = cols#add Gobject.Data.string
 let col_data           : Merlin_j.outline GTree.column = cols#add Gobject.Data.caml
 let col_name           = cols#add Gobject.Data.string
+let col_kind           = cols#add Gobject.Data.string
+let col_line           = cols#add Gobject.Data.int
+let col_type           = cols#add Gobject.Data.string_option
+let col_node_path : node_path GTree.column = cols#add Gobject.Data.caml
 
-(** Interactive tree view displaying OCaml code structure.
-
-    Features:
-    - Hierarchical display of modules, types, values, and methods
-    - Automatic cursor tracking (follows editor cursor position)
-    - Sorting by name, kind, or source position
-    - Navigation to definitions by clicking tree items
-    - Expand/collapse controls
-    - Toolbar with various operation buttons *)
 class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
   let pref                   = Preferences.preferences#get in
   let show_types             = pref.outline_show_types in
   let vbox                   = GPack.vbox ?packing () in
   let model                  = GTree.tree_store cols in
-  let toolbar                = GButton.toolbar ~orientation:`HORIZONTAL ~style:`TEXT ~packing:(vbox#pack ~expand:false ~fill:false) () in
-  let sw                     = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
+  let iter_table : Gtk.tree_iter PathHashtbl.t = PathHashtbl.create 256 in
+  let toolbar                = GButton.toolbar
+      ~orientation:`HORIZONTAL ~style:`TEXT ~packing:(vbox#pack ~expand:false ~fill:false) () in
+  let sw                     = GBin.scrolled_window
+      ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
   let view                   = GTree.view ~model ~headers_visible:false
-      ~enable_search:true ~search_column:2
+      ~enable_search:true ~search_column:2 ~tooltip_column:col_type.index
       ~packing:sw#add ()
   in
   let renderer_pixbuf        = GTree.cell_renderer_pixbuf [`YPAD 0; `XPAD 0] in
@@ -186,34 +144,42 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
   let _                      = view#append_column vc in
   let _                      = view#misc#set_name "outline_treeview" in
   let _                      = view#misc#set_property "enable-tree-lines" (`BOOL true) in
-  (* Comparison functions for different sorting modes. *)
-  let compare_position a b = compare a.ol_start b.ol_start in
-  let compare_name a b = compare (String.lowercase_ascii a.ol_name) (String.lowercase_ascii b.ol_name) in
-  let compare_kind a b = compare (String.lowercase_ascii a.ol_kind) (String.lowercase_ascii b.ol_kind) in
-
+  let _                      = model#set_sort_column_id col_line.index `ASCENDING in
+  let find_iter (path : node_path) = PathHashtbl.find_opt iter_table path in
+  let register_iter (path : node_path) (iter : Gtk.tree_iter) = PathHashtbl.replace iter_table path iter in
+  let unregister_iter (path : node_path) = PathHashtbl.remove iter_table path in
+  let clear_iter_table () = PathHashtbl.clear iter_table in
+  let print_iter_table () =
+    PathHashtbl.iter (fun node_path _ -> Printf.printf "%s\n%!" (string_of_path node_path)) iter_table
+  in
+  let children_with_node_ids (children : outline list) =
+    let module KeyMap = Map.Make(struct
+        type t = string * string
+        let compare = compare
+      end) in
+    let _, indexed =
+      List.fold_left (fun (counts, acc) o ->
+          let key = (o.ol_name, o.ol_kind) in
+          let count = Option.value (KeyMap.find_opt key counts) ~default:0 in
+          let id = { name = o.ol_name; kind = o.ol_kind; occurrence = count } in
+          let new_counts = KeyMap.add key (count + 1) counts in
+          (new_counts, (id, o) :: acc)
+        ) (KeyMap.empty, []) children
+    in
+    List.rev indexed
+  in
   object (self)
     inherit GObj.widget vbox#as_widget
-
     val mutable code_font_family = ""
-
-    (** Signal connection for selection changes (used to block/unblock during updates). *)
     val mutable sig_selection_changed = None
-
-    (** Timer ID for cursor following functionality. *)
     val mutable timer_follow_cursor = None
-
-    (** List of expanded node names (preserved across rebuilds). *)
-    val mutable names_expaneded = []
-
+    val mutable nodes_expanded = []
     val view = view
     val model = model
     val vc = vc
-
     val buffer = source_view#obuffer
-
-    (** Toolbar buttons for various operations. *)
     val tool_refresh = GButton.tool_button ~packing:toolbar#insert ()
-    val tool_show_nested_defs = GButton.toggle_tool_button ~active:false ~packing:toolbar#insert ()
+    val tool_show_nested_defs = GButton.toggle_tool_button ~active:Preferences.preferences#get.outline_show_nested_defs ~packing:toolbar#insert ()
     val tool_sort_name = GButton.toggle_tool_button ~packing:toolbar#insert ()
     val tool_sort_kind = GButton.toggle_tool_button ~packing:toolbar#insert ()
     val tool_collapse_all = GButton.tool_button ~packing:toolbar#insert ()
@@ -256,7 +222,6 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
         false
       end |> ignore;
 
-      (* Attach/detach outline updates when source view gains/loses focus *)
       let sig_focus_in =
         source_view#event#connect#focus_in ~callback:(fun _ ->
             self#set_follow_cursor tool_follow_cursor#get_active;
@@ -268,14 +233,73 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             outline#detach(); false)
       in
 
-      outline#connect#changed ~callback:self#build |> ignore;
+      outline#connect#reset ~callback:self#build |> ignore;
+
+      outline#connect#changes ~callback:begin fun { Outline_diff.added; removed; changed } ->
+        Option.iter Gmisclib.Timeout.remove timer_follow_cursor;
+        timer_follow_cursor <- None;
+        let make_new_path (old_path : node_path) (new_node : outline) : node_path =
+          match List.rev old_path with
+          | [] -> []
+          | last_id :: rest_rev ->
+              let parent_path = List.rev rest_rev in
+              let new_id = {
+                name = new_node.ol_name;
+                kind = new_node.ol_kind;
+                occurrence = last_id.occurrence; (* keep occurrrence *)
+              } in
+              parent_path @ [new_id]
+        in
+        changed |> List.iter begin fun (old_path, _, o2) ->
+          let new_path = make_new_path old_path o2 in
+          Log.println `DEBUG "CHANGED: %s -> %s (%d, %d)"
+            (string_of_path old_path) (string_of_path new_path)
+            o2.ol_start.line o2.ol_start.col;
+          match find_iter old_path with
+          | Some row ->
+              model#set ~row ~column:col_line o2.ol_start.line;
+              model#set ~row ~column:col_kind o2.ol_kind;
+              model#set ~row ~column:col_name o2.ol_name;
+              model#set ~row ~column:col_type o2.ol_type;
+              model#set ~row ~column:col_markup (self#create_markup o2);
+              model#set ~row ~column:col_data o2;
+              if old_path <> new_path then begin
+                model#set ~row ~column:col_node_path new_path;
+                unregister_iter old_path;
+                register_iter new_path row;
+                let is_expanded = nodes_expanded |> List.exists ((=) old_path) in
+                if is_expanded then nodes_expanded <- new_path :: List.filter ((<>) old_path) nodes_expanded
+              end
+          | _ -> ()
+        end;
+        removed |> List.iter begin fun (node_path, _, _) ->
+          Log.println `DEBUG "REMOVED: %s" (string_of_path node_path);
+          match find_iter node_path with
+          | Some row ->
+              model#remove row |> ignore;
+              unregister_iter node_path;
+              nodes_expanded <- List.filter ((<>) node_path) nodes_expanded
+          | _ ->
+              Log.println `ERROR "node_path %s not found. Remove failed." (string_of_path node_path);
+        end;
+        added |> List.iter begin fun (node_path, node, pos) ->
+          (*Log.println `DEBUG "ADDED  : %s" (string_of_path node_path);*)
+          let parent_path = match List.rev node_path with _ :: rest -> List.rev rest | [] -> [] in
+          let parent_iter = if parent_path = [] then None else find_iter parent_path in
+          if parent_path = [] || Option.is_some parent_iter then
+            self#append ?parent:parent_iter ~pos node_path node
+        end;
+        Gmisclib.Idle.add ~prio:300 (fun () ->
+            self#set_follow_cursor tool_follow_cursor#get_active);
+      end |> ignore;
+
       sig_selection_changed <- Some (view#selection#connect#changed ~callback:self#jump_to_definition);
 
       (* Handle row expansion: lazy-load children *)
       view#connect#row_expanded ~callback:begin fun row path ->
         try
-          let ol = model#get ~row ~column:col_data in
-          names_expaneded <- ol.ol_name :: names_expaneded;
+          let node_path = model#get ~row ~column:col_node_path in
+          nodes_expanded <- node_path :: nodes_expanded;
           self#build_childs row path
         with Gpointer.Null as ex ->
           Printf.eprintf "File \"outline.ml\": **** %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
@@ -283,11 +307,10 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
 
       (* Track collapsed rows to preserve state *)
       view#connect#row_collapsed ~callback:begin fun row _ ->
-        let ol = model#get ~row ~column:col_data in
-        names_expaneded <- names_expaneded |> List.filter (fun n -> ol.ol_name <> n);
+        let node_path = model#get ~row ~column:col_node_path in
+        nodes_expanded <- nodes_expanded |> List.filter ((<>) node_path);
       end |> ignore;
 
-      (* Connect toolbar buttons *)
       tool_follow_cursor#connect#clicked ~callback:(fun () ->
           self#set_follow_cursor tool_follow_cursor#get_active) |> ignore;
       tool_goto_cursor_position#connect#clicked ~callback:begin fun () ->
@@ -306,30 +329,44 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       (* Handle sort button interactions (mutually exclusive) *)
       let sig_sort_name = ref None in
       let sig_sort_kind = ref None in
+      let set_sort_column () =
+        if tool_sort_name#get_active then
+          model#set_sort_column_id col_name.index `ASCENDING
+        else if tool_sort_kind#get_active then
+          model#set_sort_column_id col_kind.index `ASCENDING
+        else
+          model#set_sort_column_id col_line.index `ASCENDING;
+        model#sort_column_changed();
+      in
       sig_sort_name :=
         Some (tool_sort_name#connect#clicked ~callback:begin fun () ->
             Option.iter tool_sort_kind#misc#handler_block !sig_sort_kind;
             tool_sort_kind#set_active false;
             Option.iter tool_sort_kind#misc#handler_unblock !sig_sort_kind;
-            self#refresh ()
+            set_sort_column ();
           end);
       sig_sort_kind :=
         Some (tool_sort_kind#connect#clicked ~callback:begin fun () ->
             Option.iter tool_sort_name#misc#handler_block !sig_sort_name;
             tool_sort_name#set_active false;
             Option.iter tool_sort_name#misc#handler_unblock !sig_sort_name;
-            self#refresh ()
+            set_sort_column ();
           end);
 
       tool_show_nested_defs#connect#clicked ~callback:begin fun () ->
         Async.create ~name:"tool_show_nested_defs" begin fun () ->
           let pref = Preferences.preferences#get in
-          pref.outline_show_nested_defs <- not tool_show_nested_defs#get_active;
+          pref.outline_show_nested_defs <- tool_show_nested_defs#get_active;
+          Preferences.preferences#set pref;
           Preferences.save ();
+          Printf.printf "Preferences.preferences#get.outline_show_nested_defs = %b\n%!"
+            Preferences.preferences#get.outline_show_nested_defs;
         end
         |> Async.start;
         self#refresh ()
       end |> ignore;
+
+      tool_show_nested_defs#set_active Preferences.preferences#get.outline_show_nested_defs;
 
       (*Collapse all with smart re-activation of cursor following *)
       tool_collapse_all#connect#clicked ~callback:begin fun () ->
@@ -361,13 +398,6 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
 
     method refresh = outline#refresh
 
-    (** Performs a depth-first fold over the outline structure.
-
-        @param f Folding function that receives parent chain, current node, and accumulator
-        @param parent Parent chain (innermost first)
-        @param ol Current outline level to traverse
-        @param acc Initial accumulator value
-        @return Final accumulator after traversing entire structure *)
     method private fold_depth_first f parent ol acc =
       match ol with
       | [] -> acc
@@ -468,13 +498,14 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
                 found_paths := (path, ol.ol_stop.line - ol.ol_start.line) :: !found_paths;
             end;
             false
-          with Invalid_linechar pos ->
-            Log.println `ERROR "Invalid line/char (%d, %d)" pos.line pos.col;
+          with Invalid_linechar pos as ex ->
+            (* Outline is not yet up-to-date with the buffer: ignore the exception *)
+            (*Printf.eprintf "%s: %s - %s (%d,%d)\n%s\n%s\n%!" (timestamp()) (string_of_path node_path)
+              (Printexc.to_string ex) pos.line pos.col __LOC__ (Printexc.get_backtrace());*)
             false
         end;
         match !found_paths with
-        | [] ->
-            view#selection#unselect_all()
+        | [] -> view#selection#unselect_all()
         | paths -> begin
             (* Select the smallest (most specific) region *)
             paths
@@ -500,56 +531,29 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
           end
       end
 
-    (** Returns the current comparison function based on active sort mode. *)
-    method private sort_func =
-      if tool_sort_name#get_active then compare_name
-      else if tool_sort_kind#get_active then compare_kind
-      else compare_position
-
-    (** Builds child nodes for an expanded tree row.
-
-        @param row The parent row being expanded
-        @param path The tree path of the parent row
-
-        Replaces the dummy placeholder node with actual child nodes. *)
     method private build_childs row path =
-      let parent = GTree.Path.copy path in
+      let parent_tree_path = GTree.Path.copy path in
       GTree.Path.down path;
       let first_child = model#get_iter path in
       let first_child_data = model#get ~row:first_child ~column:col_data in
       if first_child_data.ol_kind = "Dummy" then begin
         model#remove first_child |> ignore;
-        let row_data = model#get ~row ~column:col_data in
-        row_data.ol_children
-        |> List.sort self#sort_func
-        |> List.iter (self#append ~parent:(model#get_iter parent));
-        view#expand_row parent;
+        let parent_node = model#get ~row ~column:col_data in
+        let parent_node_path = model#get ~row ~column:col_node_path in
+        parent_node.ol_children
+        |> children_with_node_ids
+        |> List.iter (fun (id, ol) ->
+            let child_path = parent_node_path @ [id] in
+            self#append ~parent:row child_path ol);
+        view#expand_row parent_tree_path;
       end
 
-    (** Rebuilds the entire outline tree from current outline data.
-        Preserves expansion state of previously expanded nodes. *)
     method private build () =
       view#set_model None;
       model#clear();
-      outline#get
-      |> List.sort self#sort_func
-      |> List.iter self#append;
+      clear_iter_table ();
       view#set_model (Some model#coerce);
-      model#foreach begin fun path row ->
-        let ol = model#get ~row ~column:col_data in
-        if names_expaneded |> List.exists (fun ne -> ne = ol.ol_name) then begin
-          Log.println `DEBUG "%s %s" __FUNCTION__ ol.ol_name;
-          view#expand_row path;
-        end;
-        false
-      end
 
-    (** Enables or disables automatic cursor following.
-
-        @param active If [true], outline selection follows cursor position
-
-        When enabled, polls cursor position every second and updates selection.
-        When disabled, manual navigation button becomes available. *)
     method private set_follow_cursor active =
       tool_goto_cursor_position#misc#set_sensitive (not active);
       if active then
@@ -557,12 +561,10 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             let name = sprintf "timer_follow_cursor-%s" source_view#obuffer#filename in
             Gmisclib.Timeout.add name ~ms:1000 ~callback:begin fun () ->
               let mark = buffer#get_mark `INSERT in
-              Gmisclib.Idle.add ~prio:300 begin fun () ->
-                if timer_follow_cursor <> None then begin
-                  Option.iter view#selection#misc#handler_block sig_selection_changed;
-                  self#goto_cursor_position mark;
-                  Option.iter view#selection#misc#handler_unblock sig_selection_changed;
-                end
+              if timer_follow_cursor <> None then begin
+                Option.iter view#selection#misc#handler_block sig_selection_changed;
+                self#goto_cursor_position mark;
+                Option.iter view#selection#misc#handler_unblock sig_selection_changed;
               end;
               true
             end
@@ -574,27 +576,39 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
         end timer_follow_cursor
       end
 
-    (** Appends an outline item to the tree model.
+    method private create_markup ol =
+      sprintf "%s   %s%s"
+        (Markup.icon_of_kind ol.ol_kind)
+        (Glib.Markup.escape_text ol.ol_name)
+        (match ol.ol_type with
+         | Some typ ->
+             let sep = if String.length typ <= 50 then ": " else "\n\t" in
+             let flatten = String.length typ >= 100 in
+             sprintf "<span size='x-small' color='#c0c0c0A0'> %s%s</span>"
+               sep
+               (if flatten
+                then Markup.type_info typ |> String.replace_all ~sub:"\n" ~by:" "
+                else Markup.type_info typ |> String.replace_all ~sub:"\n" ~by:"\n\t")
+         | _ -> "")
+    (*(if !Log.verbosity = `DEBUG then
+       sprintf "\n<span size='x-small' color='#c0c0c0'>[ <i>%d, %d - %d, %d</i> ]</span>"
+         ol.ol_start.line (ol.ol_start.col + 1) ol.ol_stop.line (ol.ol_stop.col + 1) else "")*)
 
-        @param parent Optional parent row for nested items
-        @param ol Outline item to append
-
-        Creates a tree row with formatted markup including icon, name, and
-        optional debug information. Adds a dummy child node if the item has children. *)
-    method private append ?parent ol =
+    method private append ?parent ?pos child_path ol =
       if ol.ol_kind <> "Comment" then
-        let row = model#append ?parent () in
-        model#set ~row ~column:col_data ol;
-        model#set ~row ~column:col_name ol.ol_name;
-        let markup =
-          sprintf "%s   %s%s %s"
-            (Markup.icon_of_kind ol.ol_kind)
-            (Glib.Markup.escape_text ol.ol_name)
-            ""
-            (if !Log.verbosity = `DEBUG then
-               sprintf "<span size='x-small' color='#c0c0c0'>[ <i>%d, %d - %d, %d</i> ]</span>"
-                 ol.ol_start.line (ol.ol_start.col + 1) ol.ol_stop.line (ol.ol_stop.col + 1) else "")
+        let row =
+          match pos with
+          | Some pos -> model#insert ?parent pos
+          | _ -> model#append ?parent ()
         in
+        register_iter child_path row;
+        model#set ~row ~column:col_data ol;
+        model#set ~row ~column:col_line ol.ol_start.line;
+        model#set ~row ~column:col_kind ol.ol_kind;
+        model#set ~row ~column:col_name ol.ol_name;
+        model#set ~row ~column:col_type (Option.map Glib.Markup.escape_text ol.ol_type);
+        model#set ~row ~column:col_node_path child_path;
+        let markup = self#create_markup ol in
         model#set ~row ~column:col_markup markup;
         if
           ol.ol_children <> [] &&
@@ -603,26 +617,29 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
            (ol.ol_kind <> "Value" || ol.ol_children |> List.for_all (fun c -> c.ol_kind <> "Value")))
         then self#append_dummy row
 
-    (** Appends a dummy placeholder node for lazy loading.
-
-        @param row Parent row that will have children loaded on expansion
-
-        The dummy node is replaced with actual children when the parent is expanded. *)
     method private append_dummy row =
       let dummy = model#append ~parent:row () in
+      let pos_0 = { line = 0; col = 0 } in
+      let id = {
+        name = "placeholder";
+        kind = "plachehoder";
+        occurrence = 0;
+      } in
+      model#set ~row:dummy ~column:col_node_path [id];
       model#set ~row:dummy ~column:col_markup "";
       model#set ~row:dummy ~column:col_data {
         ol_kind = "Dummy";
         ol_name = "";
-        ol_start = { line = 0; col = 0 };
-        ol_stop = { line = 0; col = 0 };
+        ol_start = pos_0;
+        ol_stop = pos_0;
+        ol_selection = { start = pos_0; stop = pos_0 };
+        ol_type = None;
+        ol_deprecated = false;
         ol_level = 0;
         ol_parent = None;
         ol_children = []
       };
 
-      (** Updates visual appearance from preferences.
-          Applies fonts, colors, and theme styling. *)
     method private update_preferences () =
       let pref = Preferences.preferences#get in
       view#misc#modify_font_by_name pref.editor_completion_font;
@@ -642,156 +659,5 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       let base_font = pref.editor_base_font in
       code_font_family <-
         String.sub base_font 0 (Option.value (String.rindex_opt base_font ' ') ~default:(String.length base_font));
-      (*GtkBase.Widget.queue_draw view#as_widget;*)
 
   end
-
-(** Transient search widget for fuzzy outline navigation.
-
-    Displays a floating entry box near the outline view for typing search queries.
-    Automatically closes after a timeout period of inactivity. *)
-class search (view : GTree.view) =
-  let entry = GEdit.entry () in
-  let r0 = view#misc#allocation in
-  let wx, wy = Gdk.Window.get_position view#misc#toplevel#misc#window in
-  let x = wx + r0.Gtk.x in
-  let y = wy + r0.Gtk.y in
-  object
-    (** Popup window containing the search entry. *)
-    val mutable window = Gtk_util.window entry#coerce ~type_hint:`MENU ~focus:false ~x ~y ()
-
-    val mutable entry = entry
-
-    (** Timer ID for auto-close functionality. *)
-    val mutable timer = None
-
-    method entry = entry
-    method destroy = window#destroy
-
-    (** Resets the auto-close timer.
-        Window closes automatically after 4.5 seconds of inactivity. *)
-    method add_timer () =
-      timer |> Option.iter Gmisclib.Timeout.remove;
-      timer <-
-        Some (Gmisclib.Timeout.add __FUNCTION__ ~ms:4500 ~callback:begin fun () ->
-            window#destroy();
-            false
-          end)
-  end
-
-(*(** Experimental outline view with fuzzy search capability.
-
-    Extends the basic outline view with keyboard-driven fuzzy search.
-    Typing while the view has focus opens a search box that performs
-    fuzzy matching against outline item names and navigates to the best match.
-
-    @note This feature is experimental and not fully polished. *)
-  class view_with_search ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () =
-  object (self)
-    inherit view ~outline ~source_view ?packing ()
-
-    (** Optional search widget for fuzzy navigation. *)
-    val mutable search_widget : search option = None
-
-    initializer
-      view#event#connect#key_press ~callback:begin fun ev ->
-        self#search ev;
-        false
-      end |> ignore;
-
-      (* Handles user keyboard input for fuzzy searching in the outline.
-         Creates/updates search widget, performs fuzzy matching, and navigates to best result *)
-    method private search ev =
-      (* Finds the best fuzzy match in the outline tree using depth-first traversal.
-         Returns the element with the highest match score, or None if no matches found *)
-      let find_best_match query outline =
-        self#fold_depth_first begin fun path ol acc ->
-          let score, _ = FuzzyLetters.compare `Greedy2 query ol.ol_name in
-          let path = ol.ol_name :: (path |> List.map (fun x -> x.ol_name)) |> List.rev in
-          match acc with
-          | None -> Some (path, score)
-          | Some (_, score') when score > score' -> Some (path, score)
-          | _ -> acc
-        end [] outline None
-      in
-      (* Navigates through the GTK tree model following a hierarchical name path.
-         Expands dummy nodes (lazy-loaded placeholders) when encountered.
-         Returns the GTree.Path corresponding to the final element in the name path *)
-      let find_tree_path (model : GTree.tree_store) name_path =
-        (* Inner helper: searches for a child node with the given name under parent *)
-        let rec find_child_index_by_name iter name =
-          let n_childs = model#iter_n_children iter in
-          (* Try each child index until we find a match *)
-          List.init n_childs Fun.id
-          |> List.find_map begin fun nth ->
-            let row = model#iter_children ~nth iter in
-            let ol = model#get ~row ~column:col_data in
-            (* Direct name match found *)
-            if ol.ol_name = name then Some row
-            (* Dummy node: expand it and retry the search *)
-            else if ol.ol_kind = "Dummy" then begin
-              iter |> Option.iter (fun p -> self#build_childs ~prio:0 p (model#get_path p));
-              find_child_index_by_name iter name
-            end else None
-          end
-        in
-        (* Traverse the name path, building up the tree path incrementally *)
-        name_path
-        |> List.fold_left begin fun (parent, acc) elm ->
-          try
-            match find_child_index_by_name parent elm with
-            | Some child_iter -> (* Found the child: update parent and accumulator with new path *)
-                let child_path = model#get_path child_iter in
-                Printf.printf "  %s %s\n%!" elm (GTree.Path.to_string child_path);
-                (Some child_iter), child_path
-            | _ -> (* Child not found: keep current state *)
-                parent, acc
-          with ex ->
-            Printf.eprintf "File \"outline.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
-            (parent, acc)
-        end (None, GTree.Path.create [])
-        |> snd (* Extract only the final tree path, discard the parent iterator *)
-      in
-      (* Appends a character to the search entry and returns the updated query string *)
-      let append_to_search sw str =
-        sw#entry#set_text (sw#entry#text ^ str);
-        sw#entry#text
-      in
-      let is_printable_key ev =
-        let str = GdkEvent.Key.string ev in
-        if String.length str > 0 && Glib.Unichar.isprint (Glib.Utf8.first_char str) then Some str else None
-      in
-      match is_printable_key ev with
-      | Some str ->
-          let sw =
-            match search_widget with
-            | Some sw ->
-                sw#add_timer();
-                sw
-            | _ ->
-                let sw = new search view in
-                search_widget <- Some sw;
-                sw
-          in
-          let query = append_to_search sw str in
-          outline#get
-          |> find_best_match query
-          |> Option.iter begin fun (name_path, score) ->
-            try
-              Printf.printf "FOUND %s -- %s %f\n%!" sw#entry#text (String.concat "." name_path) score;
-              let tree_path = find_tree_path model name_path in
-              Printf.printf "tree_path = %s\n%!" (GTree.Path.to_string tree_path);
-              view#selection#select_path tree_path;
-              view#set_cursor tree_path vc;
-              Gmisclib.Idle.add ~prio:300 (fun () ->
-                  view#scroll_to_cell ~align:(0.38, 0.) tree_path vc);
-            with ex ->
-              search_widget |> Option.iter (fun w -> w#destroy());
-              search_widget <- None;
-              raise ex
-          end
-      | _ ->
-          search_widget |> Option.iter (fun w -> w#destroy());
-          search_widget <- None
-  end
-*)

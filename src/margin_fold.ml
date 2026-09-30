@@ -608,7 +608,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
         self#configure pref.Settings_j.editor_code_folding_enabled
       end |> ignore;
       self#connect#expander_toggled ~callback:(fun _ -> is_refresh_pending#set true) |> ignore;
-      outline#connect#changed ~callback:begin fun _ ->
+      outline#connect#changes ~callback:begin fun _ ->
         is_refresh_pending#set true;
         Log.println `DEBUG "CHANGED %b" is_refresh_pending#get;
         Gmisclib.Idle.add ~prio:100 begin fun () ->
