@@ -119,6 +119,7 @@ class type outline =
 and outline_signals =
   object ('a)
     method after : 'a
-    method changed : callback:(unit -> unit) -> GtkSignal.id
+    method reset : callback:(unit -> unit) -> GtkSignal.id
+    method changes : callback:(Outline_diff.t -> unit) -> GtkSignal.id
     method disconnect : GtkSignal.id -> unit
   end
