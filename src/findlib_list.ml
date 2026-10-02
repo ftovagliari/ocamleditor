@@ -163,7 +163,7 @@ let dialog (parent : GObj.widget) () =
     end);
   window#present();
   let x, y =
-    let x0, y0 = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
+    let x0, y0 = Gdk.Window.get_pointer_location window#misc#window in
     let x, y = parent#misc#toplevel#misc#pointer in
     let alloc = parent#misc#allocation in
     let alloc_popup = window#misc#allocation in

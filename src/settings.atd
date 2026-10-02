@@ -111,7 +111,7 @@ type settings = {
   ~editor_ocamldoc_paragraph_bgcolor_2 <ocaml default="{light=Some \"#FAF7FA\"; dark=Some \"#181818\"}" mutable> : string option color;
   ~editor_pixels_lines                 <ocaml default="(1, 1)" mutable> : (int * int);
   ~editor_right_margin                 <ocaml default="80" mutable> : int;
-  ~editor_right_margin_color           <ocaml default="{light=\"#e0e0e0\"; dark=\"#6A3D3D\"}" mutable> : string color;
+  ~editor_right_margin_color           <ocaml default="{light=\"#e0e0e0\"; dark=\"#3d3846\"}" mutable> : string color;
   ~editor_right_margin_visible         <ocaml default="true" mutable> : bool;
   ~editor_save_all_bef_comp            <ocaml default="true" mutable> : bool;
   ~editor_search_word_at_cursor        <ocaml default="true" mutable> : bool;

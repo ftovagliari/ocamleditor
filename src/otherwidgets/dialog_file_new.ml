@@ -49,7 +49,7 @@ let show ~editor () =
           end else begin
             let chan = open_out_gen [Open_creat; Open_excl; Open_text] 0o664 filename in
             close_out chan;
-            match editor#open_file ~active:false ~scroll_offset:0 ~offset:0 ?remote:None filename with
+            match editor#open_file ~active:false ~offset:0 ?remote:None filename with
             | Some page ->
                 editor#load_page ?scroll:None page;
                 editor#goto_view page#view;

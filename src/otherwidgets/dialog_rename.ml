@@ -33,7 +33,7 @@ let colorize page filename =
     let start = page#buffer#start_iter in
     let stop = page#buffer#end_iter in
     List.iter (function Some t -> page#buffer#remove_tag t ~start ~stop | _ -> ()) page#buffer#tag_table_lexical;
-    page#error_indication#remove_tag();
+    page#error_manager#remove_tag();
   end
 
 (** sync_page *)

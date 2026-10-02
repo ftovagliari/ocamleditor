@@ -31,7 +31,16 @@ let name_of_gdk color =
   let b = Gdk.Color.blue  color / 257 in
   name (`RGB (r, g, b))
 
-let rgb f name = try Scanf.sscanf name "#%2x%2x%2x" f with _ -> Scanf.sscanf name "#%1x%1x%1x" f;;
+let rgb255 f name =
+  try Scanf.sscanf name "#%2x%2x%2x" f
+  with _ ->
+    Scanf.sscanf name "#%1x%1x%1x" (fun r g b -> f (r * 17) (g * 17) (b * 17))
+
+let rgb f name =
+  rgb255 (fun r g b ->
+      f (float_of_int r /. 255.0)
+        (float_of_int g /. 255.0)
+        (float_of_int b /. 255.0)) name
 
 let rgb_of_gdk color =
   let r, g, b = (Gdk.Color.red color, Gdk.Color.green color, Gdk.Color.blue color) in
@@ -88,10 +97,10 @@ let name_of_hsv h s v =
 let add_value name ?(sfact=1.0) x =
   let xs = x *. sfact in
   let xv = x in
-  rgb hsv_of_name name (fun h s v -> name_of_hsv h (min 1. (s +. xs)) (min 1. (v -. xv)));;
+  rgb255 hsv_of_name name (fun h s v -> name_of_hsv h (min 1. (s +. xs)) (min 1. (v -. xv)));;
 
 let modify name ~sat ~value =
-  rgb hsv_of_name name (fun h s v -> name_of_hsv h (min 1. (s +. sat)) (min 1. (v +. value)));;
+  rgb255 hsv_of_name name (fun h s v -> name_of_hsv h (min 1. (s +. sat)) (min 1. (v +. value)));;
 
 (*let hsl_of_name r g b =
   let r = (float r) /. 255. in

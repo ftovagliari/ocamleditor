@@ -55,8 +55,7 @@ let rec remove bm =
     bm.bm_loc <- (Offset 0);
   with Not_found -> ()
 
-(** apply *)
-and apply bm f =
+and map bm f =
   match bm.bm_loc with
   | Mark mark ->
       begin
@@ -72,23 +71,22 @@ and apply bm f =
 
 (** mark_to_offset *)
 let mark_to_offset bm =
-  ignore (apply bm begin function
-    | `ITER iter ->
-        let loc = Offset (GtkText.Iter.get_offset iter) in
-        begin
-          match bm.bm_loc with
-          | Mark m ->
-              begin
-                match GtkText.Mark.get_buffer m with
-                | None -> assert false
-                | Some buffer -> GtkText.Buffer.delete_mark buffer m;
-              end
-          | Offset _ -> assert false
-        end;
-        bm.bm_loc <- loc;
-        -1
-    | `OFFSET _ -> -1
-    end)
+  map bm begin function
+  | `ITER iter ->
+      let loc = Offset (GtkText.Iter.get_offset iter) in
+      begin
+        match bm.bm_loc with
+        | Mark m ->
+            begin
+              match GtkText.Mark.get_buffer m with
+              | None -> assert false
+              | Some buffer -> GtkText.Buffer.delete_mark buffer m;
+            end
+        | Offset _ -> assert false
+      end;
+      bm.bm_loc <- loc;
+  | `OFFSET _ -> ()
+  end
 
 (** offset_to_mark *)
 let offset_to_mark (buffer : GText.buffer) bm =
@@ -99,6 +97,8 @@ let offset_to_mark (buffer : GText.buffer) bm =
       let mark = buffer#create_mark(* ~name:(Gtk_util.create_mark_name "Bookmark.offset_to_mark")*) (buffer#get_iter (`OFFSET offset)) in
       bm.bm_loc <- (Mark mark);
       mark
+
+let find bm num = List.find_opt (fun bm -> bm.Oe.bm_num = num) bm
 
 (** create *)
 let create ~num ~filename ~mark ~marker () =

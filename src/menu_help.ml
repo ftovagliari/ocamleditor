@@ -27,12 +27,12 @@ open Preferences
 
 (** system_properties *)
 let system_properties () =
-  let window = GWindow.window ~icon:(??? Icons.oe) ~title:"System Properties" ~position:`CENTER ~modal:true ~resizable:false ~show:false () in
+  let window = GWindow.window ~icon:(??? Icons.oe) ~title:"System Properties" ~position:`CENTER ~modal:true ~resizable:true ~show:false () in
   let text = Glib.Convert.locale_to_utf8 (System_properties.to_string ()) in
   let buffer = GText.buffer ~text () in
   let vbox = GPack.vbox ~spacing:0 ~border_width:0 ~packing:window#add () in
-  let sw = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
-  let view = GText.view ~buffer ~editable:false ~width:920 ~height:600 ~packing:sw#add () in
+  let sw = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~width:920 ~height:600 ~packing:vbox#add () in
+  let view = GText.view ~buffer ~editable:false ~packing:sw#add () in
   view#misc#modify_font_by_name (Preferences.preferences#get.editor_base_font);
   view#set_left_margin 8;
   view#set_right_margin 8;
@@ -44,8 +44,8 @@ let system_properties () =
   button_close#set_image (Icons.create (??? Icons.close_16))#coerce;
   button_close#connect#clicked ~callback:window#destroy |> ignore;
   Gmisclib.Util.esc_destroy_window window;
-  window#show();
-  window#set_position `CENTER_ALWAYS
+  window#resize ~width:1 ~height:1;
+  window#show()
 
 
 (** about *)

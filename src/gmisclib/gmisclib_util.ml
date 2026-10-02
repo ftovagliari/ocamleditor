@@ -97,6 +97,46 @@ let treeview_is_path_onscreen (view : GTree.view) path =
   let y = float (Gdk.Rectangle.y rect) in
   0. <= y && y <= view#vadjustment#page_size;;
 
+module Timeout = struct
+
+  type t = {
+    id : int;
+    name : string;
+    ms : int;
+    tid : GMain.Timeout.id
+  }
+
+  let last_id = Atomic.make 0
+
+  let table : t list ref = ref []
+
+  let print () =
+    Printf.printf "----------------------- Timeouts ----------------------\n%!" ;
+    !table
+    |> List.iter begin fun info ->
+      Printf.printf "%7d: %-50s (%d ms)\n%!" info.id info.name info.ms;
+    end;
+    Printf.printf "-------------------------------------------------------\n%!"
+
+  let add name ~ms ~callback =
+    let id = Atomic.fetch_and_add last_id 1 in
+    let callback () =
+      let is_periodic = callback () in
+      if not is_periodic then table := List.filter (fun x -> x.id <> id) !table;
+      is_periodic
+    in
+    let tid = GMain.Timeout.add ~ms ~callback in
+    let info = { id; name; ms; tid } in
+    table := info :: !table;
+    tid
+
+  let remove tid =
+    GMain.Timeout.remove tid;
+    match List.find_opt (fun x -> x.tid = tid) !table with
+    | Some info -> table := List.filter (fun x -> x.id <> info.id) !table
+    | _ -> assert false
+
+end
 
 
 

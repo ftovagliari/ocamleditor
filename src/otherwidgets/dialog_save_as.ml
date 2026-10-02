@@ -32,7 +32,7 @@ let sync_editor ~editor ~page ~filename window =
   in
   page#revert();
   (*editor#close page;*)
-  match editor#open_file ~active:true ~scroll_offset:0 ~offset:0 ?remote filename with
+  match editor#open_file ~active:true ~offset:0 ?remote filename with
   | Some page ->
       editor#load_page ?scroll:None page;
       editor#goto_view page#view;

@@ -40,7 +40,7 @@ let get_project_source_filenames project =
 module FS = Fuzzy_search.Make(Fuzzy_search.Letter)
 
 let filter pattern db =
-  let compare = Utils.Memo.fast ~f:(fun (a, b) -> FS.compare ~min_score:0.85 Greedy a b) in
+  let compare = Utils.Memo.fast ~f:(fun (a, b) -> FS.compare ~min_score:0.88 Greedy a b) in
   Mutex.protect mx_name_db begin fun () ->
     db.table
     |> List.map (fun entry ->
@@ -136,7 +136,7 @@ let update ?(is_init=false) db filename =
       ~filename
       ~buffer:(File_util.read filename |> Buffer.contents)
     |> Async.start_with_continuation ~name:(sprintf "%s-outline-%s" __MODULE__ modname) begin function
-    | Merlin.Ok outline ->
+    | Merlin.Ok (outline, _) ->
         add_outline db mod_entry modname outline;
         Mutex.protect mx_name_db (fun () -> mod_entry.timestamp <- Unix.gettimeofday());
     | Merlin.Failure _ | Merlin.Error _ -> ()

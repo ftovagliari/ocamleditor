@@ -24,6 +24,11 @@ open Printf
 open Find_text
 open Preferences
 
+module Log = Common.Log.Make(struct let prefix = "FIND-DIALOG" end)
+let _ =
+  Log.set_print_timestamp true;
+  Log.set_verbosity `DEBUG
+
 (** create *)
 let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     ?(search_word_at_cursor=false)
@@ -128,7 +133,7 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     | Some row -> status.h_pattern.model#get ~row ~column:status.h_pattern.column
   end;
   let enable_entry_pattern () =
-    if check_pattern#active && check_pattern#misc#get_flag `SENSITIVE then begin
+    if check_pattern#active && check_pattern#sensitive then begin
       entry_pattern#misc#set_sensitive true;
       entry_pattern#entry#misc#grab_focus()
     end else begin
@@ -245,9 +250,11 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
     widget#set_selected_text_bounds (if check_selected_text_only#active then selected_text_bounds else None);
   in
   let callback ?all () =
-    set_options();
     dialog#misc#hide();
-    ignore (Thread.create (fun () -> widget#find ?all ()) ());
+    Gmisclib.Idle.add begin fun () ->
+      set_options();
+      widget#find_async ?all ();
+    end;
   in
   button_find_all#connect#clicked ~callback:(fun () -> callback ~all:true ()) |> ignore;
   button_find#connect#clicked ~callback:begin fun () ->
@@ -258,10 +265,12 @@ let create ~project ~editor ?(buffer : GText.buffer option) ?widget
         dialog#destroy();
   end |> ignore;
   button_repl#connect#clicked ~callback:begin fun () ->
-    set_options();
     dialog#misc#hide();
-    widget#find();
-    widget#replace();
+    set_options();
+    Gmisclib.Idle.add begin fun () ->
+      widget#find();
+      widget#replace();
+    end
   end |> ignore;
   button_cancel#connect#clicked ~callback:begin fun () ->
     if widget#misc#parent <> None then (dialog#misc#hide ()) else (dialog#destroy ());

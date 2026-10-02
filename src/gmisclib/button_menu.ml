@@ -47,6 +47,10 @@ let icon_pressed =
     " ... ";
     "  .  "|];;
 
+let custom_css = {|#gmisclib_button_menu_right {
+  min-width: 12px;
+}
+|}
 
 let label_icon ?(width=20) ?(height=16) ?(font_name="FiraCode OCamlEditor") ?color ?packing icon =
   let markup = Printf.sprintf "<big>%s</big>" icon in
@@ -95,28 +99,16 @@ class button_menu ?(label="") ?(relief=`NORMAL) ?stock ?spacing ?packing () =
       button_menu#set_border_width 0;
       button#set_focus_on_click false;
       button_menu#set_focus_on_click false;
-      ignore (button#connect#enter ~callback:begin fun _ ->
-          button_menu#misc#set_state `PRELIGHT;
-        end);
       ignore (button#connect#leave ~callback:begin fun _ ->
           self#set_button_menu_child false;
-          button_menu#misc#set_state `NORMAL;
           button_menu#set_relief relief;
         end);
       ignore (button#connect#pressed ~callback:begin fun _ ->
           self#set_button_menu_child true;
-          button_menu#misc#set_state `ACTIVE;
           button_menu#set_relief `HALF;
         end);
       ignore (button#connect#released ~callback:begin fun _ ->
           self#set_button_menu_child false;
-          button_menu#misc#set_state `NORMAL;
-        end);
-      ignore (button_menu#connect#enter ~callback:begin fun _ ->
-          button#misc#set_state `PRELIGHT;
-        end);
-      ignore (button_menu#connect#leave ~callback:begin fun _ ->
-          button#misc#set_state `NORMAL;
         end);
       ignore (button_menu#event#connect#button_press ~callback:begin fun ev ->
           self#popup_menu ev;
@@ -189,7 +181,7 @@ class button_menu ?(label="") ?(relief=`NORMAL) ?stock ?spacing ?packing () =
       self#set_button_menu_child true;
       let time = GdkEvent.Button.time ev in
       let pos ~x ~y ~pushed_in =
-        let bt = if button#misc#get_flag `VISIBLE then button else button_menu in
+        let bt = if button#visible then button else button_menu in
         let xP, yP = Gdk.Window.get_pointer_location bt#misc#window in
         let xA, yA = bt#misc#allocation.Gtk.x, bt#misc#allocation.Gtk.y in
         let x' = x - xP + xA in
@@ -211,9 +203,7 @@ class button_menu ?(label="") ?(relief=`NORMAL) ?stock ?spacing ?packing () =
       end;
       ignore (menu#connect#deactivate ~callback:begin fun () ->
           self#set_button_menu_child false;
-          button_menu#misc#set_state `NORMAL;
           button_menu#set_relief relief;
-          button#misc#set_state `NORMAL;
           button#set_relief relief;
           Gaux.may tooltip_text ~f:box#misc#set_tooltip_text;
           tooltip_text <- None;
@@ -232,9 +222,7 @@ class button_menu ?(label="") ?(relief=`NORMAL) ?stock ?spacing ?packing () =
         false;
       end |> ignore;
       GtkMenu.Menu.popup_at menu#as_menu ~button:(GdkEvent.Button.button ev) ~time pos;
-      button_menu#misc#set_state `ACTIVE;
       button_menu#set_relief `NORMAL;
-      button#misc#set_state `PRELIGHT;
       button#set_relief `NORMAL;
 
     method private popdown_menu () =

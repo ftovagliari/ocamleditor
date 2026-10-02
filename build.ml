@@ -519,8 +519,10 @@ module App_config = struct (*
 
 *)
 
-
 open Printf
+
+let () =
+  let open [@warning "-33"] Ocaml_config in ()
 
 (** Alias for [Filename.concat] *)
 let (//) = Filename.concat
@@ -577,13 +579,7 @@ let user_home =
      with Not_found -> failwith "Please set your HOME environment variable.")
 
 let ocamleditor_user_home =
-  let dirname =
-    match Ocaml_config.is_mingw with
-    | true when application_debug -> ".ocamleditor.mingw"
-    | true -> ".ocamleditor.test.mingw"
-    | false when application_debug -> ".ocamleditor.test"
-    | false -> ".ocamleditor"
-  in
+  let dirname = if application_debug then ".ocamleditor.debug" else ".ocamleditor" in
   user_home // dirname
 
 let ensure_ocamleditor_user_home () =
@@ -3452,7 +3448,7 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = true;
     toplevel_modules     = "icons/icons.ml";
-    package              = "lablgtk2";
+    package              = "lablgtk3";
     search_path          = "common icons"; (* -I *)
     required_libraries   = "";
     compiler_flags       = "-g";
@@ -3542,7 +3538,7 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = true;
     toplevel_modules     = "gmisclib/gmisclib.ml";
-    package              = "lablgtk2";
+    package              = "cairo2,lablgtk3";
     search_path          = "gmisclib +unix"; (* -I *)
     required_libraries   = "";
     compiler_flags       = "-g";
@@ -3572,7 +3568,7 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = true;
     toplevel_modules     = "otherwidgets/otherwidgets.ml";
-    package              = "lablgtk2";
+    package              = "cairo2,lablgtk3";
     search_path          = "icons common otherwidgets gmisclib"; (* -I *)
     required_libraries   = "gmisclib";
     compiler_flags       = "-w -s-y -g";
@@ -3602,7 +3598,7 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor_lib.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
     required_libraries   = "";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3632,7 +3628,7 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild"; (* -I *)
     required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3662,7 +3658,7 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = false;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,curl,dynlink,lablgtk2,ocamldiff,ocp-indent.lib,str,unix,xml-light,yojson,compiler-libs,odoc-parser,inotify";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
     required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3712,37 +3708,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 6 *)
-  "launcher", {
-    descr                = "Utility to open OCaml files from the file manager";
-    num                  = 6;
-    id                   = 28;
-    output_name          = "ocamleditorw";
-    target_type          = Executable;
-    compilation_bytecode = false;
-    compilation_native   = true;
-    toplevel_modules     = "ocamleditor_launcher.ml";
-    package              = "unix,str";
-    search_path          = "common"; (* -I *)
-    required_libraries   = "common";
-    compiler_flags       = "-compact";
-    linker_flags         = "-compact";
-    thread               = false;
-    vmthread             = false;
-    pp                   = "";
-    inline               = None;
-    nodep                = false;
-    dontlinkdep          = false;
-    dontaddopt           = true;
-    library_install_dir  = ""; (* Relative to the Standard Library Directory *)
-    other_objects        = "";
-    external_tasks       = [];
-    restrictions         = ["OCAML(system<>mingw)"];
-    dependencies         = [];
-    show                 = true;
-  };
-  
-  (* 6 *)
+  (* 5 *)
   "tools", {
     descr                = "";
     num                  = 0;
@@ -3772,7 +3738,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 6 *)
+  (* 5 *)
   "FINDLIB-TOOLS", {
     descr                = "";
     num                  = 0;

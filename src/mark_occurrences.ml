@@ -26,7 +26,7 @@ let _ =
   Log.set_print_timestamp true;
   Log.set_verbosity `DEBUG
 
-class manager ~view =
+class manager view =
   let buffer = view#tbuffer in
   let [@inline] (=>) a b = not a || b in
   let match_whole_word_only = true in
@@ -92,13 +92,13 @@ class manager ~view =
         ?slice:(Some false)
         ?visible:(Some false) ()
 
-    method mark_refs () =
+    method private mark_refs () =
       let iter = buffer#get_iter `INSERT in
       let line = iter#line + 1 in
       let col = iter#line_offset in
       if line <> last_merlin_invoke_line || col <> last_merlin_invoke_col then begin
         view#filter_outline_text (function `Ref _ -> false | _ -> true);
-        GtkBase.Widget.queue_draw view#as_widget;
+        (*GtkBase.Widget.queue_draw view#as_widget;*)
         last_merlin_invoke_time <- buffer#last_edit_time;
         let text = buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
         last_merlin_invoke_line <- line;
@@ -108,8 +108,7 @@ class manager ~view =
         | Merlin.Ok ranges ->
             let open Merlin_j in
             if last_merlin_invoke_time = buffer#last_edit_time then
-              Gmisclib.Idle.add begin fun () ->
-                (*GtkThread.async begin fun () ->*)
+              GtkThread.async begin fun () ->
                 self#clear_refs() |> ignore;
                 ranges
                 |> List.fold_left begin fun acc range ->
@@ -123,25 +122,27 @@ class manager ~view =
                     let start_line = buffer#get_iter (`LINE (range.start.line - 1)) in
                     if range.start.col < start_line#chars_in_line then
                       let stop_line = buffer#get_iter (`LINE (range.stop.line - 1)) in
-                      if range.stop.col < stop_line#chars_in_line then
+                      if range.stop.col < stop_line#chars_in_line then begin
                         let start = buffer#get_iter (`LINECHAR (range.start.line - 1, range.start.col)) in
                         let stop = buffer#get_iter (`LINECHAR (range.stop.line - 1, range.stop.col)) in
+                        buffer#block_signal_handlers();
                         let m1 = buffer#create_mark ?name:None ?left_gravity:None start in
                         let m2 = buffer#create_mark ?name:None ?left_gravity:None stop in
+                        buffer#unblock_signal_handlers();
                         ref_marks <- (`MARK m1, `MARK m2) :: ref_marks;
                         `Ref (m1, m2) :: acc
-                      else acc
+                      end else acc
                     else acc
                   end else acc
                 end []
                 |> view#add_outline_text;
-                if ref_marks <> [] then mark_set#call();
-              end
+                mark_set#call();
+              end ()
         | Merlin.Failure _ | Merlin.Error _ -> ()
         end
       end
 
-    method mark_words () =
+    method private mark_words () =
       self#clear_words() |> ignore;
       match view#options#mark_occurrences with
       | true, under_cursor, _ ->
@@ -163,20 +164,22 @@ class manager ~view =
                   in
                   if found then begin
                     buffer#apply_tag tag ~start:a ~stop:b;
+                    buffer#block_signal_handlers();
                     let m1 = buffer#create_mark ?name:None ?left_gravity:None a in
                     let m2 = buffer#create_mark ?name:None ?left_gravity:None b in
+                    buffer#unblock_signal_handlers();
                     word_marks <- (`MARK m1, `MARK m2) :: word_marks;
                   end;
                   iter := b;
               | _ -> iter := stop
             done;
-            if word_marks <> [] then mark_set#call()
+            mark_set#call()
           end
       | _ -> ()
 
     method mark () =
       self#mark_refs();
-      self#mark_words()
+      self#mark_words();
 
     method connect = new signals ~mark_set
   end

@@ -135,15 +135,15 @@ class pref_editor_indent title ?packing () =
   let combo_empty, _ = GEdit.combo_box_text ~active:0 ~strings:[
       "Indent according to formatting options"; "Indent to match preceding line";
     ] ~packing:box#add () in
-  let box         = GPack.vbox ~spacing:2 ~packing:vbox#pack () in
+  let box         = GPack.vbox ~spacing:2 ~packing:(vbox#pack ~expand:true) () in
   let _           = GMisc.label ~markup: ocp_indent_options_markup ~xalign:0.0 ~packing:box#pack () in
-  let box         = GPack.vbox ~spacing:5 ~packing:box#add () in
+  let box         = GPack.vbox ~spacing:5 ~packing:(box#pack ~expand:true) () in
   let buffer      = GText.buffer () in
-  let sw          = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN ~packing:box#add () in
-  let view        = GText.view ~buffer ~height:50 ~packing:sw#add () in
+  let sw          = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN ~packing:(box#pack ~expand:true) () in
+  let view        = GText.view ~buffer ~packing:sw#add () in
   let buffer_help = GText.buffer () in
-  let sw_help     = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN ~packing:box#add () in
-  let view_help   = GText.view ~buffer:buffer_help ~height:380 ~packing:sw_help#add () in
+  let sw_help     = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN ~packing:(box#pack ~expand:true) () in
+  let view_help   = GText.view ~buffer:buffer_help ~packing:sw_help#add () in
   object
     inherit page title vbox
 

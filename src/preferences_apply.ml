@@ -43,12 +43,12 @@ class "GtkTextView" style "s1"
     then `COLOR (view#misc#style#base `NORMAL)
     else (`NAME pref.editor_bg_color_user)
   in
-  view#mark_occurrences_manager#mark();
+  (*view#mark_occurrences_manager#mark();*)
   view#options#set_mark_occurrences
     (pref.editor_mark_occurrences_enabled,
      pref.editor_mark_occurrences_under_cursor,
      ?? (pref.editor_mark_occurrences_bg_color));
-  view#mark_occurrences_manager#mark();
+  (*view#mark_occurrences_manager#mark();*)
   let show_indent_lines, indent_lines_color_s, pref_editor_indent_lines_color_d = pref.editor_indent_lines in
   view#options#set_show_indent_lines show_indent_lines;
   view#options#set_indent_lines_color_solid (`NAME ?? indent_lines_color_s);
@@ -61,17 +61,8 @@ class "GtkTextView" style "s1"
   view#options#set_current_line_border_enabled pref.editor_current_line_border;
   view#options#set_text_color (ColorOps.name_of_gdk (Preferences.editor_tag_color "lident"));
   let default_bg_color =
-    if pref.editor_bg_color_theme then begin
-      let color = (?? (Preferences.default_values.editor_bg_color_user)) in
-      view#misc#modify_base [`NORMAL, `NAME color];
-      view#misc#modify_bg [`NORMAL, `NAME color];
-      color;
-    end else begin
-      let color = (*`NAME*) (?? (pref.editor_bg_color_user)) in
-      view#misc#modify_base [`NORMAL, `NAME color];
-      view#misc#modify_bg [`NORMAL, `NAME color];
-      color;
-    end;
+    if pref.editor_bg_color_theme then ?? (Preferences.default_values.editor_bg_color_user)
+    else ?? (pref.editor_bg_color_user);
   in
   view#options#set_base_color default_bg_color;
   let editor_tags = pref.editor_tags in
@@ -88,12 +79,52 @@ class "GtkTextView" style "s1"
     view#options#set_visible_right_margin
       (Some (pref.editor_right_margin, `NAME ?? (pref.editor_right_margin_color)))
   end else (view#options#set_visible_right_margin None);
-  match List.find_opt (fun t -> t.name = "selection") editor_tags with
-  | Some t ->
-      let bg_color = if t.bg_default then view#options#text_color else (`NAME ?? (t.bg_color)) in
-      view#misc#modify_base [`SELECTED, bg_color; `ACTIVE, bg_color];
-      let fg_color = if t.bg_default then `NAME default_bg_color else `NAME ?? (t.color) in
-      view#misc#modify_text [`SELECTED, fg_color; `ACTIVE, fg_color];
-  | _ -> assert false
 
+  let css_provider = GObj.css_provider () in
 
+  let css_right_margin =
+    match view#options#visible_right_margin with
+    | Some (column, color) -> (* @borders *)
+        let pango_ctx = view#misc#pango_context#as_context in
+        let layout = Pango.Layout.create pango_ctx in
+        let font_desc = Pango.Font.from_string pref.editor_base_font in
+        Pango.Layout.set_font_description layout font_desc;
+        Pango.Layout.set_text layout (String.make column '0');
+        let col_width, _ = Pango.Layout.get_pixel_size layout in
+        let color = ?? (pref.editor_right_margin_color) in
+        sprintf {|
+textview text {
+    background-image: linear-gradient(to right,
+      transparent %dpx,
+      %s %dpx,
+      %s %dpx,
+      transparent %dpx
+    );
+    background-repeat: repeat-y;
+  }
+|} (col_width - 1) color (col_width - 1) color col_width col_width
+    | _ -> ""
+  in
+
+  (* Set text view bg and selection colors  *)
+  begin
+    match List.find_opt (fun t -> t.name = "selection") editor_tags with
+    | Some t ->
+        let bg_color = if t.bg_default then "initial" else ?? (t.bg_color) in
+        let fg_color = if t.bg_default then default_bg_color else ?? (t.color) in
+        let css = sprintf "
+  textview text selection {
+    background-color: %s;
+    color: %s;
+  }
+  textview, textview text {
+    background-color: %s;
+  }
+  border.left { background-color: transparent; border: none; }
+  %s
+  " bg_color fg_color default_bg_color css_right_margin
+        in
+        css_provider#load_from_data css;
+    | _ -> assert false
+  end;
+  view#misc#style_context#add_provider css_provider 600;

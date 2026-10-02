@@ -318,7 +318,7 @@ let unload proj =
 let project_local_of_proj proj =
   let bookmarks =
     List.map begin fun bm ->
-      let offset = Bookmark.apply bm begin
+      let offset = Bookmark.map bm begin
           function
           | `ITER iter -> GtkText.Iter.get_offset iter
           | `OFFSET offset -> offset
@@ -340,9 +340,9 @@ let save_local_status ~editor proj =
       in
       if page#load_complete then begin
         let scroll_top = page#view#get_scroll_top () in
-        file, scroll_top, (page#buffer#get_iter `INSERT)#offset, is_active
+        file, 0, (page#buffer#get_iter `INSERT)#offset, is_active
       end else
-        file, page#scroll_offset, page#initial_offset, is_active
+        file, 0, page#initial_offset, is_active
     end
     |> List.map begin fun (file, scroll_offset, offset, is_active) ->
       begin
@@ -416,7 +416,7 @@ module Bookmark = struct
 
   let set proj bookmark =
     begin
-      match List.find_opt (fun x -> x.Oe.bm_num = bookmark.Oe.bm_num) proj.bookmarks with
+      match Bookmark.find proj.bookmarks bookmark.Oe.bm_num with
       | Some bookmark ->
           Bookmark.remove bookmark;
           remove proj bookmark.Oe.bm_num;

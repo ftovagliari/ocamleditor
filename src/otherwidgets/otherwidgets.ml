@@ -23,7 +23,6 @@
 
 open Otherwidgets_config
 open Tree
-open Key_assist
 open Activity
 open Checklist
 open Dialog

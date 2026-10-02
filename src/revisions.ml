@@ -204,11 +204,11 @@ class widget ~page ?packing () =
       self#view_diff();
 
     method private reduce_font_size ocamlview =
-      let fd = ocamlview#view#misc#pango_context#font_description in
-      let size = Pango.Font.get_size fd in
+      let fd : GPango.font_description = ocamlview#view#misc#pango_context#font_description in
+      let size = fd#size in
       if size - Pango.scale >= (7 * Pango.scale) then begin
         let size = size - 2 * Pango.scale in
-        Pango.Font.modify fd ~size ();
+        fd#modify ~size ();
         ocamlview#view#misc#modify_font fd;
       end;
 
@@ -231,7 +231,7 @@ class widget ~page ?packing () =
           ocamlview#view#options#set_show_whitespace_chars button_ws#get_active;
           ocamlview#buffer#connect#end_user_action ~callback:ocamlview#colorize |> ignore;
           ocamlview#buffer#set_text "";
-          Global_diff.to_buffer ocamlview#buffer#as_gtext_buffer ignore_whitespace filename1 filename2;
+          Diff.to_buffer ocamlview#buffer#as_gtext_buffer ignore_whitespace filename1 filename2;
           oview <- Some ocamlview;
           ocamlview#view#misc#connect#destroy ~callback:(fun () -> oview <- None) |> ignore;
       | _ -> ()

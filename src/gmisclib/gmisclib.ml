@@ -33,6 +33,13 @@ struct
   let idleize_cascade = Gmisclib_util.idleize_cascade
 end
 
+module Timeout =
+struct
+  let add = Gmisclib_util.Timeout.add
+  let remove = Gmisclib_util.Timeout.remove
+  let print = Gmisclib_util.Timeout.print
+end
+
 module Text =
 struct
   let hyperlink    = new Hyperlink.hyperlink

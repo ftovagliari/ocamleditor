@@ -7,6 +7,6 @@
  (wrapped false)
  (modules :standard)
  (modules_without_implementation entry_combo_search)
- (libraries lablgtk2 unix)
+ (libraries cairo2 lablgtk3 unix)
  (flags (:standard -warn-error -A -g))
  (library_flags (:standard -g)))

@@ -21,12 +21,44 @@
 *)
 
 open GdkKeysyms
-open GUtil
 open Printf
 module ColorOps = Color
-open Preferences
 
 let set_last_incremental = ref (fun text regexp -> failwith "set_last_incremental")
+
+let create_glyph_pixbuf height color ~slashed text =
+  let font_size = height * 62 / 100 in
+  let font_desc = Pango.Font.from_string (sprintf "FiraCode OCamlEditor Bold %d" font_size) in
+
+  let surface = Cairo.Image.create Cairo.Image.ARGB32 ~w:height ~h:height in
+  let cr = Cairo.create surface in
+  let layout = Cairo_pango.create_layout cr in
+  Pango.Layout.set_font_description layout font_desc;
+  Pango.Layout.set_text layout text;
+  let w, h = Pango.Layout.get_pixel_size layout in
+
+  let r = (Gdk.Color.red color |> float) /. 65535.0 in
+  let g = (Gdk.Color.green color |> float) /. 65535.0 in
+  let b = (Gdk.Color.blue color |> float) /. 65535.0 in
+
+  Cairo.set_source_rgba cr r g b 1.0;
+  if slashed then begin
+    Cairo.move_to cr 0. (float h);
+    Cairo.line_to cr (float w) 0.;
+    Cairo.set_line_width cr 2.0;
+    Cairo.stroke cr;
+  end;
+  Cairo_pango.show_layout cr layout;
+
+  let data = Cairo.Image.get_data8 surface in
+  let region = Gpointer.region_of_bigarray data in
+  GdkPixbuf.from_data
+    region
+    ~has_alpha:true
+    ~bits:8
+    ~width:height
+    ~height
+    ~rowstride:(Cairo.Image.get_stride surface)
 
 (* Options *)
 class status () =
@@ -129,7 +161,8 @@ class incremental () =
             | STOP_AFTER bound when i1#offset >= bound ->
                 false
             | _ ->
-                view#scroll_lazy i1;
+                (*view#scroll_aligned i1;*)
+                view#scroll_to_iter  i1 |> ignore;
                 (*Gmisclib.Idle.add (fun () -> ignore (view#scroll_to_iter ~use_align:true ~xalign:1.0 ~yalign:0.5 i1));*)
                 if status#backward then buffer#select_range i2 i1
                 else buffer#select_range i1 i2;
@@ -149,7 +182,9 @@ class incremental () =
           else Str.search_forward pat text pos in
         let start = buffer#get_iter_at_char pos in
         let stop = buffer#get_iter_at_char (Str.match_end()) in
-        view#scroll_lazy start;
+        (*view#scroll_aligned start;*)
+        view#scroll_to_iter ~within_margin:0.1 start |> ignore;
+
         (*Gmisclib.Idle.add (fun () -> ignore (view#scroll_to_iter ~use_align:true ~xalign:1.0 ~yalign:0.5 start));*)
         if status#backward then buffer#select_range stop start
         else buffer#select_range start stop;
@@ -164,7 +199,7 @@ class incremental () =
       let old_case = ref status#case_sensitive in
       let old_match_whole_word = ref status#match_whole_word in
       let old_regexp = ref status#use_regexp in
-      fun ?(full_find : (Gdk.Tags.modifier list * Gdk.keysym * (unit -> unit)) option) ~view ~project () ->
+      fun ~view ~project () ->
         status#set_case_sensitive false;
         status#set_match_whole_word false;
         status#set_use_regexp true;
@@ -172,23 +207,13 @@ class incremental () =
         status#set_text_find "";
         status#set_project project;
         self#set_view (Some view);
-        let dialog =
-          match Sys.os_type with
-          | _ -> GWindow.window ~allow_grow:true
-                   ?type_hint:(Some `DIALOG)
-                   ~decorated:false ~modal:false ~border_width:1 ()
-        in
-        dialog#set_skip_taskbar_hint true;
-        dialog#set_skip_pager_hint true;
-        let move () =
-          (* Coordinate del puntatore relative al desktop *)
-          let pX, pY = Gdk.Window.get_pointer_location (Gdk.Window.root_parent ()) in
-          (* Coordinate del puntatore relative alla vista *)
-          let win = (match view#get_window `WIDGET
-                     with None -> failwith "Incremental_search.i_search: view#get_window `WIDGET = None" | Some w -> w) in
-          let px, py = Gdk.Window.get_pointer_location win in
-          dialog#move ~x:(pX - px + view#misc#allocation.Gtk.width - dialog#misc#allocation.Gtk.width - 5) ~y:(pY - py + 5);
-        in
+
+        let ebox = GBin.event_box ~border_width:0 ~show:true () in
+        ebox#misc#set_property "visible-window" (`BOOL true);
+        let box = GPack.hbox ~spacing:0 ~border_width:0 ~packing:ebox#add ~show:true () in
+        box#misc#style_context#add_class "incremental-search";
+        box#misc#style_context#add_class "incremental-search-hidden";
+        let child = ebox#coerce in
         let search ?(inc=false) (dir : [`BACKWARD | `FORWARD]) =
           begin
             match dir with
@@ -198,56 +223,35 @@ class incremental () =
           status#set_incremental inc;
           self#find ~control:STOP ~view ()
         in
-        let ebox = GBin.event_box ~border_width:0 ~packing:dialog#add () in
-        let box = GPack.hbox ~spacing:0 ~border_width:5 ~packing:ebox#add () in
-        dialog#misc#modify_bg [`NORMAL, `COLOR (dialog#misc#style#bg `SELECTED)];
-        let _ =
-          if not Oe_config.use_theme_colors_when_possible then
-            ebox#misc#modify_bg [`NORMAL, `NAME ?? (Preferences.preferences#get.editor_bg_color_popup)] in
-        let lab = GMisc.label ~markup:"<b><big>Search for: </big></b>\n<span size='xx-small'>Ctrl+F for Find/Replace</span>"
+        let _ = GMisc.label ~markup:"<b>Search for: </b>\n<span size='48%'>Ctrl+F for Find/Replace</span>"
             ~xalign:0.0 ~xpad:0 ~packing:(box#pack ~expand:true ~fill:true) () in
-        let e = GEdit.entry ~packing:(box#pack ~expand:false ~fill:false) () in
-        e#connect#changed ~callback:begin
-          let prev = ref e#text in
+        let entry = GEdit.entry ~width_chars:20 ~packing:(box#pack ~expand:false ~fill:false) () in
+        entry#connect#changed ~callback:begin
+          let prev = ref entry#text in
           let locked = ref false in fun () ->
             if not !locked then begin
-              status#set_text_find (e#text);
-              if search ~inc:true `FORWARD then prev := e#text
+              status#set_text_find (entry#text);
+              if search ~inc:true `FORWARD then prev := entry#text
               else begin
-                let t = if String.length e#text > String.length !prev
-                  then !prev else e#text in
+                let t = if String.length entry#text > String.length !prev
+                  then !prev else entry#text in
                 locked := true;
                 locked := false;
                 status#set_text_find t;
               end;
             end
         end |> ignore;
-        dialog#event#connect#focus_in ~callback:begin fun _ ->
-          move();
-          false
-        end |> ignore;
-        dialog#event#connect#focus_out ~callback:begin fun _ ->
-          dialog#destroy();
-          true
-        end |> ignore;
-        dialog#event#connect#key_press ~callback:
+        entry#event#connect#key_press ~callback:
           begin fun ev ->
-            let state = GdkEvent.Key.state ev |> List.sort compare in
             let keyval = GdkEvent.Key.keyval ev in
-            match full_find with
-            | Some (modi, key, find_func)
-              when state = (modi |> List.sort compare) && keyval = key ->
-                dialog#destroy();
-                find_func ();
-                true
-            | _ ->
-                if keyval = _Left || keyval = _Right || keyval = _Escape then (dialog#destroy(); true)
-                else if keyval = _Up then (move(); search `BACKWARD |> ignore; true)
-                else if keyval = _Down then (move(); search `FORWARD |> ignore; true)
-                else false;
+            if keyval = _Left || keyval = _Right || keyval = _Escape then (child#destroy(); true)
+            else if keyval = _Up then (search `BACKWARD |> ignore; true)
+            else if keyval = _Down then (search `FORWARD |> ignore; true)
+            else false;
           end |> ignore;
-        dialog#connect#destroy ~callback:
+        child#misc#connect#destroy ~callback:
           begin fun () ->
+            Gmisclib.Idle.add ~prio:200 view#misc#grab_focus;
             status#set_incremental !inc;
             status#set_backward !old_back;
             status#set_i_search false;
@@ -255,8 +259,53 @@ class incremental () =
             status#set_match_whole_word !old_match_whole_word;
             status#set_use_regexp !old_regexp;
           end |> ignore;
-        dialog#show();
-        e#misc#grab_focus()
+        let sign_id = ref None in
+        sign_id := Some (view#event#connect#focus_in ~callback:begin fun _ ->
+            child#destroy();
+            Option.iter (GtkSignal.disconnect view#as_widget) !sign_id;
+            sign_id := None;
+            false
+          end);
+        let y = 0 in
+        view#add_child_in_window ~child ~which_window:`WIDGET ~x:0 ~y;
+        child#misc#connect#size_allocate ~callback:begin fun alloc ->
+          let r = view#visible_rect in
+          let scrollbar_width = 25 in
+          let x =
+            view#get_border_window_size `LEFT +
+            Gdk.Rectangle.width r -
+            child#misc#allocation.Gtk.width -
+            scrollbar_width
+          in
+          Gmisclib.Idle.add begin fun () ->
+            view#move_child ~child ~x ~y;
+            box#misc#style_context#add_class "incremental-search-visible";
+          end;
+        end |> ignore;
+        entry#set_secondary_icon_activatable true;
+        let set_secondary_icon ?(alloc=entry#misc#allocation) () =
+          let style = entry#misc#style in
+          let color = style#fg `NORMAL in
+          let icon = create_glyph_pixbuf alloc.Gtk.height color ~slashed:(not status#case_sensitive) "\u{eab1}" in
+          entry#set_secondary_icon_pixbuf icon;
+        in
+        let sign_id = ref None in
+        sign_id := Some (entry#misc#connect#size_allocate ~callback:begin fun alloc ->
+            Gmisclib.Idle.add begin fun () ->
+              set_secondary_icon ~alloc ();
+              Option.iter (GtkSignal.disconnect entry#as_widget) !sign_id;
+              sign_id := None
+            end;
+          end);
+        entry#connect#icon_press ~callback:begin fun pos _ ->
+          match pos with
+          | `PRIMARY -> ()
+          | `SECONDARY ->
+              status#set_case_sensitive (not status#case_sensitive);
+              set_secondary_icon ();
+        end |> ignore;
+        Gmisclib.Idle.add ~prio:300 entry#misc#grab_focus;
+        child
 
     method private not_found text choice view =
       match choice with
@@ -288,7 +337,7 @@ class incremental () =
           view#buffer#select_range top top;
           self#find ~control:NOT_EXISTS ();
       | STOP -> false
-      | _ -> false
+      | STOP_AFTER _ -> false
 
     method connect = new signals ~found:signal_found
   end

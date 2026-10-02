@@ -284,8 +284,8 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
         end);
       ignore (tool_find#connect#clicked ~callback:search_again);
       (** Messages, eval, compile file *)
-      ignore (self#connect#tool_messages_clicked ~callback:(fun _-> ((Messages.vmessages#set_visible  (not messages#visible)) : unit)));
-      ignore (self#connect#tool_hmessages_clicked ~callback:(fun _-> ((Messages.hmessages#set_visible (not hmessages#visible)) : unit)));
+      ignore (self#connect#tool_messages_clicked ~callback:(fun _-> (((Messages.vmessages())#set_visible  (not messages#visible)) : unit)));
+      ignore (self#connect#tool_hmessages_clicked ~callback:(fun _-> (((Messages.hmessages())#set_visible (not hmessages#visible)) : unit)));
       ignore (tool_eval#connect#clicked ~callback:begin fun () ->
           Gaux.may ~f:(fun p -> p#ocaml_view#obuffer#send_to_shell ()) (editor#get_page `ACTIVE)
         end);

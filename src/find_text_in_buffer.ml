@@ -165,6 +165,6 @@ let find direction ~(view : Text.view) ~canceled =
                   (buffer#get_iter (`LINECHAR (line, o1)))
                   (buffer#get_iter (`LINECHAR (line, o2)));
           end;
-          view#scroll_lazy (view#buffer#get_iter `INSERT);
+          view#scroll_aligned (view#buffer#get_iter `INSERT);
         end
     end

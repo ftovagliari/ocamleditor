@@ -7,7 +7,7 @@ class monitor (window : GWindow.window) =
     val mutable is_initial_theme_dark = false
 
     initializer
-      let is_visible = window#misc#get_flag `VISIBLE in
+      let is_visible = window#visible in
       window#show();
       is_initial_theme_dark <- Preferences.Themes.is_dark_theme window#coerce;
       if not is_visible then window#misc#hide();
@@ -28,9 +28,9 @@ class monitor (window : GWindow.window) =
             GWindow.message_dialog ~message_type:`WARNING ~buttons:GWindow.Buttons.ok
               ~message ~position:`CENTER_ON_PARENT ~parent:window ~show:true ()
           in dialog#run() |> begin function _ ->
-              is_restart_required <- false;
-              dialog#destroy()
-            end
+            is_restart_required <- false;
+            dialog#destroy()
+          end
         end;
         false
       end |> ignore;

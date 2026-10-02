@@ -80,7 +80,7 @@ let key_press ?project view =
   end |> ignore;;
 
 (** select_lines_from_gutter *)
-let select_lines_from_gutter view =
+(*let select_lines_from_gutter view =
   let self = view in
   ignore (self#event#connect#after#button_press ~callback:begin fun ev ->
       let window = GdkEvent.get_window ev in
@@ -89,7 +89,7 @@ let select_lines_from_gutter view =
           let y0 = Gdk.Rectangle.y self#visible_rect in
           let y = GdkEvent.Button.y ev in
           let start = fst (self#get_line_at_y ((int_of_float y) + y0)) in
-          view#gutter.Gutter.start_selection <- Some start;
+          view#margin_manager#gutter.Gutter.start_selection <- Some start;
           (*buffer#select_range start start#forward_line;*)
           false
       | _ -> false
@@ -100,7 +100,7 @@ let select_lines_from_gutter view =
       | Some w when (Gobject.get_oid w) = (Gobject.get_oid window) ->
           let y0 = Gdk.Rectangle.y self#visible_rect in
           let y = GdkEvent.Motion.y ev in
-          Gaux.may view#gutter.Gutter.start_selection ~f:begin fun start ->
+          Gaux.may view#margin_manager#gutter.Gutter.start_selection ~f:begin fun start ->
             let stop = fst (self#get_line_at_y ((int_of_float y) + y0)) in
             view#buffer#select_range start stop#forward_line;
             (view#as_gtext_view : GText.view)#scroll_to_iter stop#forward_line;
@@ -112,7 +112,8 @@ let select_lines_from_gutter view =
       let window = GdkEvent.get_window ev in
       match self#get_window `LEFT with
       | Some w when (Gobject.get_oid w) = (Gobject.get_oid window) ->
-          view#gutter.Gutter.start_selection <- None;
+          view#margin_manager#gutter.Gutter.start_selection <- None;
           false
       | _ -> false
     end);;
+*)

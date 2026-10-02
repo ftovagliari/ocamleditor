@@ -5,6 +5,6 @@
  (name otherwidgets)
  (wrapped false)
  (modules :standard)
- (libraries common gmisclib icons lablgtk2)
+ (libraries common gmisclib icons cairo2 lablgtk3)
  (flags (:standard -warn-error -A -w -s-y -g))
  (library_flags (:standard -w -s-y -g)))

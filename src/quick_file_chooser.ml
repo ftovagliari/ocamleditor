@@ -383,8 +383,8 @@ class widget ~source ~name ?filter ?packing () =
               while scan_tree roots do () done;
               while append roots do () done;
             end else begin
-              GMain.Timeout.add ~ms:200 ~callback:(fun () -> scan_tree roots) |> ignore;
-              GMain.Timeout.add ~ms:15 ~callback:(fun () -> append roots) |> ignore;
+              Gmisclib.Timeout.add __FUNCTION__ ~ms:200 ~callback:(fun () -> scan_tree roots) |> ignore;
+              Gmisclib.Timeout.add __FUNCTION__ ~ms:15 ~callback:(fun () -> append roots) |> ignore;
             end;
             filelist
         | `filelist x -> x

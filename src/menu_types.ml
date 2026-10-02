@@ -28,10 +28,10 @@ type t = {
   file_recent_clear                     : GMenu.menu_item;
   file_recent_sep                       : GMenu.menu_item;
   file_switch                           : GMenu.menu_item;
-  file_close                            : GMenu.image_menu_item;
+  file_close                            : GMenu.menu_item;
   file_close_all                        : GMenu.menu_item;
-  file_revert                           : GMenu.image_menu_item;
-  file_delete                           : GMenu.image_menu_item;
+  file_revert                           : GMenu.menu_item;
+  file_delete                           : GMenu.menu_item;
   window                                : GMenu.menu;
   mutable window_radio_group            : Gtk.radio_menu_item Gtk.group option;
   mutable window_pages                  : (int (* page oid *) * GMenu.radio_menu_item) list;

@@ -71,5 +71,13 @@ let print ~editor () =
   (*  *)
   Names.Cache.dump editor#project;
   (*  *)
-  Prf.print()
+  Prf.print_report();
+  (*  *)
+  current_page |> Option.iter begin fun page ->
+    Merlin.check_configuration ~filename:page#get_filename
+      ~buffer:(page#view#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
+    |> Async.start
+  end;
+  Gmisclib.Timeout.print();
+  Gc.compact()
 ;;

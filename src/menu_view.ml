@@ -28,7 +28,6 @@ let get_switch_view_sensitive project page =
 
 let update_labels
     ~code_folding
-    ~select_in_outline
     ~enable_code_folding
     ~collapse_enclosing
     ~unfold_all
@@ -49,7 +48,6 @@ let update_labels
         name ^^^ ".ml" || name ^^^ ".mli"
   in
   code_folding#misc#set_sensitive is_ml;
-  select_in_outline#misc#set_sensitive is_ml;
   enable_code_folding#set_active Preferences.preferences#get.editor_code_folding_enabled;
   List.iter (fun x -> x#misc#set_sensitive enable_code_folding#active) [collapse_enclosing; unfold_all];
   show_whitespace_chars#misc#handler_block signal_show_whitespace_chars;

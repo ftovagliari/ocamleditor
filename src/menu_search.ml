@@ -42,7 +42,7 @@ let find_replace
     ignore (page#connect#search_started ~callback:begin fun () ->
         try
           if page#misc#parent = None then
-            (ignore (Messages.vmessages#append_page ~label_widget:hbox#coerce page#as_page));
+            (ignore ((Messages.vmessages())#append_page ~label_widget:hbox#coerce page#as_page));
           label#set_text page#text_to_find;
           page#set_title page#text_to_find;
           if page#icon = None then page#set_icon (Some (??? Icons.search_results_16));
@@ -123,7 +123,7 @@ let create_search_results_pane ~pixbuf ~editor ~page =
   widget#misc#connect#destroy ~callback:(fun () -> page#buffer#delete_mark (`MARK mark)) |> ignore;
   widget#connect#after#search_started ~callback:begin fun () ->
     if widget#misc#parent = None then
-      Messages.vmessages#append_page ~label_widget:hbox#coerce widget#as_page |> ignore;
+      (Messages.vmessages())#append_page ~label_widget:hbox#coerce widget#as_page |> ignore;
     widget#present ();
   end |> ignore;
   widget, mark, label

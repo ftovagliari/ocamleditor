@@ -44,10 +44,10 @@ class pref_color title ?packing () =
   let _                   = GMisc.label ~text:"Default background color:" ~xalign ~packing:hbox#pack () in
   let button_default_bg   = GButton.color_button ~packing:hbox#pack () in
   let _                   = button_default_bg#set_relief `NONE in
-  let box_tag             = GPack.hbox ~border_width:0 ~spacing:8 ~packing:color_ocaml#pack () in
+  let box_tag             = GPack.hbox ~border_width:0 ~spacing:8 ~packing:(color_ocaml#pack ~expand:true) () in
   let sw                  = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
-      ~packing:box_tag#pack () in
-  let view_tag            = GTree.view ~width:200 ~height:250 ~headers_visible:false ~model:tag_model ~packing:sw#add () in
+      ~packing:(box_tag#pack ~expand:true) () in
+  let view_tag            = GTree.view ~headers_visible:false ~model:tag_model ~packing:sw#add () in
   let renderer            = GTree.cell_renderer_text [] in
   let vc_tag              = GTree.view_column ~renderer:(renderer, ["text", tag_col]) () in
   let _                   = view_tag#append_column vc_tag in

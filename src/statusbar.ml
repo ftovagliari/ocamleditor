@@ -18,7 +18,7 @@ let create_small_button ?tooltip ?icon ?button ?callback ?packing ?show () =
     | _ -> GButton.button ~relief:`NONE ?packing ?show ()
   in
   button#set_focus_on_click false;
-  button#misc#set_name "smallbutton";
+  button#misc#style_context#add_class "statusbar-button";
   icon |> Option.iter begin fun icon ->
     let icon =
       match font_size with
@@ -39,16 +39,15 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
 class editorbar ~view ?packing () =
   let icon_font_name = sprintf "FiraCode OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
   let box = GPack.hbox ~spacing:1 ~border_width:0 ?packing () in
-  let paned = GPack.paned `HORIZONTAL ~packing:box#add () in
   let _ = GMisc.separator `VERTICAL ~packing:box#pack () in
-  let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:(paned#pack1 ~resize:true ~shrink:false) () in
+  let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:box#add () in
   let button_font_incr = create_small_button
       ~icon:"\u{f09f4}"
       ~packing:lbox#pack
       ~callback:begin fun () ->
-        let fd = view#misc#pango_context#font_description in
-        let size = Pango.Font.get_size fd + Pango.scale in
-        Pango.Font.modify fd ~size ();
+        let fd : GPango.font_description = view#misc#pango_context#font_description in
+        let size = fd#size + Pango.scale in
+        fd#modify ~size ();
         view#misc#modify_font fd;
       end ()
   in
@@ -57,11 +56,11 @@ class editorbar ~view ?packing () =
       ~icon:"\u{f09f3}"
       ~packing:lbox#pack
       ~callback:begin fun () ->
-        let fd = view#misc#pango_context#font_description in
-        let size = Pango.Font.get_size fd in
+        let fd : GPango.font_description = view#misc#pango_context#font_description in
+        let size = fd#size in
         if size - Pango.scale >= (7 * Pango.scale) then begin
           let size = size - Pango.scale in
-          Pango.Font.modify fd ~size ();
+          fd#modify ~size ();
           view#misc#modify_font fd;
         end
       end ()
@@ -73,7 +72,7 @@ class editorbar ~view ?packing () =
         let above, below = Preferences.preferences#get.editor_pixels_lines in
         view#set_pixels_above_lines (min (4 + above) (view#pixels_above_lines + 1));
         view#set_pixels_below_lines (min (4 + below) (view#pixels_below_lines + 1));
-        Gmisclib.Idle.add view#draw_gutter;
+        Gmisclib.Idle.add view#build_gutter;
       end ()
   in
   let button_rowspacing_decr = create_small_button
@@ -82,7 +81,7 @@ class editorbar ~view ?packing () =
       ~callback:begin fun () ->
         view#set_pixels_above_lines (max 0 (view#pixels_above_lines - 1));
         view#set_pixels_below_lines (max 0 (view#pixels_below_lines - 1));
-        Gmisclib.Idle.add view#draw_gutter;
+        Gmisclib.Idle.add view#build_gutter;
       end ()
   in
 
@@ -140,11 +139,10 @@ class editorbar ~view ?packing () =
   let _ = set_label_font_size status_pos_sel_chars in
   (*let _ = status_pos_sel_chars#misc#set_tooltip_text "Selected characters" in*)
   let _ = GMisc.separator `VERTICAL ~packing:pos_box#pack () in
-  let _ = paned#set_position 900 in
+  (* TODOL Labltgk3 issue, paned#set_position *)
+  (*let _ = paned#set_position 900 in*)
   object (self)
     inherit GObj.widget box#as_widget
-    method paned = paned
-    method add_scrollbar = paned#pack2 ~resize:true ~shrink:true
     method filename = status_filename
     method modified = status_modified
     method pos_box = pos_box
@@ -167,7 +165,7 @@ class gitbar ?packing () =
   let create_gitbutton icon =
     let button = new Gtk_util.button_icon (*~icon_width:18*) ~icon_spacing:0 ~icon ~packing:box#add ~relief:`NONE () in
     button#button#set_focus_on_click false;
-    button#button#misc#set_name "smallbutton";
+    button#button#misc#style_context#add_class "statusbar-button";
     button
   in
   let button_gitunpushed = create_gitbutton "\u{eaa1}" in
@@ -188,31 +186,30 @@ class gitbar ?packing () =
 
 class widget ?packing () =
   let ebox = GBin.event_box ~border_width:0 ?packing () in
-  let statusbar = GMisc.statusbar (*~spacing:1*) ~border_width:0 ~packing:ebox#add () in
-  let editorbar_placeholder = GBin.alignment ~packing:(statusbar#pack ~from:`START ~expand:true ~fill:true) () in
-  let _ = GMisc.separator `VERTICAL ~packing:(statusbar#pack ~expand:false) () in
-  let spinner = GMisc.image ~width:20 ~packing:statusbar#pack () in
-  let _ = GMisc.separator `VERTICAL ~packing:(statusbar#pack ~expand:false) () in
-  let context_flash = statusbar#new_context ~name:"flash-messages" in
+  let box = GPack.hbox ~spacing:1 ~border_width:0 ~packing:ebox#add () in
+  (*let statusbar = GMisc.statusbar (*~spacing:1*) ~border_width:0 ~packing:ebox#add () in*)
+  let editorbar_placeholder = GBin.alignment ~packing:(box#pack ~from:`START ~expand:true ~fill:true) () in
+  let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
+  let spinner = GMisc.image ~width:20 ~packing:box#pack () in
+  let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
+  (*let context_flash = statusbar#new_context ~name:"flash-messages" in*)
   object (self)
     inherit GObj.widget ebox#as_widget
     initializer
-      self#set_style();
+      self#set_custom_style();
       ebox#misc#toplevel#misc#connect#after#style_set
-        ~callback:(fun () -> Gmisclib.Idle.add ~prio:300 self#set_style) |> ignore
+        ~callback:(fun () -> Gmisclib.Idle.add ~prio:300 self#set_custom_style) |> ignore
 
     method pack_editorbar (bar : editorbar) =
       if editorbar_placeholder#children <> [] then
         editorbar_placeholder#remove editorbar_placeholder#child#coerce;
       editorbar_placeholder#add bar#coerce;
 
-    method pack ?from widget = statusbar#pack ?from ~expand:false ~fill:false widget
+    method pack ?from widget = box#pack ?from ~expand:false ~fill:false widget
 
     method spinner = spinner
 
-    method flash_message ?(delay=3000) msg = context_flash#flash ~delay msg
-
-    method private set_style () =
+    method private set_custom_style () =
       ebox#misc#modify_bg [`NORMAL, `COLOR (ebox#misc#style#light `NORMAL)];
       ebox#misc#modify_fg [`NORMAL, `COLOR (ebox#misc#style#fg `NORMAL)];
   end

@@ -25,7 +25,11 @@ let as_cps merlin_func ?name ~filename ~buffer cont =
   merlin_func ~filename ~buffer |> Async.start_with_continuation ?name cont
 
 let check_configuration ~filename ~buffer =
-  [ "check-configuration" ] |> execute_async filename buffer
+  [ "check-configuration" ]
+  |> execute_async filename buffer
+  |> Async.map ~name:__FUNCTION__ begin fun json ->
+    Printf.printf "%s\n%!" json;
+  end
 
 let errors ~filename ~buffer =
   [ "errors" ] |> execute_async filename buffer
@@ -41,7 +45,7 @@ let case_analysis ~(start : GText.iter) ~(stop : GText.iter) ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.case_analysis_answer_of_string json with
     | Return case_analysis ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok case_analysis.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -63,7 +67,7 @@ let locate ~position:(line, col) ?prefix ?look_for ~filename ~buffer () =
   |> Async.map ~name:"locate-result" begin fun json ->
     match Merlin_j.locate_answer_of_string json with
     | Return locate ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok locate.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -86,7 +90,7 @@ let occurrences ~identifier_at:(line, col) ?scope ?index_file ~filename ~buffer 
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.occurrences_answer_of_string json with
     | Return occurrences ->
-        Log.println `INFO "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok occurrences.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -103,7 +107,7 @@ let locate_type ~position:(line, col) ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.locate_type_answer_of_string json with
     | Return document ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok document.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -120,7 +124,7 @@ let enclosing ~position:(line, col) ~filename ~buffer () =
   |> Async.map ~name:"enclosing-result" begin fun json ->
     match Merlin_j.enclosing_answer_of_string json with
     | Return enclosing ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok enclosing.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -136,7 +140,7 @@ let list_modules ?(ext=[".ml"]) ?(filename="dummy") ?(buffer="") () =
   |> Async.map ~name:"list_modules-result" begin fun json ->
     match Merlin_j.list_modules_answer_of_string json with
     | Return list_modules ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok list_modules.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -154,7 +158,7 @@ let document ~position:(line, col) ?identifier ~filename ~buffer () =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.document_answer_of_string json with
     | Return document ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok document.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -180,7 +184,7 @@ let type_enclosing ~position:(line, col) ?expression ?cursor ?verbosity ?index ~
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.type_enclosing_answer_of_string json with
     | Return types ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok types.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -197,7 +201,7 @@ let complete_prefix ~position:(line, col) ~prefix ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.complete_prefix_answer_of_string json with
     | Return complete ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok complete.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -214,7 +218,7 @@ let expand_prefix ~position:(line, col) ~prefix ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.complete_prefix_answer_of_string json with
     | Return complete ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok complete.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -231,7 +235,7 @@ let type_expression ~position:(line, col) ~expression ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.type_expression_answer_of_string json with
     | Return type_expression ->
-        Log.println `INFO "%s" (Yojson.Safe.prettify json);
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
         Ok type_expression.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
@@ -247,8 +251,8 @@ let outline ~filename ~buffer =
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.outline_answer_of_string json with
     | Return outline ->
-        Log.println `DEBUG "%s" (Yojson.Safe.prettify json);
-        Ok outline.value
+        Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
+        Ok (outline.value, Hashtbl.hash json)
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
         Failure msg.value

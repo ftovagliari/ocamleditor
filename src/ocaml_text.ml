@@ -387,7 +387,7 @@ and view ?project ?buffer () =
             | Some (b, e) ->
                 let i, s = if abs(pos - b) <= abs(pos - e) then b, e else e, b in
                 tb#select_range (tb#get_iter_at_char s) (tb#get_iter_at_char i);
-                self#scroll_lazy (tb#get_iter `INSERT);
+                self#scroll_aligned (tb#get_iter `INSERT);
           end else begin
             buffer#move_mark `SEL_BOUND ~where:((tb#get_iter `INSERT)#set_line_offset 0);
             buffer#move_mark `INSERT ~where:(tb#get_iter `SEL_BOUND)#forward_to_line_end;
