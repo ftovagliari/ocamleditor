@@ -66,9 +66,14 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
   let _ = vc_source#set_visible true in
   let _ =
     model_sort#set_sort_func col_prio.GTree.index begin fun model r1 r2 ->
-      let p1 = model#get ~row:r1 ~column:col_prio in
-      let p2 = model#get ~row:r2 ~column:col_prio in
-      compare p2 p1
+      let s1 = model#get ~row:r1 ~column:col_source in
+      let s2 = model#get ~row:r2 ~column:col_source in
+      let cmp = compare s1 s2 in
+      if cmp = 0 then cmp else begin
+        let p1 = model#get ~row:r1 ~column:col_prio in
+        let p2 = model#get ~row:r2 ~column:col_prio in
+        compare p2 p1
+      end
     end
   in
   let view = page#ocaml_view in
@@ -131,12 +136,14 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
     val mutable current_prefix_offset_start = 0
     val mutable count = 0
     val mutable is_destroyed = false
+    val mutable is_complete = false
+    val mutable load_start_time = 0.0
     val mutable has_scroll = false
     val mutable buffer_signals = []
     val mutable adjustment_signals = []
     val mutable view_signals = []
     val mutable current_window_info = []
-    val mutable model_entries : (float ref * Gtk.tree_path ref * Merlin_t.entry) list = []
+    val mutable model_entries : (float ref * GTree.row_reference ref * Merlin_t.entry) list = []
     val load_start = new load_start()
     val load_complete = new load_complete()
 
@@ -249,7 +256,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
     method private invoke_merlin ~prefix ~position ?(expand=true) () =
       let position = position#line + 1, position#line_offset in
       (* steps: names, complete_prefix and expand_prefix *)
-      let steps = ref 3 in
+      let steps = ref 2 in
       let sync entries name =
         GtkThread.sync begin fun name ->
           try
@@ -418,53 +425,71 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
       let is_expand = source = "E" || source = "N" in
       let add_score = match source with "C" -> 2. | "E" -> 0. | _ -> 0. in
       let trigger_load_complete is_last =
-        if step = 0 && is_last && not is_destroyed then
-          load_complete#call count
+        if step <= 0 && is_last && not is_destroyed && not is_complete then (
+          is_complete <- true;
+          load_start_time <- 0.0;
+          load_complete#call count)
       in
       let add_row (entry : Merlin_j.entry) score is_last =
         let score = score +. add_score in
         let row = model#append () in
-        Gmisclib.Idle.add ~prio:300 begin fun () -> (* let the spinner spin *)
-          m_names := entry.Merlin_j.name :: !m_names;
-          model#set ~row ~column:col_is_exp is_expand;
-          model#set ~row ~column:col_source (sprintf "%s %6.2f" source score);
-          model#set ~row ~column:col_prio score;
-          model#set ~row ~column:col_kind (icon_of_kind entry.Merlin_j.kind);
-          model#set ~row ~column:col_name (List.hd !m_names);
-          model#set ~row ~column:col_desc entry.Merlin_j.desc;
-          model#set ~row ~column:col_info entry.Merlin_j.info;
-          let path = model#get_path row in (* TODO Crash here. Gpointer.Null *)
-          model_entries <- (ref score, ref path, entry) :: model_entries;
-          trigger_load_complete is_last
-        end;
+        m_names := entry.Merlin_j.name :: !m_names;
+        model#set ~row ~column:col_is_exp is_expand;
+        model#set ~row ~column:col_source (sprintf "%s %6.2f" source score);
+        model#set ~row ~column:col_prio score;
+        model#set ~row ~column:col_kind (icon_of_kind entry.Merlin_j.kind);
+        model#set ~row ~column:col_name (List.hd !m_names);
+        model#set ~row ~column:col_desc entry.Merlin_j.desc;
+        model#set ~row ~column:col_info entry.Merlin_j.info;
+        let path = model#get_path row in
+        model_entries <- (ref score, ref (model#get_row_reference path), entry) :: model_entries;
+        trigger_load_complete is_last;
         count <- count + 1;
         row
       in
-      try
-        let last_index = List.length entries - 1 in
-        match entries with
-        | [] -> trigger_load_complete (last_index < 0)
-        | entries ->
-            entries
-            |> List.iteri begin fun i (score, (entry : Merlin_j.entry)) ->
-              if is_destroyed then raise Exit;
-              model_entries
-              |> List.find_opt (fun (_, _, e) -> e.Merlin_j.name = entry.Merlin_j.name)
-              |> function
-              | Some (s, path, _) when score > !s ->
-                  s := score;
-                  let row = model#get_iter !path in
-                  if model#remove row then begin
-                    count <- count - 1;
-                    let row = add_row entry score (i = last_index) in
-                    path := model#get_path row
-                  end else
-                    trigger_load_complete (i = last_index)
-              | None ->
-                  add_row entry score (i = last_index) |> ignore
-              | _ -> trigger_load_complete (i = last_index)
-            end
-      with Exit -> ()
+      let last_index = List.length entries - 1 in
+      match entries with
+      | [] -> trigger_load_complete (last_index < 0)
+      | entries ->
+          lview#set_model None;
+          let rest = ref entries in
+          let current_i = ref 0 in
+          let last_index = List.length entries - 1 in
+          let process_next () =
+            if is_destroyed then false
+            else match !rest with
+              | [] -> false
+              | (score, (entry : Merlin_j.entry)) :: xs ->
+                  rest := xs;
+                  let i = !current_i in
+                  incr current_i;
+                  begin
+                    model_entries
+                    |> List.find_opt (fun (_, _, e) -> e.Merlin_j.name = entry.Merlin_j.name)
+                    |> function
+                    | Some (s, rref, _) when score > !s ->
+                        begin
+                          try
+                            s := score;
+                            let row = !rref#iter in
+                            if model#remove row then begin
+                              count <- count - 1;
+                              let row = add_row entry score (i = last_index) in
+                              rref := model#get_row_reference (model#get_path row)
+                            end else
+                              trigger_load_complete (i = last_index)
+                          with Gpointer.Null as ex ->
+                            Log.println `WARN "%s %s %s" (Printexc.to_string ex) entry.Merlin_j.name source
+                        end
+                    | None ->
+                        add_row entry score (i = last_index) |> ignore;
+                    | _ ->
+                        trigger_load_complete (i = last_index);
+                  end;
+                  true
+          in
+          ignore (GMain.Idle.add process_next);
+          lview#set_model (Some (model_sort :> GTree.model));
 
     method! destroy () =
       window_info#destroy();
@@ -501,6 +526,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
       end |> ignore;
 
       self#connect#load_start ~callback:begin fun () ->
+        load_start_time <- Unix.gettimeofday();
         sw#misc#hide();
         window_compl#resize ~width:1 ~height:1;
         window_compl#show();

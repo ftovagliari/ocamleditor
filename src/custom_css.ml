@@ -49,12 +49,6 @@ let apply () =
         box.incremental-search-hidden { opacity: 0.0}
         box.incremental-search-visible { opacity: 1.0}
 
-        popover.no-arrow > treeview.view:selected,
-        treeview.view:selected:focus,
-        treeview.view:selected:backdrop {
-            background-color: @theme_selected_bg_color;
-            color: @theme_selected_fg_color;
-        }
         popover.no-arrow {
           background-color: transparent;
           border: none;

@@ -109,8 +109,8 @@ type browser_maximized_view_action = {
 
 class type outline =
   object
-    method attach : unit -> unit
-    method detach : unit -> unit
+    method start_monitor : unit -> unit
+    method stop_monitor : unit -> unit
     method get : Merlin_j.outline list
     method is_valid : bool
     method refresh : unit -> unit

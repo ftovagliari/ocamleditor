@@ -206,12 +206,19 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
     method button = button
   end
 
-let scroll_aligned (view : GText.view) (where : GText.iter) ~xalign ~yalign =
-  Gmisclib.Idle.add begin fun () ->
-    let rect = view#get_iter_location where in
-    let top = view#vadjustment#page_size *. yalign in
-    view#vadjustment#set_value (float (Gdk.Rectangle.y rect) -. top);
-  end
+let scroll_aligned (view : GText.view) ?(smooth=true) ~xalign ~yalign (where : GText.iter) =
+  if smooth then
+    Gmisclib.Idle.add ~prio:300 begin fun () ->
+      view#scroll_to_iter ~use_align:(view#scroll_to_iter where) ~xalign:1.0 ~yalign:0.38 where |> ignore;
+      Gmisclib.Idle.add ~prio:200 (fun () -> GtkBase.Widget.queue_draw view#as_widget)
+    end
+  else
+    Gmisclib.Idle.add begin fun () ->
+      let rect = view#get_iter_location where in
+      let top = view#vadjustment#page_size *. yalign in
+      view#vadjustment#set_value (float (Gdk.Rectangle.y rect) -. top);
+      Gmisclib.Idle.add (fun () -> GtkBase.Widget.queue_draw view#as_widget);
+    end
 
 let rec scroll_aligned_alt =
   let is_iter_at_yalign (view : GText.view) (iter : GText.iter) (target_yalign : float) : bool =

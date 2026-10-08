@@ -56,10 +56,10 @@ class editor () =
     val mutable pages = []
     val mutable pages_cache = []
     val mutable project = Project.create ~filename:"untitled.xyz" ()
-    val debouncer_matching_delim = Debouncer.create ~ms:1500
-    val debouncer_mark_ref = Debouncer.create ~ms:300
-    val debouncer_colorize = Debouncer.create ~ms:300
-    val debouncer_mark_words = Debouncer.create ~ms:300
+    val debouncer_matching_delim = Debouncer.create ~ms:1500 ()
+    val debouncer_mark_ref = Debouncer.create ~ms:300 ()
+    val debouncer_colorize = Debouncer.create ~ms:300 ()
+    val debouncer_mark_words = Debouncer.create ~ms:300 ()
     val location_history = Location_history.create()
     val mutable file_history =
       File_history.create

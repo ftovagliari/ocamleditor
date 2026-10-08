@@ -22,7 +22,7 @@ end
 
 exception Invalid_linechar of int * int * int * int
 
-let counter = ref 0
+let counter = ref 1
 
 let mk_polygon n r =
   let pi = 3.14189 in
@@ -108,13 +108,15 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
   let label = Gtk_util.label_icon markup ~packing:ebox#add in
   let buffer = view#buffer in
   let id = !counter in
+  let mark_folding_point_name = sprintf "fold-%d" id in
+  let mark_foot_name = sprintf "fold-foot-%d" id in
   let mark_folding_point =
-    let m = buffer#create_mark ~name:(sprintf "fold-%d" id) buffer#start_iter in (* mark placed in the initializer *)
+    let m = buffer#create_mark ~name:mark_folding_point_name buffer#start_iter in (* mark placed in the initializer *)
     GtkText.Mark.set_visible m is_debug;
     `MARK m
   in
   let mark_foot =
-    let m = buffer#create_mark ~name:(sprintf "fold-foot-%d" id) buffer#start_iter in (* mark placed in the initializer *)
+    let m = buffer#create_mark ~name:mark_foot_name buffer#start_iter in (* mark placed in the initializer *)
     GtkText.Mark.set_visible m is_debug;
     `MARK m
   in
@@ -127,7 +129,6 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
     val mutable is_expanded = true
     val mutable is_definition = false
     val mutable hash = 0
-    val mutable y = 0
 
     val begin_expand = new begin_expand()
     val toggled = new toggled()
@@ -142,7 +143,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
         Log.println `DEBUG "BUTTON_PRESS %d %b" self#id is_expanded;
         Gmisclib.Idle.add ~prio:300 (fun () ->
             if is_expanded then self#collapse() else self#expand_node());
-        false
+        true
       end |> ignore;
       (* Preview of the fold region when the mouse is over the expander. *)
       ebox#event#connect#enter_notify ~callback:begin fun ev ->
@@ -163,17 +164,16 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
         buffer#delete_mark mark_foot
       end |> ignore
 
+    method mark_folding_point_name = mark_folding_point_name
+    method mark_foot_name = mark_foot_name
+
     method hash = hash
 
-    method calculate_hash =
+    method calculate_hash () =
       Hashtbl.hash (buffer#get_text ~start:self#head ~stop:self#body ())
 
     method set_is_definition x = is_definition <- x
     method is_definition = is_definition
-
-    method set_position () =
-      let y_line, _ = view#get_line_yrange self#head in
-      y <- y_line - view#pixels_above_lines;
 
     method place_marks ~folding_point ~(foot : GText.iter) =
       buffer#move_mark mark_folding_point ~where:folding_point;
@@ -197,7 +197,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
         end else where
       in
       buffer#move_mark mark_foot ~where;
-      let new_hash = self#calculate_hash in
+      let new_hash = self#calculate_hash () in
       if hash <> 0 && new_hash <> hash then begin
         Gmisclib.Idle.add begin fun () ->
           self#invalidate();
@@ -222,7 +222,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
     method folding_point = buffer#get_iter mark_folding_point
 
     (** The start of the region to highlight when the mouse pointer is over the expander. *)
-    method private head = self#body#set_line_offset 0
+    method private head = self#folding_point#set_line_offset 0
 
     (** The start of the region to be made invisible when the expander is collapsed. *)
     method body = self#folding_point#forward_to_line_end
@@ -307,7 +307,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
       in
       Gmisclib.Timeout.add __FUNCTION__ ~ms:25 ~callback:step |> ignore;
 
-    method hide_region ?(cont=ignore) () =
+    method private hide_region ?(cont=ignore) () =
       let hide = buffer#apply_tag tag_invisible in
       if !enable_transition then
         self#transition_lines hide self#body#forward_line self#foot cont
@@ -317,7 +317,7 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
       end;
       buffer#apply_tag tag_highlight ~start:self#head ~stop:self#head#forward_to_line_end;
 
-    method show_region ?(segments=[self#body#forward_line, self#foot]) ?(transition=true) ?(cont=ignore) () =
+    method private show_region ?(segments=[self#body#forward_line, self#foot]) ?(transition=true) ?(cont=ignore) () =
       Log.println `DEBUG "    show_region %d -- %s" self#id (Region.to_string (self#body, self#foot));
       let segments = segments |> List.sort (fun (a, _) (b, _) -> compare a#offset b#offset) in
       let show = buffer#remove_tag tag_invisible in
@@ -332,15 +332,15 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
       buffer#remove_tag tag_highlight ~start:self#head ~stop:self#head#forward_to_line_end;
 
     method show (top : int) (left : int) (height : int) =
-      Prf.register Prf.show_fold_expander begin fun () ->
-        let y_view = y - top in
-        if y_view < 0 || y_view > height || self#is_hidden then begin
-          self#misc#hide()
-        end else begin
-          view#move_child ~child:self#coerce ~x:left ~y;
-          self#misc#show()
-        end
-      end ()
+      let y_line, _ = view#get_line_yrange self#head in
+      let y = max 0 (y_line - view#pixels_above_lines) in
+      let y_view = y - top in
+      if y_view < 0 || y_view > height || self#is_hidden then begin
+        self#misc#hide()
+      end else begin
+        view#move_child ~child:self#coerce ~x:left ~y;
+        self#misc#show();
+      end
 
     (** Sets whether this expander contains a marked occurrence.
         Used for highlighting expanders that contain search results. *)
@@ -365,7 +365,7 @@ and signals ~begin_expand ~toggled ~refresh_needed =
 
 (** A class representing the folding margin for an editor view. This margin manages all the
     expander widgets and synchronizes them with the code structure using Merlin. *)
-class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
+class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager : Error_indication.manager) =
   let size = if is_debug then 30 else 18 in
   let spacing = 5 in
   let buffer = view#obuffer in
@@ -412,6 +412,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
     val mutable expanders : expander list = []
     val begin_expander_toggled = new begin_expander_toggled()
     val expander_toggled = new expander_toggled()
+    val changed = new changed ()
     val mutable signals = []
 
     method scope = Local
@@ -426,50 +427,52 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
     method draw_margin ~view ~drawable ~top ~left ~height ~start ~stop =
       Prf.register Prf.draw_margin_fold begin fun () ->
-        if outline#is_valid then begin
+        if outline#is_valid (*&& not error_manager#has_errors#get*) then
           try
-            (*Log.println `DEBUG "%s: is_refresh_pending = %b, expanders = %d"
-              __FUNCTION__ is_refresh_pending#get (List.length expanders);*)
-            (* Separate the case in which markers and expanders need to be
-               reconstructed from the case in which only the positions within the visible
-               area need to be updated (for example in the case of scrolling). *)
-            if is_refresh_pending#get || expanders = [] then begin
-              Log.println `DEBUG "%s: is_refresh_pending = %b, expanders = %d"
-                __FUNCTION__ is_refresh_pending#get (List.length expanders);
+            if is_refresh_pending#get then begin
+              Log.println `DEBUG "DRAW_MARGIN: is_refresh_pending = %b, expanders = %d, outline = %d"
+                is_refresh_pending#get (List.length expanders) (List.length outline#get);
               let methods = ref [] in
-              expanders <-
-                List.filter_map begin fun ex ->
-                  ex#misc#hide();
-                  if ex#is_valid then Some ex else None
-                end expanders;
-              outline#get
-              |> iter_depth_first begin fun parent ol ->
-                (*Log.println `DEBUG "%s %s %s - %s" ol.ol_kind ol.ol_name !!(ol.ol_start) !!(ol.ol_stop);*)
-                ol.ol_parent <- parent;
-                if ol.ol_kind = "Method" then methods := ol :: !methods
-                else self#get_or_create_expander ol top left height;
-              end None;
-              !methods |> List.iter (fun ol -> self#get_or_create_expander ol top left height);
-              is_refresh_pending#set false;
-              expanders |> List.iter begin fun ex ->
-                let new_hash = ex#calculate_hash in
-                (*Log.println `DEBUG "EXPANDER %d: reg=%s hash=%d %d"
-                  ex#id (Region.to_string (ex#body, ex#foot))
-                  ex#hash new_hash;*)
-                if ex#hash <> new_hash then begin
-                  ex#invalidate();
-                  is_refresh_pending#set true;
-                end
-              end;
-            end else
-              expanders |> List.iter (fun ex -> ex#show top left height);
+              let cleanup () =
+                expanders <-
+                  expanders |> List.filter_map (fun ex -> if ex#is_valid then Some ex else None)
+              in
+              cleanup();
+              if outline#get = [] then begin
+                List.iter (fun e -> e#invalidate()) expanders;
+                cleanup();
+                is_refresh_pending#set false;
+              end else begin
+                outline#get |> iter_depth_first begin fun parent node ->
+                  (*Log.println `DEBUG "%s %s %s - %s" ol.ol_kind ol.ol_name !!(ol.ol_start) !!(ol.ol_stop);*)
+                  node.ol_parent <- parent;
+                  if node.ol_kind = "Method" then methods := node :: !methods
+                  else self#upsert_expander node;
+                end None;
+                !methods |> List.iter (fun node -> self#upsert_expander node);
+                is_refresh_pending#set false;
+                expanders |> List.iter begin fun ex ->
+                  let new_hash = ex#calculate_hash () in
+                  (*Log.println `DEBUG "EXPANDER %d: valid=%b reg=%s hash=%d %d %s"
+                    ex#id ex#is_valid (Region.to_string (ex#body, ex#foot))
+                    ex#hash new_hash (Region.to_string (ex#folding_point, ex#foot));*)
+                  if ex#hash <> new_hash || ex#folding_point#offset = ex#foot#offset then begin
+                    Log.println `DEBUG "IVALIDATING EXPANDER %d: %s" ex#id
+                      (if ex#hash <> new_hash then "hashes differ" else "empty");
+                    ex#invalidate();
+                    is_refresh_pending#set true;
+                  end;
+                end;
+                cleanup();
+              end
+            end
           with Invalid_linechar (ln, el, cn, cl) ->
-            Log.println `ERROR "===>> Invalid_linechar (%d/%d, %d/%d) <<===" ln el cn cl;
+            Log.println `WARN "===>> Invalid_linechar (%d/%d, %d/%d) <<===" ln el cn cl ;
             is_refresh_pending#set true
-        end else begin
-          Log.println `DEBUG "outline is invalid (buffer is changed after last update or the outline timer is off)";
-          is_refresh_pending#set true
-        end
+        else
+          Log.println `TRACE "Outline is not valid. Skipping draw folds.";
+        expanders |> List.iter (fun ex ->
+            if ex#is_hidden then ex#misc#hide() else ex#show top left height);
       end ()
 
     method private get_iter_at_pos (pos : Merlin_j.pos) =
@@ -478,12 +481,12 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
         raise (Invalid_linechar (pos.line, buffer#end_iter#line, pos.col, -99));
       let iter_line = buffer#get_iter (`LINE ln) in
       if pos.col >= iter_line#chars_in_line then
-        raise (Invalid_linechar (pos.line, -99, pos.col, iter_line#chars_in_line));
+        raise (Invalid_linechar (pos.line, iter_line#line + 1, pos.col, iter_line#chars_in_line));
       buffer#get_iter (`LINECHAR (ln, pos.col))
 
-    method private get_or_create_expander ol top left height =
-      let start = self#get_iter_at_pos ol.ol_start in
-      let stop = self#get_iter_at_pos ol.ol_stop in
+    method private upsert_expander node =
+      let start = self#get_iter_at_pos node.ol_start in
+      let stop = self#get_iter_at_pos node.ol_stop in
       if stop#line > start#line then begin
         let expander =
           match expanders |> List.find_opt (fun exp -> exp#folding_point#equal start) with
@@ -491,7 +494,6 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
               let expander = new expander ~tag_highlight ~tag_invisible ~view () in
               expander#place_marks ~folding_point:start ~foot:stop;
               expanders <- expander :: expanders;
-              expander#show_region();
               expander#connect#after#begin_expand ~callback:(fun nested ->
                   begin_expander_toggled#call (expander, nested)) |> ignore;
               expander#connect#after#toggled ~callback:(fun _ -> expander_toggled#call expander) |> ignore;
@@ -501,13 +503,8 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
               expander
         in
         expander#set_is_definition
-          (ol.ol_kind = "Value" && (Oe_config.code_folding_deep_collapse || ol.ol_parent <> None)
-           || ol.ol_kind = "Method");
-        expander#set_position ();
-        (* Hide expanders inside invisible regions *)
-        if expander#is_hidden
-        then expander#misc#hide()
-        else expander#show top left height
+          (node.ol_kind = "Value" && (Oe_config.code_folding_deep_collapse || node.ol_parent <> None)
+           || node.ol_kind = "Method");
       end
 
     method find_nested_expanders (expander : expander) =
@@ -517,10 +514,6 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
         |> List.filter (fun exp -> exp#id <> expander#id)
       in
       all_nested
-    (*|> List.filter (fun exp ->
-        not (all_nested
-             |> List.filter (fun x -> x#id <> exp#id)
-             |> List.exists (fun x -> x#body_contains exp#body)))*)
 
     method draw_ellipsis _ =
       match view#get_window `TEXT with
@@ -600,7 +593,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
     method private configure is_enabled =
       if is_enabled then self#enable() else self#disable()
 
-    method connect = new margin_signals ~begin_expander_toggled ~expander_toggled
+    method connect = new margin_signals ~begin_expander_toggled ~expander_toggled ~changed
 
     initializer
       self#set_is_visible Preferences.preferences#get.Settings_j.editor_code_folding_enabled;
@@ -610,10 +603,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
       self#connect#expander_toggled ~callback:(fun _ -> is_refresh_pending#set true) |> ignore;
       outline#connect#changes ~callback:begin fun _ ->
         is_refresh_pending#set true;
-        Log.println `DEBUG "CHANGED %b" is_refresh_pending#get;
-        Gmisclib.Idle.add ~prio:100 begin fun () ->
-          view#build_gutter(); (* triggers draw *)
-        end;
+        Log.println `TRACE "CHANGES";
       end |> ignore;
       if is_debug then
         is_refresh_pending#connect#changed ~callback:begin fun value ->
@@ -624,11 +614,13 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) =
 
 and begin_expander_toggled () = object inherit [expander * expander list ref] signal () end
 and expander_toggled () = object inherit [expander] signal () end
-and margin_signals ~begin_expander_toggled ~expander_toggled =
+and changed () = object inherit [unit] signal () end
+and margin_signals ~begin_expander_toggled ~expander_toggled ~changed =
   object
-    inherit ml_signals [begin_expander_toggled#disconnect; expander_toggled#disconnect]
+    inherit ml_signals [begin_expander_toggled#disconnect; expander_toggled#disconnect; changed#disconnect]
     method begin_expander_toggled = begin_expander_toggled#connect ~after
     method expander_toggled = expander_toggled#connect ~after
+    method changed = changed#connect ~after
   end
 
 let pages : (int * margin_fold) list ref = ref []
@@ -639,8 +631,11 @@ let init_page (page : Editor_page.page) =
     |> begin function
     | None ->
         let outline = page#outline in
-        let margin = new margin_fold outline page#ocaml_view in
+        let margin = new margin_fold outline page#ocaml_view page#error_manager in
         page#margin_manager#add (margin :> Margin.margin);
+        (*margin#connect#changed ~callback:(fun () ->
+            GtkBase.Widget.queue_draw page#view#as_widget
+          ) |> ignore;*)
         margin#connect#begin_expander_toggled ~callback:(fun (expander, nested) ->
             nested := margin#find_nested_expanders expander) |> ignore;
         margin#connect#expander_toggled ~callback:begin fun _ ->
@@ -666,14 +661,6 @@ let init_page (page : Editor_page.page) =
             end
           end
         end |> ignore;
-        (*margin#connect#after#expander_toggled ~callback:begin fun _ ->
-          outline#refresh();
-          Gmisclib.Idle.add ~prio:300 begin fun () ->
-            Printf.printf "*** 1\n%!" ;
-            page#margin_manager#draw();
-            Printf.printf "*** 2\n%!" ;
-          end
-          end |> ignore;*)
         (* Remove highlights from all expanders when there are no marked occurrences *)
         (*page#view#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
           match page#view#mark_occurrences_manager#words with
@@ -730,11 +717,10 @@ let toggle_current_fold (page : Editor_page.page) =
   | _ -> ()
 
 let init_editor editor =
-  editor#connect#add_page ~callback:init_page |> ignore;
-  (*  editor#connect#remove_page ~callback:begin fun page ->
-      pages := List.filter begin fun (oid, margin) ->
-          page#view#margin#remove (margin :> Margin.margin);
-          oid <> page#misc#get_oid
-        end !pages
-      end |> ignore*)
-
+  editor#connect#add_page ~callback:init_page |> ignore
+(*  editor#connect#remove_page ~callback:begin fun page ->
+    pages := List.filter begin fun (oid, margin) ->
+        page#view#margin#remove (margin :> Margin.margin);
+        oid <> page#misc#get_oid
+      end !pages
+    end |> ignore*)

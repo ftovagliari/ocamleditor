@@ -512,7 +512,7 @@ let at_iter qi (iter : GText.iter) () =
   setup_tooltip_toggle qi;
   process_location qi x y
 
-let debouncer = Debouncer.create ~ms:250
+let debouncer = Debouncer.create ~ms:250 ()
 
 let query_tooltip qi ~x ~y ~kbd _ =
   (*Log.println `DEBUG "%d %d %f" x y (Unix.gettimeofday());*)

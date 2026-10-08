@@ -585,8 +585,6 @@ let ocamleditor_user_home =
 let ensure_ocamleditor_user_home () =
   if not (Sys.file_exists ocamleditor_user_home) then (Unix.mkdir ocamleditor_user_home 509)
 
-let launcher_filename = ocamleditor_user_home // "launcher.list"
-
 let get_application_dir name =
   let exe_dir = !! Sys.executable_name in
   let path = exe_dir // name in
@@ -3408,7 +3406,37 @@ let general_commands = [
 
 let targets = [
   
-  (* 0 *)
+  (* 1 *)
+  "ocamleditor", {
+    descr                = "";
+    num                  = 1;
+    id                   = 12;
+    output_name          = "ocamleditor";
+    target_type          = Executable;
+    compilation_bytecode = false;
+    compilation_native   = true;
+    toplevel_modules     = "ocamleditor.ml";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
+    search_path          = "gmisclib common icons otherwidgets oebuild"; (* -I *)
+    required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
+    compiler_flags       = "-w -s-y-x-m -g";
+    linker_flags         = "-g";
+    thread               = true;
+    vmthread             = false;
+    pp                   = "";
+    inline               = Some 50;
+    nodep                = true;
+    dontlinkdep          = false;
+    dontaddopt           = false;
+    library_install_dir  = ""; (* Relative to the Standard Library Directory *)
+    other_objects        = "";
+    external_tasks       = [];
+    restrictions         = [];
+    dependencies         = [14; 19; 16; 22];
+    show                 = true;
+  };
+  
+  (* 1 *)
   "common", {
     descr                = "";
     num                  = 0;
@@ -3438,7 +3466,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 0 *)
+  (* 1 *)
   "icons", {
     descr                = "";
     num                  = 0;
@@ -3468,7 +3496,7 @@ let targets = [
     show                 = false;
   };
   
-  (* 0 *)
+  (* 1 *)
   "oebuildlib", {
     descr                = "";
     num                  = 0;
@@ -3498,10 +3526,10 @@ let targets = [
     show                 = false;
   };
   
-  (* 1 *)
+  (* 2 *)
   "oebuild", {
     descr                = "";
-    num                  = 1;
+    num                  = 2;
     id                   = 5;
     output_name          = "oebuild/oebuild";
     target_type          = Executable;
@@ -3528,10 +3556,10 @@ let targets = [
     show                 = true;
   };
   
-  (* 2 *)
+  (* 3 *)
   "gmisclib", {
     descr                = "Miscellaneous widgets based on LablGtk2.";
-    num                  = 2;
+    num                  = 3;
     id                   = 8;
     output_name          = "gmisclib";
     target_type          = Library;
@@ -3558,7 +3586,7 @@ let targets = [
     show                 = true;
   };
   
-  (* 2 *)
+  (* 3 *)
   "otherwidgets", {
     descr                = "";
     num                  = 0;
@@ -3588,10 +3616,10 @@ let targets = [
     show                 = false;
   };
   
-  (* 3 *)
+  (* 4 *)
   "ocamleditor-lib", {
     descr                = "";
-    num                  = 3;
+    num                  = 4;
     id                   = 14;
     output_name          = "ocamleditor_lib";
     target_type          = Library;
@@ -3615,36 +3643,6 @@ let targets = [
     external_tasks       = [];
     restrictions         = [];
     dependencies         = [4; 10; 5; 28; 8; 9; 20];
-    show                 = true;
-  };
-  
-  (* 4 *)
-  "ocamleditor", {
-    descr                = "";
-    num                  = 4;
-    id                   = 12;
-    output_name          = "ocamleditor";
-    target_type          = Executable;
-    compilation_bytecode = false;
-    compilation_native   = true;
-    toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
-    search_path          = "gmisclib common icons otherwidgets oebuild"; (* -I *)
-    required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
-    compiler_flags       = "-w -s-y-x-m -g";
-    linker_flags         = "-g";
-    thread               = true;
-    vmthread             = false;
-    pp                   = "";
-    inline               = Some 50;
-    nodep                = true;
-    dontlinkdep          = false;
-    dontaddopt           = false;
-    library_install_dir  = ""; (* Relative to the Standard Library Directory *)
-    other_objects        = "";
-    external_tasks       = [];
-    restrictions         = [];
-    dependencies         = [14; 19; 16; 22];
     show                 = true;
   };
   

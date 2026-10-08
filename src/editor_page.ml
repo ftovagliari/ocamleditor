@@ -493,6 +493,7 @@ class page ?file ~project ~offset ~editor () =
     method private init_mark_occurrences () =
       mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
         margin_occurrences#build_occurrences ~words:mark_occurrences_manager#words ~refs:mark_occurrences_manager#refs;
+        GtkBase.Widget.queue_draw self#as_widget
       end |> ignore;
 
     initializer
@@ -522,12 +523,13 @@ class page ?file ~project ~offset ~editor () =
       end |> ignore;
       view#hyperlink#enable();
       (* Expose: Statusbar *)
-      self#view#misc#connect#after#draw ~callback:begin fun _ ->
-        let iter = self#buffer#get_iter `INSERT in
-        editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
-        editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
-        editorbar#pos_off#set_text (string_of_int iter#offset);
-        false
+      self#buffer#connect#after#mark_set ~callback:begin fun iter mark ->
+        match GtkText.Mark.get_name mark with
+        | Some "insert" ->
+            editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
+            editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
+            editorbar#pos_off#set_text (string_of_int iter#offset);
+        | _ -> ()
       end |> ignore;
       (* After focus_in, check if the file is changed on disk *)
       ignore (text_view#event#connect#after#focus_in ~callback:begin fun _ ->

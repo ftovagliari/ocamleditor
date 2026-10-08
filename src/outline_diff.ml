@@ -1,4 +1,4 @@
-open Merlin_j
+open Merlin_t
 open Printf
 
 type node_id = {
@@ -58,7 +58,7 @@ let rec diff_outlines_with_path
     (raw_o1 : outline list)
     (raw_o2 : outline list) : t =
 
-  (* Ripristina l'ordine naturale (da cima a fondo del file) per questo livello *)
+  (* Restores the natural order (from the top to the bottom of the file) for this level. *)
   let o1 = List.rev raw_o1 in
   let o2 = List.rev raw_o2 in
 
@@ -73,12 +73,7 @@ let rec diff_outlines_with_path
   let m1 = List.fold_left (fun m (id, o) -> IDMap.add id o m) IDMap.empty indexed_o1 in
   let m2 = List.fold_left (fun m (id, o) -> IDMap.add id o m) IDMap.empty indexed_o2 in
 
-  (* Elementi rimossi con posizione reale pos in o1 *)
-  let removed_curr =
-    indexed_o2 (* Nota: per la scansione mantieni l'iterazione ordinata *)
-    |> List.filter_map (fun _ -> None) (* dummy per la struttura *)
-    (* In alternativa usa la mappatura diretta su indexed_o1: *)
-  in
+  (* Elements removed with actual position pos in o1 *)
   let removed_curr =
     indexed_o1
     |> List.mapi (fun pos (id, o) ->
@@ -88,7 +83,7 @@ let rec diff_outlines_with_path
     |> List.filter_map (fun x -> x)
   in
 
-  (* Elementi aggiunti con posizione reale pos in o2 *)
+  (* Elements added with actual position pos in o2 *)
   let added_curr =
     indexed_o2
     |> List.mapi (fun pos (id, o) ->
@@ -98,7 +93,7 @@ let rec diff_outlines_with_path
     |> List.filter_map (fun x -> x)
   in
 
-  (* Confronto e ricorsione sui figli *)
+  (* Comparison and recursion on children *)
   let common_diff =
     List.fold_left (fun acc (id, o2_node) ->
         let path = parent_path @ [id] in
@@ -108,8 +103,8 @@ let rec diff_outlines_with_path
             let node_changed =
               if not (equal_node o1_node o2_node) then [(path, o1_node, o2_node)] else []
             in
-            (* o1_node.ol_children e o2_node.ol_children verranno invertiti
-               automaticamente al prossimo passo ricorsivo *)
+            (* o1_node.ol_children and o2_node.ol_children will be reversed
+               automatically at the next recursive step. *)
             let children_diff =
               diff_outlines_with_path path o1_node.ol_children o2_node.ol_children
             in
@@ -119,8 +114,7 @@ let rec diff_outlines_with_path
 
   combine { added = added_curr; removed = removed_curr; changed = [] } common_diff
 
-
-(* Estrae il parent_path e l'index da un node_path *)
+(* Extracts the parent_path and index from a node_path *)
 let split_path path =
   match List.rev path with
   | [] -> []
@@ -131,13 +125,13 @@ let detect_renames (diff : t) : t =
     List.fold_left (fun (changed_acc, current_added, current_removed) (rem_path, rem_node, rem_pos) ->
         let rem_parent = split_path rem_path in
 
-        (* Cerca un candidato in added con stesso parent_path e stesso pos *)
+        (* Search for a candidate in added with same parent_path and same pos*)
         match List.find_opt (fun (add_path, _, add_pos) ->
             let add_parent = split_path add_path in
             add_parent = rem_parent && add_pos = rem_pos
           ) current_added with
         | Some (add_path, add_node, _) ->
-            (* Trovato rename: crea la voce per changed usando rem_path (quello presente in GTK) *)
+            (* Rename found: create the entry for 'changed' using rem_path (the one present in GTK). *)
             let new_changed = (rem_path, rem_node, add_node) in
             let updated_added = List.filter (fun (p, _, _) -> p <> add_path) current_added in
             (new_changed :: changed_acc, updated_added, current_removed)
