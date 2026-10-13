@@ -486,6 +486,11 @@ class browser window =
             else
               window#set_decorated second.mva_decorated;
             maximized_view_action <- `SECOND;
+            editor#with_current_page (fun p ->
+                Gmisclib.Timeout.add "maximize" ~ms:300 ~callback:(fun () ->
+                    p#margin_manager#build();
+                    GtkBase.Widget.queue_draw p#view#as_widget;
+                    false) |> ignore);
         | `FIRST when maximized_view_action = `SECOND ->
             reset_default();
             self#set_maximized_view view

@@ -6,10 +6,9 @@ class markers (view : GText.view) =
   let font = "FiraCode OCamlEditor 12" in
   let last_id = Atomic.make 0 in
   object (self)
-    inherit [(int * GObj.widget * int * int) list] widget ()
-    val mutable size = 18
+    inherit [(int * GObj.widget * Gutter.marker_kind * int) list] widget ()
+    val mutable size = 16
     val mutable markers : Gutter.marker list = []
-    val mutable size_extent = 0
     val mutable avail_width = 0
     val font_desc = Pango.Font.from_string font
     val layout = view#misc#create_pango_context#create_layout#as_layout
@@ -20,7 +19,6 @@ class markers (view : GText.view) =
     method index = 0
     method size = size
     method model = model
-    method set_size_extent x = size_extent <- x
 
     method add ~kind ~mark ~icon ~color =
       let marker = {id = Atomic.fetch_and_add last_id 1; kind; mark; icon=(Some (icon, color)); icon_obj=None} in
@@ -30,32 +28,31 @@ class markers (view : GText.view) =
     method remove markers_to_remove =
       markers <- markers |> List.filter (fun m -> not (List.exists (fun r -> r.id = m.id) markers_to_remove)) ;
       Gutter.destroy_markers markers_to_remove;
+      self#build ~start:view#buffer#start_iter ~stop:view#buffer#end_iter
 
     method get_lines_with_markers () =
       model
-      |> Utils.ListExt.group_by (fun (ln, _) -> ln)
-      |> List.filter_map (fun (ln, ms) -> if List.length ms > 0 then Some ln else None)
+      |> List.filter_map (fun (ln, ms) -> if List.length ms >= 2 then Some ln else None)
 
     method build ~start ~stop =
-      avail_width <- size + size_extent;
+      avail_width <- size + (max 5 size_extent);
       model <- [];
       let tmp_model = ref [] in
-      markers |> List.iter begin fun mark ->
+      markers
+      |> List.iter begin fun mark ->
         mark.icon
         |> Option.iter begin fun (icon, color) ->
           Gmisclib.Util.get_iter_at_mark_opt view#buffer#as_buffer mark.mark
           |> Option.iter begin fun mark_iter ->
             let iter = new GText.iter mark_iter in
             let line = iter#line + 1 in
-            let y, h = view#get_line_yrange iter in
-            let icon_width, icon_height = text_pixel_size ~layout font_desc icon in
-            let y = y + (h - icon_height) / 2 - 1 in
+            let y, _ = view#get_line_yrange iter in
             match mark.icon_obj with
             | None ->
-                let ebox = GBin.event_box ~show:false () in
-                ebox#misc#set_property "visible-window" (`BOOL true);
+                let ebox = GBin.event_box ~show:false ~border_width:0 () in
+                ebox#misc#set_property "visible-window" (`BOOL false);
                 let label = GMisc.label
-                    ~xpad:0 ~ypad:0 ~xalign:0.0 ~width:icon_width
+                    ~xpad:0 ~ypad:0 ~xalign:0.0 ~yalign:0.0 ~width:1
                     ~markup:(sprintf "<span face='%s' color='%s'>%s</span>" font color icon)
                     ~packing:ebox#add ()
                 in
@@ -82,30 +79,25 @@ class markers (view : GText.view) =
                 let child = ebox#coerce in
                 mark.icon_obj <- Some child;
                 view#add_child_in_window ~child ~which_window:`LEFT ~x:0 ~y;
-                tmp_model := (line, (y, child, icon_width, iter#offset)) :: !tmp_model
+                tmp_model := (line, (y, child, mark.kind, iter#offset)) :: !tmp_model
             | Some child ->
-                tmp_model := (line, (y, child, icon_width, iter#offset)) :: !tmp_model
+                tmp_model := (line, (y, child, mark.kind, iter#offset)) :: !tmp_model
           end
         end
       end;
-      model <- Utils.ListExt.group_assoc !tmp_model
+      model <-
+        Utils.ListExt.group_assoc !tmp_model
+        |> List.map (fun (x, l) -> x, l |> List.sort (fun (_, _, k1, _) (_, _, k2, _) -> compare k1 k2))
 
     method draw_margin ~view ~drawable ~top ~left ~height ~start ~stop =
       Prf.register Prf.draw_margin_markers begin fun () ->
-        let left = left + avail_width in
         model
         |> List.iter begin fun (ln, childs) ->
-          let icons_width = List.fold_left (fun sum (_, _, w, _) -> w + sum) 0 childs in
-          let n_childs = List.length childs in
-          let offset =
-            if icons_width > avail_width && n_childs > 1
-            then (avail_width - icons_width) / (n_childs - 1) else 0
-          in
-          childs |> List.fold_left begin fun x (y, child, icon_width, _) ->
+          childs |> List.fold_left begin fun x (y, child, _, _) ->
             child#misc#show();
-            let x = x - icon_width in
+            let child_width = child#misc#allocated_width in
             view#move_child ~child ~x ~y;
-            x - offset
+            x + child_width + 2
           end left |> ignore;
         end
       end ()

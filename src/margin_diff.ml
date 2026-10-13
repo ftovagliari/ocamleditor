@@ -8,7 +8,7 @@ type diff_item =
   | Bar of { color : GDraw.color; y : int; height : int }
   | Triangle of { color : GDraw.color; y : int }
 
-let size = 13
+let size = 10
 
 class local (view : Text.view) =
   let color_add =

@@ -420,7 +420,8 @@ and view ?project ?buffer () =
         prev_line_background <- cur_line;
       end
 
-    method build_gutter () = ();
+    (* TODO Rename this method or review *)
+    method build_gutter () = GtkBase.Widget.queue_draw self#as_widget
 
     method private metrics =
       let pango = view#misc#pango_context in

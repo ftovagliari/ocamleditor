@@ -30,6 +30,7 @@ class virtual margin () =
     val mouseover = new mouseover
     val mouseout = new mouseout
     val mutable is_visible = true
+    val mutable size_extent = 0
     method virtual index : int
     method virtual scope : scope
     method virtual kind : kind
@@ -39,6 +40,7 @@ class virtual margin () =
     method set_is_visible x = is_visible <- x
     method name = show_kind self#kind
     method virtual size : int (* width of the margin in pixels *)
+    method set_size_extent x = size_extent <- x
 
     (** Called whenever the margin needs to be redrawn.
         @param top The top edge of the margin area to be drawn, in buffer coordinates.

@@ -65,7 +65,7 @@ let init_page page =
       page#margin_manager#add (margin_global :> Margin.margin);
       initialized := (page#get_oid, (margin_local, margin_global)) :: !initialized;
       try_compare ~force:true page;
-      Gmisclib.Idle.add page#view#build_gutter
+      Gmisclib.Idle.add page#margin_manager#build
   | _ -> ()
 
 let init_editor editor =

@@ -232,6 +232,7 @@ class page ?file ~project ~offset ~editor () =
       end
 
     method save () = Gaux.may file ~f:begin fun file ->
+        Colorize.colorize_buffer ocaml_view;
         if not file#is_readonly then begin
           if Preferences.preferences#get.editor_bak then (self#backup());
           file#write (buffer#get_text ());
@@ -469,6 +470,15 @@ class page ?file ~project ~offset ~editor () =
       in
       error_manager#connect#tag_applied ~callback:begin fun (warnings, errors) ->
         if Preferences.preferences#get.editor_err_gutter then begin
+          let warnings =
+            warnings
+            |> ListExt.group_by (fun w -> (* group by line number so as to show only the first warning on the line *)
+                GtkText.Mark.get_buffer w.Oe.ei_start
+                |> Option.map (fun buf -> GtkText.Iter.get_line (GtkText.Buffer.get_iter_at_mark buf w.Oe.ei_start)))
+            |> List.filter_map (fun (ln_opt, ws) -> ln_opt |> Option.map (fun _ -> List.rev ws))
+            |> List.map (fun ws -> match ws with hd :: _ :: _ -> [hd] | _ -> ws)
+            |> List.flatten
+          in
           create_gutter_markers warnings (fun x -> `Warning x) "\u{f071}" "darkorange";
           create_gutter_markers errors (fun x -> `Error x) "\u{f0159}" "red";
         end;
@@ -509,11 +519,6 @@ class page ?file ~project ~offset ~editor () =
       | _ -> ()
       end |> ignore;
       paned#set_position 300;
-      view#options#connect#after#line_numbers_changed ~callback:begin fun visible ->
-        margin_line_numbers#set_is_visible visible;
-        (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)
-        (*Gmisclib.Idle.add self#build_gutter*)
-      end |> ignore;
       (*  *)
       self#init_error_indication();
       self#init_mark_occurrences();

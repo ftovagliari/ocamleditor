@@ -417,7 +417,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
 
     method scope = Local
     method kind = FOLDING
-    method color = "#505050"
+    method color = "#303030"
     method index = 30
     method size = size
 
@@ -677,8 +677,8 @@ let init_page (page : Editor_page.page) =
           | `End when !old_is_visible ->
               Gmisclib.Idle.add ~prio:300 begin fun () ->
                 margin#enable();
-                page#view#build_gutter();
-                (*GtkBase.Widget.queue_draw page#view#as_widget;*)
+                page#margin_manager#build();
+                GtkBase.Widget.queue_draw page#view#as_widget;
               end
           | _ -> ()
         end |> ignore;

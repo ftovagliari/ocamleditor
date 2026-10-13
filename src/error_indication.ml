@@ -252,7 +252,6 @@ class manager (view : Ocaml_text.view) =
                     ?? (Oe_config.error_popup_border_color), ?? (Oe_config.error_popup_bg_color)
                   with
                   | [], _, _ ->
-                      if Oe_config.warning_tootip_enabled || not sticky then (raise Not_found);
                       (self#filter_messages iter tag_warning_bounds),
                       ?? (Oe_config.warning_popup_border_color), ?? (Oe_config.warning_popup_bg_color)
                   | x -> x
@@ -271,7 +270,7 @@ class manager (view : Ocaml_text.view) =
                   label#misc#modify_font_by_name Preferences.preferences#get.editor_completion_font;
                   label#misc#modify_fg [`NORMAL, `BLACK];
                   (* Positioning *)
-                  begin
+                  begin 
                     popup#move ~x:(-1000) ~y:(-1000);
                     match location with
                     | `ITER _ ->
@@ -280,7 +279,8 @@ class manager (view : Ocaml_text.view) =
                         let y = y - popup#misc#allocation.Gtk.height - 5 - displacement in
                         popup#move ~x ~y;
                     | `XY _ ->
-                        let x, y = Gdk.Window.get_pointer_location view#misc#toplevel#misc#window in
+                        let iter = buffer#get_iter (`MARK start) in
+                        let x, y, _ = Gtk_util.get_location_at_iter view#as_gtext_view iter `ABOVE in
                         popup#show();
                         popup#move ~x ~y:(y - popup#misc#allocation.Gtk.height - 12 - displacement);
                   end;

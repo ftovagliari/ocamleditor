@@ -256,7 +256,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
     method private invoke_merlin ~prefix ~position ?(expand=true) () =
       let position = position#line + 1, position#line_offset in
       (* steps: names, complete_prefix and expand_prefix *)
-      let steps = ref 2 in
+      let steps = ref 3 in
       let sync entries name =
         GtkThread.sync begin fun name ->
           try
