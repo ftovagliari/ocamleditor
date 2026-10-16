@@ -55,6 +55,20 @@ let (@$) = finally
 
 let ( /* ) x f = f x and ( */ ) f x = f x;;
 
+let timestamp () =
+  let time = Unix.gettimeofday () in
+  let frac, secs = modf time in
+  let t = Unix.gmtime secs in
+  let ms = int_of_float (ceil (frac *. 1000.)) in
+  Printf.sprintf
+    "%04d-%02d-%02dT%02d:%02d:%02d.%03d"
+    (1900 + t.Unix.tm_year)
+    (1 + t.Unix.tm_mon)
+    t.Unix.tm_mday
+    t.Unix.tm_hour
+    t.Unix.tm_min
+    t.Unix.tm_sec
+    ms
 
 (** crono *)
 let crono ?(label="Time") f x =

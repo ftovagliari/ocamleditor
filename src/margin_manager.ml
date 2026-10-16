@@ -1,7 +1,10 @@
 open Margin
 open Preferences
 
+let is_debug = false
+
 class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
+  let padding_left = 3 in
   let overview_widget = GMisc.drawing_area () in
   let rec find_margin x x_offset = function
     | [] -> None
@@ -10,7 +13,6 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         if x_offset < x && x <= next_offset then Some m
         else find_margin x next_offset rest
   in
-  let pref = Preferences.preferences#get in
   let bg_color = ref `BLACK in
   let line_color = ref `BLACK in
   let draw_childs childs ~top ~height ~start ~stop ?(paint_background=false) window =
@@ -24,12 +26,14 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
     childs
     |> List.fold_left begin fun left margin ->
       if margin#is_visible then begin
-        (*Cairo_drawable.set_foreground drawable (`NAME margin#color);
-          Cairo_drawable.rectangle drawable ~x:left ~y:0 ~width:(margin#size) ~height ~filled:true ();*)
+        (*if is_debug then begin
+          Cairo_drawable.set_foreground drawable (`NAME margin#color);
+          Cairo_drawable.rectangle drawable ~x:left ~y:0 ~width:margin#size ~height ~filled:true ();
+          end;*)
         margin#draw_margin ~view ~drawable ~top ~left ~height ~start ~stop;
         left + margin#size
       end else left
-    end 0 |> ignore;
+    end padding_left |> ignore;
   in
   object (self)
     val mutable gutter_margins : margin list = []
@@ -51,12 +55,34 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         bg_color := `NAME begin
             if pref.editor_bg_color_theme then ?? (Preferences.default_values.editor_bg_color_user)
             else ?? (pref.editor_bg_color_user)
-          end
+          end;
+        self#get LINE_NUMBERS
+        |> Option.iter begin fun m_line_num ->
+          m_line_num#set_is_visible pref.editor_show_line_numbers;
+          self#get MARKERS
+          |> Option.iter (fun m_marks ->
+              m_marks#set_size_extent (if m_line_num#is_visible then m_line_num#size else 0))
+        end;
+        self#resize();
       in
       set_pref Preferences.preferences#get;
       Preferences.preferences#connect#changed ~callback:set_pref |> ignore;
 
     method overview_widget = overview_widget
+
+    method private resize () =
+      let size = gutter_margins |> List.fold_left (fun sum m ->
+          sum + if m#is_visible then m#size else 0) padding_left in
+      view#set_border_window_size ~typ:`LEFT ~size;
+      let size = overview_margins |> List.fold_left (fun sum m ->
+          sum + if m#is_visible then m#size else 0) 0 in
+      begin
+        match overview_ruler_mode with
+        | Integrated ->
+            view#set_border_window_size ~typ:`RIGHT ~size;
+        | Separated ->
+            overview_widget#misc#set_size_request ~width:size ();
+      end
 
     method add margin =
       begin
@@ -67,16 +93,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         | Global ->
             overview_margins <- margin :: overview_margins |> List.sort compare
       end;
-      let size = gutter_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
-      view#set_border_window_size ~typ:`LEFT ~size;
-      let size = overview_margins |> List.fold_left (fun sum m -> sum + m#size) 0 in
-      begin
-        match overview_ruler_mode with
-        | Integrated ->
-            view#set_border_window_size ~typ:`RIGHT ~size;
-        | Separated ->
-            overview_widget#misc#set_size_request ~width:size ();
-      end;
+      self#resize();
       self#build ();
 
     method remove margin =

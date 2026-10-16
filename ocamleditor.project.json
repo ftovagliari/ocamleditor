@@ -5,6 +5,25 @@
   "autocomp": { "delay": 0.764 },
   "targets": [
     {
+      "id": 12,
+      "name": "ocamleditor",
+      "default": true,
+      "byt": false,
+      "opt": true,
+      "libs": "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
+      "files": "ocamleditor.ml",
+      "package": "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson",
+      "includes": "gmisclib common icons otherwidgets oebuild",
+      "thread": true,
+      "inline": [ "Some", 50 ],
+      "nodep": true,
+      "cflags": "-w -s-y-x-m -g",
+      "lflags": "-g",
+      "outname": "ocamleditor",
+      "dependencies": [ 14, 19, 16, 22 ],
+      "subsystem": [ "Some", "Console" ]
+    },
+    {
       "id": 4,
       "name": "common",
       "opt": true,
@@ -119,25 +138,6 @@
       "target_type": "Library",
       "outname": "ocamleditor_lib",
       "dependencies": [ 4, 10, 5, 28, 8, 9, 20 ]
-    },
-    {
-      "id": 12,
-      "name": "ocamleditor",
-      "default": true,
-      "byt": false,
-      "opt": true,
-      "libs": "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib",
-      "files": "ocamleditor.ml",
-      "package": "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson",
-      "includes": "gmisclib common icons otherwidgets oebuild",
-      "thread": true,
-      "inline": [ "Some", 50 ],
-      "nodep": true,
-      "cflags": "-w -s-y-x-m -g",
-      "lflags": "-g",
-      "outname": "ocamleditor",
-      "dependencies": [ 14, 19, 16, 22 ],
-      "subsystem": [ "Some", "Console" ]
     },
     {
       "name": "ocamleditor-bytecode",
@@ -443,6 +443,7 @@
   "build_script": {
     "filename": "build.ml",
     "targets": [
+      { "target_id": 12 },
       { "target_id": 4, "show": false },
       { "target_id": 10, "show": false },
       { "target_id": 7, "show": false },
@@ -450,7 +451,6 @@
       { "target_id": 8 },
       { "target_id": 9, "show": false },
       { "target_id": 14 },
-      { "target_id": 12 },
       {},
       { "target_id": 20, "show": false },
       { "target_id": 13, "show": false },

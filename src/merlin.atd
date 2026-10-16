@@ -1,5 +1,7 @@
 type pos = { line : int; col : int }
 
+type selection = { start : pos; stop <json name="end"> : pos }
+
 type range = {
   ?file : string option;
   start : pos;
@@ -132,9 +134,12 @@ type outline = {
   ol_stop <json name="end"> <ocaml mutable> : pos;
   ol_name <json name="name"> : string;
   ol_kind <json name="kind"> : string;
+  ?ol_type <json name="type"> : string option;
+  ol_children <json name="children"> : outline list;
+  ol_deprecated <json name="deprecated"> : bool;
+  ol_selection <json name="selection"> : selection;
   ~ol_level <ocaml mutable default="0"> : int;
   ~ol_parent <ocaml mutable default="None"> : outline option;
-  ol_children <json name="children"> : outline list;
 }
 
 type locate_answer = [
@@ -184,37 +189,3 @@ type list_modules_answer = [
 
 type list_modules = { value : string list }
 
-
-
-
-
-
-(*
-type label = { name : string; typ <json name="type"> : string }
-
-type application_context = {
-  argument_type : string;
-  labels : label list;
-}
-
-type entry = {
-  name : string;
-  kind : string;
-  desc : string;
-  info : string;
-}
-
-type complete_prefix = {
-  context : (string * application_context) option;
-  entries : entry list;
-}
-
-type outline = {
-  start : pos;
-  stop <json name="end"> : pos;
-  name : string;
-  kind : string;
-  ?typ <json name="type"> : string option;
-  children : outline list;
-}
-*)

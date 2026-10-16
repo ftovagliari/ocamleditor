@@ -51,7 +51,7 @@ let warning_underline_color : dcolor     = { light = `NAME "#fff4e8"; dark = `NA
 let warning_underline_shadow : dcolor    = { light = `NAME "#FFE36C"; dark = `NAME "#6e3d00" }
 let warning_unused_color                 = { light = "#a0a0a0"; dark = "#707070" }
 let warning_unused_tag_name              = "tag_warning_unused"
-let warning_tootip_enabled               = false
+let warning_tootip_enabled               = true
 let current_line_width                   = 2 (* Must be >= 1. Left margin is automatically increased by current_line_width *)
 let current_line_style                   = (*`ON_OFF_DASH*) `SOLID
 let current_line_join                    = (*`ROUND `MITER `BEVEL *) `BEVEL

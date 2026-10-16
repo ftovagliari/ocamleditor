@@ -363,27 +363,5 @@ let create ~editor ?callback ?new_project ?page_num ?show () =
     end);
   Gmisclib.Window.GeometryMemo.add ~key:"project-properties" ~window Preferences.geometry_memo;
   if show = Some true then (window#show());
+  window#resize ~width:1 ~height:1;
   window, widget
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

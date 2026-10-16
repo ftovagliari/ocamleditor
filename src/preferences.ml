@@ -63,7 +63,7 @@ let default_values =
         bg_color = { light = "#ffffff"; dark = "#000000" };
         weight = 700; style = `ITALIC; underline = `NONE; scale = 1.0; bg_default = true };
       { name = "lident";
-        color = { light = "black"; dark = "white" };
+        color = { light = "#000000"; dark = "#ffffff" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
         weight = 0; style = `NORMAL; underline = `NONE; scale = 1.0; bg_default = true };
       { name = "symbol";
@@ -85,7 +85,7 @@ let default_values =
       { name = "ocamldoc";
         color = { light = "deeppink3"; dark = "#D85991" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
-        weight = 400; style = `ITALIC; underline = `NONE; scale = 0.8; bg_default = true };
+        weight = 400; style = `ITALIC; underline = `NONE; scale = 1.0; bg_default = true };
       { name = "highlight";
         color = { light = "#ffff00"; dark = "#1e1e1e" };
         bg_color = { light = "#ffffff"; dark = "#000000" };

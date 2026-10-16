@@ -247,12 +247,13 @@ let type_expression ~position:(line, col) ~expression ~filename ~buffer =
 
 let outline ~filename ~buffer =
   [ "outline" ]
+
   |> execute_async filename buffer
   |> Async.map ~name:__FUNCTION__ begin fun json ->
     match Merlin_j.outline_answer_of_string json with
     | Return outline ->
         Log.println `DEBUG "%a" (fun oc j -> output_string oc (Yojson.Safe.prettify j)) json;
-        Ok (outline.value, Hashtbl.hash json)
+        Ok outline.value
     | Failure msg ->
         Log.println `ERROR "%s" msg.value;
         Failure msg.value

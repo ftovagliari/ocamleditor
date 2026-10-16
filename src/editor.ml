@@ -56,10 +56,10 @@ class editor () =
     val mutable pages = []
     val mutable pages_cache = []
     val mutable project = Project.create ~filename:"untitled.xyz" ()
-    val debouncer_matching_delim = Debouncer.create ~ms:1500
-    val debouncer_mark_ref = Debouncer.create ~ms:300
-    val debouncer_colorize = Debouncer.create ~ms:300
-    val debouncer_mark_words = Debouncer.create ~ms:300
+    val debouncer_matching_delim = Debouncer.create ~ms:1500 ()
+    val debouncer_mark_ref = Debouncer.create ~ms:300 ()
+    val debouncer_colorize = Debouncer.create ~ms:300 ()
+    val debouncer_mark_words = Debouncer.create ~ms:300 ()
     val location_history = Location_history.create()
     val mutable file_history =
       File_history.create
@@ -148,7 +148,7 @@ class editor () =
           notebook#goto_page (notebook#page_num page#coerce);
 
     method get_page :
-      [`ACTIVE | `FILENAME of string | `NUM of int | `VIEW of Text.view] -> Editor_page.page option =
+      [`ACTIVE | `FILENAME of string | `NUM of int | `VIEW of Text.view | `BUFFER of Gtk.text_buffer ] -> Editor_page.page option =
       function
       | `ACTIVE ->
           List.find_opt (fun p ->
@@ -160,6 +160,7 @@ class editor () =
               match p#file with None -> false | Some f -> uncapitalize f#filename = filename) pages
       | `NUM n -> List.find_opt (fun p -> p#get_oid = (notebook#get_nth_page n)#get_oid) pages
       | `VIEW v -> List.find_opt (fun p -> p#view#get_oid = v#get_oid) pages
+      | `BUFFER b -> List.find_opt (fun p -> p#view#buffer#get_oid = Gobject.get_oid b) pages
 
     method dialog_file_open () = Editor_dialog.file_open ~editor:self ()
 
@@ -230,7 +231,7 @@ class editor () =
         let bm = Bookmark.find project.Prj.bookmarks num in
         bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
         Project.Bookmark.remove project num;
-        page#view#build_gutter();
+        page#margin_manager#build()
       end
 
     method bookmark_create ~num ?where () =
@@ -239,7 +240,11 @@ class editor () =
         let where = match where with Some x -> x | _ -> page#buffer#get_iter `INSERT in
         let mark = page#buffer#create_mark where in
         let old_bm = Bookmark.find project.Prj.bookmarks num in
-        old_bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
+        old_bm |> Option.iter (fun old ->
+            old.Oe.bm_marker |> Option.iter (fun old_marker ->
+                GtkText.Mark.get_buffer old_marker.Gutter.mark |> Option.iter (fun buf ->
+                    self#get_page (`BUFFER buf) |> Option.iter (fun old_page ->
+                        old.Oe.bm_marker |> Option.iter (fun m -> old_page#margin_markers#remove [m])))));
         let icon = (* TODO refactor *)
           match num with
           | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
@@ -419,7 +424,7 @@ class editor () =
             let iter = buffer#get_iter `INSERT in
             self#colorize_within_nearest_tag_bounds gtext_buffer iter;
           end;
-          view#build_gutter ();
+          (*view#build_gutter ();*)
         in
         let matching_delim_callback () =
           buffer#block_signal_handlers();

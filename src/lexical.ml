@@ -113,6 +113,8 @@ let tag_lident = function
   | "define", _, _, _  -> "name_def"
   | _ -> "lident"
 
+
+let [@inline] use_custom lexeme = lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg"
 (* Tagging *)
 
 let tag ?start ?stop (tb : GText.buffer) =
@@ -215,7 +217,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | INFIXOP4 _
           | PREFIXOP _
           | HASH | HASHOP _
-          | BANG | LESS | GREATER
+          | BANG | LESS | GREATER | COLONCOLON
             -> "infix"
           | LABEL _
           | OPTLABEL _
@@ -226,7 +228,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | LIDENT _ when !in_annotation -> "annotation"
           | LIDENT _ ->
               let lexeme = Lexing.lexeme buffer in
-              begin match !last with
+              begin match  [@warning "-4"] !last with
               | _, (QUESTION | TILDE), _, _ -> "label"
               | _, BACKQUOTE, _, _ -> "number"
               (* TODO:  *)
@@ -236,16 +238,19 @@ let tag ?start ?stop (tb : GText.buffer) =
               | _, SEMI, _, _ when !in_record -> "record_label"
               | _, DOT, _, _ when !in_record && !in_record_label -> "record_label"
               | _, LPAREN, _, _ ->
-                  (match !last_but_one with
+                  (match [@warning "-4"] !last_but_one with
                    | _, (QUESTION | TILDE), _, _ -> "label"
                    | _ ->
-                       (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom" else (*if lexeme.[0] = '_' then "comment" else*) "lident"))
+                       (if use_custom lexeme
+                        then "custom" else (*if lexeme.[0] = '_' then "annotation" else*) "lident"))
+              | (_, DOT, _, _) as last ->
+                  (if use_custom lexeme then "custom" else tag_lident last)
               | last ->
-                  (if lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg" then "custom"
-                   else (*if lexeme.[0] = '_' then "comment" else*) tag_lident last)
+                  (if use_custom lexeme then "custom"
+                   else (*if lexeme.[0] = '_' then "annotation" else*) tag_lident last)
               end
           | COLON ->
-              begin match !last with
+              begin match [@warning "-4"] !last with
                 _, LIDENT _, lstart, lstop ->
                   if lstop = start then
                     tb#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos lstop);
@@ -259,7 +264,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | LPAREN | RPAREN | LBRACKET | BARRBRACKET | LBRACKETLESS | LBRACKETGREATER | GREATERRBRACKET
           | LBRACELESS | GREATERRBRACE | LBRACKETBAR | LESSMINUS
           | EQUAL | PLUS | MINUS | STAR | QUOTE | SEMI | SEMISEMI | MINUSGREATER
-          | COMMA | DOT | DOTDOT | COLONCOLON | COLONEQUAL | UNDERSCORE
+          | COMMA | DOT | DOTDOT | COLONEQUAL | UNDERSCORE
           | PLUSDOT | MINUSDOT
           | PLUSEQ | PERCENT
           | COLONGREATER

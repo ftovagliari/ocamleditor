@@ -232,6 +232,7 @@ class page ?file ~project ~offset ~editor () =
       end
 
     method save () = Gaux.may file ~f:begin fun file ->
+        Colorize.colorize_buffer ocaml_view;
         if not file#is_readonly then begin
           if Preferences.preferences#get.editor_bak then (self#backup());
           file#write (buffer#get_text ());
@@ -469,6 +470,15 @@ class page ?file ~project ~offset ~editor () =
       in
       error_manager#connect#tag_applied ~callback:begin fun (warnings, errors) ->
         if Preferences.preferences#get.editor_err_gutter then begin
+          let warnings =
+            warnings
+            |> ListExt.group_by (fun w -> (* group by line number so as to show only the first warning on the line *)
+                GtkText.Mark.get_buffer w.Oe.ei_start
+                |> Option.map (fun buf -> GtkText.Iter.get_line (GtkText.Buffer.get_iter_at_mark buf w.Oe.ei_start)))
+            |> List.filter_map (fun (ln_opt, ws) -> ln_opt |> Option.map (fun _ -> List.rev ws))
+            |> List.map (fun ws -> match ws with hd :: _ :: _ -> [hd] | _ -> ws)
+            |> List.flatten
+          in
           create_gutter_markers warnings (fun x -> `Warning x) "\u{f071}" "darkorange";
           create_gutter_markers errors (fun x -> `Error x) "\u{f0159}" "red";
         end;
@@ -493,6 +503,7 @@ class page ?file ~project ~offset ~editor () =
     method private init_mark_occurrences () =
       mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
         margin_occurrences#build_occurrences ~words:mark_occurrences_manager#words ~refs:mark_occurrences_manager#refs;
+        GtkBase.Widget.queue_draw self#as_widget
       end |> ignore;
 
     initializer
@@ -508,11 +519,6 @@ class page ?file ~project ~offset ~editor () =
       | _ -> ()
       end |> ignore;
       paned#set_position 300;
-      view#options#connect#after#line_numbers_changed ~callback:begin fun visible ->
-        margin_line_numbers#set_is_visible visible;
-        (*margin_markers#set_size (if visible then 0 else margin_markers#icon_size);*)
-        (*Gmisclib.Idle.add self#build_gutter*)
-      end |> ignore;
       (*  *)
       self#init_error_indication();
       self#init_mark_occurrences();
@@ -522,12 +528,13 @@ class page ?file ~project ~offset ~editor () =
       end |> ignore;
       view#hyperlink#enable();
       (* Expose: Statusbar *)
-      self#view#misc#connect#after#draw ~callback:begin fun _ ->
-        let iter = self#buffer#get_iter `INSERT in
-        editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
-        editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
-        editorbar#pos_off#set_text (string_of_int iter#offset);
-        false
+      self#buffer#connect#after#mark_set ~callback:begin fun iter mark ->
+        match GtkText.Mark.get_name mark with
+        | Some "insert" ->
+            editorbar#pos_lin#set_text (string_of_int (iter#line + 1));
+            editorbar#pos_col#set_text (string_of_int (iter#line_offset + 1));
+            editorbar#pos_off#set_text (string_of_int iter#offset);
+        | _ -> ()
       end |> ignore;
       (* After focus_in, check if the file is changed on disk *)
       ignore (text_view#event#connect#after#focus_in ~callback:begin fun _ ->

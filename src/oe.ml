@@ -109,8 +109,8 @@ type browser_maximized_view_action = {
 
 class type outline =
   object
-    method attach : unit -> unit
-    method detach : unit -> unit
+    method start_monitor : unit -> unit
+    method stop_monitor : unit -> unit
     method get : Merlin_j.outline list
     method is_valid : bool
     method refresh : unit -> unit
@@ -119,6 +119,7 @@ class type outline =
 and outline_signals =
   object ('a)
     method after : 'a
-    method changed : callback:(unit -> unit) -> GtkSignal.id
+    method reset : callback:(unit -> unit) -> GtkSignal.id
+    method changes : callback:(Outline_diff.t -> unit) -> GtkSignal.id
     method disconnect : GtkSignal.id -> unit
   end

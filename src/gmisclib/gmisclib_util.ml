@@ -114,7 +114,8 @@ module Timeout = struct
     Printf.printf "----------------------- Timeouts ----------------------\n%!" ;
     !table
     |> List.iter begin fun info ->
-      Printf.printf "%7d: %-50s (%d ms)\n%!" info.id info.name info.ms;
+      let raw_id : int = Obj.magic info.tid in
+      Printf.printf "%7d %5d: %-55s (%d ms)\n%!" info.id raw_id info.name info.ms;
     end;
     Printf.printf "-------------------------------------------------------\n%!"
 
@@ -134,7 +135,7 @@ module Timeout = struct
     GMain.Timeout.remove tid;
     match List.find_opt (fun x -> x.tid = tid) !table with
     | Some info -> table := List.filter (fun x -> x.id <> info.id) !table
-    | _ -> assert false
+    | _ -> ()
 
 end
 
