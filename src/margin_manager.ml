@@ -49,26 +49,22 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         false
       end |> ignore;
       view#vadjustment#connect#value_changed ~callback:self#build |> ignore;
-      let set_pref pref =
-        let open Settings_j in
-        line_color := `NAME (?? (pref.editor_right_margin_color));
-        bg_color := `NAME begin
-            if pref.editor_bg_color_theme then ?? (Preferences.default_values.editor_bg_color_user)
-            else ?? (pref.editor_bg_color_user)
-          end;
-        self#get LINE_NUMBERS
-        |> Option.iter begin fun m_line_num ->
-          m_line_num#set_is_visible pref.editor_show_line_numbers;
-          self#get MARKERS
-          |> Option.iter (fun m_marks ->
-              m_marks#set_size_extent (if m_line_num#is_visible then m_line_num#size else 0))
-        end;
-        self#resize();
-      in
-      set_pref Preferences.preferences#get;
-      Preferences.preferences#connect#changed ~callback:set_pref |> ignore;
+      self#set_pref Preferences.preferences#get;
+      Preferences.preferences#connect#changed ~callback:self#set_pref |> ignore;
 
     method overview_widget = overview_widget
+
+    method private set_pref pref =
+      let open Settings_j in
+      line_color := `NAME (?? (pref.editor_right_margin_color));
+      bg_color := `NAME begin
+          if pref.editor_bg_color_theme then ?? (Preferences.default_values.editor_bg_color_user)
+          else ?? (pref.editor_bg_color_user)
+        end;
+      self#get LINE_NUMBERS |> Option.iter begin fun m_line_num ->
+        m_line_num#set_is_visible pref.editor_show_line_numbers;
+      end;
+      self#resize();
 
     method private resize () =
       let size = gutter_margins |> List.fold_left (fun sum m ->
@@ -93,6 +89,7 @@ class manager ?(overview_ruler_mode=Separated) (view : GText.view) =
         | Global ->
             overview_margins <- margin :: overview_margins |> List.sort compare
       end;
+      self#set_pref Preferences.preferences#get;
       self#resize();
       self#build ();
 

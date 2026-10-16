@@ -581,6 +581,7 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
     method enable () =
       self#set_is_visible true;
       self#connect_signals();
+      is_refresh_pending#set true
 
     method disable () =
       self#set_is_visible false;
@@ -597,9 +598,8 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
 
     initializer
       self#set_is_visible Preferences.preferences#get.Settings_j.editor_code_folding_enabled;
-      Preferences.preferences#connect#changed ~callback:begin fun pref ->
-        self#configure pref.Settings_j.editor_code_folding_enabled
-      end |> ignore;
+      Preferences.preferences#connect#changed ~callback:(fun pref ->
+          self#configure pref.Settings_j.editor_code_folding_enabled) |> ignore;
       self#connect#expander_toggled ~callback:(fun _ -> is_refresh_pending#set true) |> ignore;
       outline#connect#changes ~callback:begin fun _ ->
         is_refresh_pending#set true;

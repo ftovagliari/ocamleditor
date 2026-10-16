@@ -18,37 +18,42 @@ let update_models page diffs =
     | _ -> ()
   end
 
-let mutex = Mutex.create()
-
-let compare_with_head page continue_with =
+let diff ?(ignore_whitespace=true) ?(with_=(`Head : [`Head | `Stage])) page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
   | Some filename ->
       let open Printf in
-      let buf = Buffer.create 1024 in
-      Spawn.async "git" [| "show"; sprintf "HEAD:%s" filename |]
-        ~process_in:(Spawn.loop (fun ic -> Buffer.add_string buf (input_line ic); Buffer.add_char buf '\n'))
-        ~continue_with:begin fun _ ->
-          GtkThread.sync begin fun () ->
-            let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
-            try continue_with (Mutex.protect mutex (fun () -> Odiff.strings_diffs (Buffer.contents buf) text))
-            with ex ->
-              Printf.eprintf "%s, %s (%s)\n%!" __LOC__ (Printexc.to_string ex) filename;
-          end ()
-        end |> ignore
+      let term = match with_ with `Head -> "HEAD" | `Stage -> "" in
+      let w_opt = if ignore_whitespace then " -w" else "" in
+      let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
+      let cmd = sprintf "bash -c 'diff%s <(git show %s:%s) -'" w_opt term filename in
+      let ic, oc = Unix.open_process cmd in
+      output_string oc text;
+      close_out oc;
+      Async.create ~name:__FUNCTION__ begin fun () ->
+        let diffs = Odiff.from_channel ic in
+        GtkThread.sync begin fun () ->
+          continue_with diffs;
+          ignore (Unix.close_process (ic, oc));
+        end ()
+      end
+      |> Async.start
   | _ -> ()
 
-let try_compare ?(force=false) page =
+let try_diff ?(force=false) page =
   let margins = List.assoc_opt page#get_oid !initialized in
   let is_changed = Option.fold ~none:true ~some:(fun (ml, mg) ->
       ml#is_changed_after_last_diff || mg#is_changed_after_last_diff) margins
   in
   if (is_changed || force) && page#view#visible then begin
-    compare_with_head page begin fun diffs ->
+    diff page begin fun diffs ->
       try
         diffs |> update_models page;
-        Option.iter (fun (ml, mg) -> ml#sync_diff_time(); mg#sync_diff_time()) margins
+        Option.iter begin fun (ml, mg) ->
+          ml#sync_diff_time();
+          mg#sync_diff_time();
+          page#margin_manager#build()
+        end margins;
       with Gpointer.Null as ex -> ()
-      (*Printf.eprintf "%s\n%s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());*)
     end
   end
 
@@ -58,13 +63,13 @@ let to_buffer (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
 let init_page page =
   match List.assoc_opt page#get_oid !initialized with
   | None ->
-      page#view#event#connect#focus_in ~callback:(fun _ -> try_compare ~force:true page; false) |> ignore;
+      page#view#event#connect#focus_in ~callback:(fun _ -> try_diff ~force:true page; false) |> ignore;
       let margin_local = new Margin_diff.local page#view in
       let margin_global = new Margin_diff.global page#view in
       page#margin_manager#add (margin_local :> Margin.margin);
       page#margin_manager#add (margin_global :> Margin.margin);
       initialized := (page#get_oid, (margin_local, margin_global)) :: !initialized;
-      try_compare ~force:true page;
+      try_diff ~force:true page;
       Gmisclib.Idle.add page#margin_manager#build
   | _ -> ()
 
@@ -88,7 +93,7 @@ let init_editor editor =
     let callback () =
       try
         editor#with_current_page (fun page ->
-            if page#view#has_focus then (try_compare page));
+            if page#view#has_focus then (try_diff page));
         true
       with ex ->
         Printf.eprintf "%s\n%s\n%s\n%!"

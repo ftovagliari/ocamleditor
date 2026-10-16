@@ -2,7 +2,6 @@ open Margin
 open Preferences
 
 class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
-  let padding_left = 0 in
   let padding_right = 0 in
   let invisible_tag = ref None in
   let is_invisible_line line_num =
@@ -19,7 +18,7 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
   in
   object (self)
     inherit [int] widget ()
-    val mutable size = 0
+    val mutable size = 0 (* Size is set in the initializer based on font size *)
     val mutable color = ?? Oe_config.warning_unused_color
     val mutable font_desc = Pango.Font.from_string Preferences.preferences#get.Settings_j.editor_base_font
     val mutable font_family = "Monospace"
@@ -53,7 +52,6 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
       let width, _ = text_pixel_size ~layout font_desc (String.make max_digits '0') in
       size <- width;
       digit_width <- int_of_float (ceil (float size /. (float max_digits)));
-      markers#set_size_extent size;
 
     method build ~start:iter ~stop =
       Prf.register Prf.build_margin_ln begin fun () ->

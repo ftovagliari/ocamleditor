@@ -8,7 +8,7 @@ type diff_item =
   | Bar of { color : GDraw.color; y : int; height : int }
   | Triangle of { color : GDraw.color; y : int }
 
-let size = 10
+let size = 4
 
 class local (view : Text.view) =
   let color_add =
@@ -20,13 +20,16 @@ class local (view : Text.view) =
     `NAME (ColorOps.modify (?? Oe_config.global_gutter_diff_color_del) ~sat ~value)
   in
   let color_change = `NAME (?? Oe_config.global_gutter_diff_color_change) in
+  let bar_width = size - 1 in
+  let tri_half_height = bar_width * 8 / 5 in
+  let tri_height = tri_half_height * 2 in
   object (self)
     inherit [int * diff_item] Margin.widget ()
     val mutable diffs : Odiff.diffs = []
     val mutable color_base = `COLOR (view#misc#style#bg `NORMAL)
     val mutable last_diff_time = view#tbuffer#last_edit_time
-    val bar_width = size / 2
-    val tri_half_height = size / 3
+    val bar_width = bar_width
+    val tri_half_height = tri_half_height
     val filled = true
     val size = size
 
@@ -78,7 +81,7 @@ class local (view : Text.view) =
       | One ln ->
           let iter = buffer#get_iter (`LINE (ln - 1)) in
           let y, height = view#get_line_yrange iter in
-          let y_center = y + height in
+          let y_center = y + height (*- tri_half_height*) in
           yield ln (ln, Triangle { color; y = y_center })
       | Many _ -> ()
 
@@ -94,13 +97,19 @@ class local (view : Text.view) =
           set_foreground drawable color;
           let x = x + size - bar_width in
           rectangle drawable ~x ~y:(y - offset_top) ~width:bar_width ~height ~filled ()
+      | Triangle { color; y } when Oe_config.gutter_diff_bar_instead_of_triangle ->
+          set_foreground drawable color;
+          let extent = x in
+          let x = x - extent in
+          rectangle drawable ~x ~y:(y - offset_top) ~width:(size + extent) ~height:(bar_width / 2) ~filled ()
       | Triangle { color; y } ->
           set_foreground drawable color;
           let y_rel = y - offset_top in
+          let x = x - tri_half_height in
           polygon drawable ~filled [
             x, y_rel - tri_half_height;
             x, y_rel + tri_half_height;
-            x + size, y_rel
+            x + tri_height, y_rel
           ]
 
     method draw_margin ~view ~drawable ~top:offset_top ~left:x ~height ~start ~stop =
@@ -135,9 +144,10 @@ class global (view : Text.view) =
       | Triangle { color; y } ->
           set_foreground drawable color;
           let y = int_of_float (float y /. full_height *. height) in
+          let w = bar_width * 8 / 5 in
           polygon drawable ~filled [
-            x + bar_width, y - tri_half_height;
-            x + bar_width, y + tri_half_height;
+            x + w, y - tri_half_height;
+            x + w, y + tri_half_height;
             x, y
           ]
 

@@ -9,7 +9,6 @@ class markers (view : GText.view) =
     inherit [(int * GObj.widget * Gutter.marker_kind * int) list] widget ()
     val mutable size = 16
     val mutable markers : Gutter.marker list = []
-    val mutable avail_width = 0
     val font_desc = Pango.Font.from_string font
     val layout = view#misc#create_pango_context#create_layout#as_layout
 
@@ -35,7 +34,6 @@ class markers (view : GText.view) =
       |> List.filter_map (fun (ln, ms) -> if List.length ms >= 2 then Some ln else None)
 
     method build ~start ~stop =
-      avail_width <- size + (max 5 size_extent);
       model <- [];
       let tmp_model = ref [] in
       markers
