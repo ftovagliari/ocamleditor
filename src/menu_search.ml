@@ -83,33 +83,29 @@ let search_again editor =
   with Find_text.No_current_regexp -> find_replace editor
 
 (** set_has_definition *)
-let set_has_definition editor item =
-  editor#with_current_page begin fun page ->
-    let def =
-      Definition.locate
-        ~filename:page#get_filename
-        ~text:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
-        ~iter: (page#buffer#get_iter `INSERT)
-    in
-    match def with
-    | Merlin.Ok def -> item#misc#set_sensitive (def <> None);
-    | Merlin.Failure _ -> ()
-    | Merlin.Error _ -> ()
-  end
+let set_has_definition page item =
+  let def =
+    Definition.locate
+      ~filename:page#get_filename
+      ~text:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
+      ~iter: (page#buffer#get_iter `INSERT)
+  in
+  match def with
+  | Merlin.Ok def -> item#misc#set_sensitive (def <> None);
+  | Merlin.Failure _ -> ()
+  | Merlin.Error _ -> ()
 
 (** set_has_references *)
-let set_has_references editor item =
-  editor#with_current_page begin fun page ->
-    let filename : string = page#get_filename in
-    let buffer : Ocaml_text.buffer = page#buffer in
-    let text = buffer#get_text () in
-    let iter = buffer#get_iter `INSERT in
-    let line = iter#line + 1 in
-    let col = iter#line_offset in
-    Definition.references ~filename ~text ~iter
-    |> Async.start_with_continuation
-      (fun ranges -> item#misc#set_sensitive (ranges <> []))
-  end
+let set_has_references page item =
+  let filename : string = page#get_filename in
+  let buffer : Ocaml_text.buffer = page#buffer in
+  let text = buffer#get_text () in
+  let iter = buffer#get_iter `INSERT in
+  let line = iter#line + 1 in
+  let col = iter#line_offset in
+  Definition.references ~filename ~text ~iter
+  |> Async.start_with_continuation
+    (fun ranges -> item#misc#set_sensitive (ranges <> []))
 
 (** create_search_results_pane *)
 let create_search_results_pane ~pixbuf ~editor ~page =
@@ -195,8 +191,10 @@ let update_items_visibility
     editor =
   Gmisclib.Idle.add ~prio:100 begin fun () ->
     (*set_has_used_components editor label_find_used_components find_used_components;*)
-    set_has_definition editor find_definition;
-    set_has_references editor find_references;
+    editor#with_current_page begin fun page ->
+      set_has_definition page find_definition;
+      set_has_references page find_references;
+    end
   end
 ;;
 

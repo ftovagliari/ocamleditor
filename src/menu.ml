@@ -25,6 +25,7 @@ open GdkKeysyms
 open Utils
 open Menu_types
 open Preferences
+open Option_syntax
 
 (** set_label *)
 let set_label item text = item#misc#set_property "label" (`STRING (Some text));;
@@ -277,29 +278,31 @@ let search ~browser ~group ~flags items =
   ignore (goto_line#connect#activate ~callback:(fun () ->
       editor#with_current_page (fun page -> page#ocaml_view#goto ())));
   goto_line#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._g ~flags;
-  (** Find definition *)
-  let find_definition = Image_menu.item
-      ~image:(GMisc.image ~pixbuf:(??? Icons.definition) ())#coerce
-      ~label:"Find Definition" ~packing:menu#add () in
-  ignore (find_definition#connect#activate ~callback:(fun () ->
+  (* Find definition *)
+  let find_definition = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.definition) ())#coerce ~label:"Find Definition" () in
+  Menu_items.find_definition := Some find_definition;
+  menu#add find_definition;
+  find_definition#connect#activate ~callback:(fun () ->
       editor#with_current_page (fun page ->
-          ignore (editor#scroll_to_definition ~page ~iter:(page#buffer#get_iter `INSERT)))));
+          ignore (editor#scroll_to_definition ~page ~iter:(page#buffer#get_iter `INSERT)))) |> ignore;
   find_definition#add_accelerator ~group ~modi:[] GdkKeysyms._F12 ~flags;
   find_definition#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._Return ~flags;
   (* Find references *)
-  let find_references = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.references) ())#coerce ~label:"Find References" ~packing:menu#add () in
+  let find_references = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.references) ())#coerce ~label:"Find References" () in
+  Menu_items.find_references := Some find_references;
+  menu#add find_references;
   find_references#add_accelerator ~group ~modi:[`SHIFT] GdkKeysyms._F12 ~flags;
   find_references#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._Return ~flags;
-  ignore (find_references#connect#activate ~callback:(fun () -> Menu_search.find_definition_references editor));
+  find_references#connect#activate ~callback:(fun () -> Menu_search.find_definition_references editor) |> ignore;
   (*  *)
-  ignore (search_item#misc#connect#state_changed ~callback:begin fun state ->
-      if state = `NORMAL then begin
-        Menu_search.update_items_visibility
-          ~find_definition
-          ~find_references
-          editor
-      end
-    end);
+  search_item#misc#connect#state_changed ~callback:begin fun state ->
+    if state = `NORMAL then begin
+      Menu_search.update_items_visibility
+        ~find_definition
+        ~find_references
+        editor
+    end
+  end |> ignore;
   (** Find file *)
   let dialog_find_file = GMenu.menu_item ~label:"Find File..." ~packing:menu#add () in
   ignore (dialog_find_file#connect#activate ~callback:(fun () -> browser#dialog_find_file ?all:(Some true) ()));
@@ -400,8 +403,6 @@ let view ~browser ~group ~flags
   let _ = fullscreen#connect#activate ~callback:(fun () -> browser#set_maximized_view `SECOND) in
   let _ = resore_default_layout#connect#activate ~callback:(fun () -> browser#set_maximized_view `NONE) in
   fullscreen#add_accelerator ~group ~modi:[] GdkKeysyms._F11 ~flags;
-  fullscreen#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._period ~flags;
-  compact_mode#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._comma ~flags;
   (** Remove All Messages *)
   let _ = GMenu.separator_item ~packing:menu#add () in
   let messages_remove = GMenu.menu_item ~label:"Remove All Messages" ~packing:menu#add () in

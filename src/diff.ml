@@ -25,16 +25,21 @@ let diff ?(ignore_whitespace=true) ?(with_=(`Head : [`Head | `Stage])) page cont
       let term = match with_ with `Head -> "HEAD" | `Stage -> "" in
       let w_opt = if ignore_whitespace then " -w" else "" in
       let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
-      let cmd = sprintf "bash -c 'diff%s <(git show %s:%s) -'" w_opt term filename in
+      (* Suppress errors to handle files not yet tracked in HEAD *)
+      let cmd = sprintf "bash -c 'diff%s <(git show %s:%s 2>/dev/null) -'" w_opt term filename in
       let ic, oc = Unix.open_process cmd in
       output_string oc text;
       close_out oc;
       Async.create ~name:__FUNCTION__ begin fun () ->
-        let diffs = Odiff.from_channel ic in
-        GtkThread.sync begin fun () ->
-          continue_with diffs;
-          ignore (Unix.close_process (ic, oc));
-        end ()
+        try
+          let diffs = Odiff.from_channel ic in
+          GtkThread.sync begin fun () ->
+            continue_with diffs;
+            ignore (Unix.close_process (ic, oc));
+          end ()
+        with ex ->
+          Printf.eprintf "%s\n%s\nFile being parsed: %s\n%s\n%!" __LOC__
+            (Printexc.to_string ex) filename (Printexc.get_backtrace());
       end
       |> Async.start
   | _ -> ()

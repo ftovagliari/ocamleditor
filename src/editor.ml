@@ -24,6 +24,7 @@ open GUtil
 open Utils
 open Printf
 open Preferences
+open Option_syntax
 
 module Log = Common.Log.Make(struct let prefix = "EDITOR" end)
 let _ =
@@ -442,14 +443,9 @@ class editor () =
         buffer#add_signal_handler (buffer#connect#after#delete_range ~callback:(fun ~start ~stop -> callback start stop));
         (* Mark Set *)
         let lab_sel_lines, lab_sel_chars = page#status_pos_sel in
-        let activate_mark_occurrences () =
-          Debouncer.schedule debouncer_mark_words page#mark_occurrences_manager#mark;
-          (*Debouncer.schedule debouncer_mark_ref page#mark_occurrences_manager#mark_refs;*)
-        in
         let option_occurrences, option_under_cursor, _ = view#options#mark_occurrences in
         buffer#add_signal_handler (buffer#connect#after#mark_set ~callback:begin fun _ mark ->
             let is_insert_mark = match GtkText.Mark.get_name mark with Some "insert" -> true | _ -> false in
-            if is_insert_mark && option_occurrences then activate_mark_occurrences();
             if buffer#has_selection then begin
               let start, stop = buffer#selection_bounds in
               let nlines = stop#line - start#line in
@@ -460,8 +456,17 @@ class editor () =
               lab_sel_lines#set_text "0";
               lab_sel_chars#set_text "0";
             end;
-            if is_insert_mark then
+            if is_insert_mark then begin
+              if option_occurrences then
+                Debouncer.schedule debouncer_mark_words begin fun () ->
+                  Gmisclib.Idle.add begin fun () ->
+                    !Menu_items.find_definition |> Option.iter (Menu_search.set_has_definition page);
+                    !Menu_items.find_references |> Option.iter (Menu_search.set_has_references page);
+                  end;
+                  page#mark_occurrences_manager#mark();
+                end;
               Debouncer.schedule debouncer_matching_delim matching_delim_callback;
+            end
           end);
         (* Paste clipboard *)
         ignore (page#view#connect#paste_clipboard ~callback:page#paste);
