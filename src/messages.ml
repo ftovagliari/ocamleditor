@@ -145,7 +145,10 @@ and messages ~(paned : GPack.paned) () =
 
     initializer
       paned#add2 notebook#coerce;
-      !hpaned |> Option.iter (fun hpaned -> notebook#set_tab_pos (if paned = hpaned then `BOTTOM(*`TOP*) else `BOTTOM));
+      !hpaned |> Option.iter (fun hpaned ->
+          notebook#set_tab_pos
+            (if paned = hpaned then `BOTTOM(*`TOP*)
+             else if Oe_config.unify_statusbars then `TOP else `BOTTOM));
       ignore (notebook#connect#remove ~callback:
                 begin fun w ->
                   try if self#empty && self#visible then (self#set_visible false);

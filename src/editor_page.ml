@@ -297,8 +297,6 @@ class page ?file ~project ~offset ~editor () =
               buffer#place_cursor ~where;
               view#scroll_aligned where;
             end;
-            buffer#save_buffer ~filename:buffer#orig_filename () |> ignore;
-            (*buffer#set_last_edit_time (Unix.gettimeofday());*)
             last_autosave_time <- buffer#last_edit_time;
             (*  *)
             self#view#matching_delim ();

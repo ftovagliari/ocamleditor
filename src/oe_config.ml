@@ -93,7 +93,7 @@ let targetlist_alternating_row_colors    = None
 let editor_tab_color_alt_active          = `NAME "#a7a2ae"
 let editor_tab_color_alt_normal          = `NAME "#310080"
 let colored_types                        = true
-let unify_statusbars                     = false
+let unify_statusbars                     = true
 
 (** End of Configuration Section ============================================ *)
 

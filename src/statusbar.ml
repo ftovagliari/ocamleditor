@@ -11,7 +11,7 @@ let font_size =
 let set_label_font_size label =
   label#misc#modify_font_by_name (match font_size with Some x -> string_of_int x | _ -> "")
 
-let create_small_button ?tooltip ?icon ?button ?callback ?packing ?show () =
+let create_small_button ?tooltip ?icon ?text ?button ?callback ?packing ?show () =
   let button =
     match button with
     | Some b -> b
@@ -27,13 +27,14 @@ let create_small_button ?tooltip ?icon ?button ?callback ?packing ?show () =
     in
     (Gtk_util.label_icon (*~height:14*) ~packing:button#add icon)#coerce |> ignore
   end;
+  text |> Option.iter button#set_label;
   Gaux.may tooltip ~f:button#misc#set_tooltip_text;
   Gaux.may callback ~f:(fun callback -> ignore (button#connect#clicked ~callback));
   button;;
 
-let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
+let create_small_toggle_button ?tooltip ?icon ?text ?callback ?packing ?show () =
   let button = GButton.toggle_button ~relief:`NONE ?packing ?show () in
-  let _ = create_small_button ~button:(button :> GButton.button) ?tooltip ~icon ?callback ?packing () in
+  let _ = create_small_button ~button:(button :> GButton.button) ?tooltip ?icon ?text ?callback ?packing () in
   button;;
 
 class editorbar ~view ?packing () =
@@ -100,6 +101,15 @@ class editorbar ~view ?packing () =
       ~packing:lbox#pack ()
       ~show:(false (*Oe_config.dot_version <> None*))
   in
+
+  let button_switch_diff_base =
+    create_small_toggle_button
+      ~tooltip:"Toggle diff base (HEAD / Stage)"
+      ~text:(Diff.show_base !Diff.base)
+      ~packing:lbox#pack ()
+      ~show:true
+  in
+
   let _ = GMisc.separator `VERTICAL ~show:true ~packing:lbox#pack () in
 
   let status_filename = GMisc.label ~selectable:true ~xalign:0.0 ~xpad:5 ~ellipsize:`END ~packing:lbox#add () in
@@ -143,6 +153,12 @@ class editorbar ~view ?packing () =
   (*let _ = paned#set_position 900 in*)
   object (self)
     inherit GObj.widget box#as_widget
+    initializer
+      button_switch_diff_base#misc#modify_font_by_name "sans 8";
+      button_switch_diff_base#misc#set_size_request ~width:50 ();
+      button_switch_diff_base#connect#after#clicked ~callback:begin fun () ->
+        button_switch_diff_base#set_label (Diff.show_base !Diff.base)
+      end |> ignore;
     method filename = status_filename
     method modified = status_modified
     method pos_box = pos_box
@@ -152,6 +168,7 @@ class editorbar ~view ?packing () =
     method pos_sel = status_pos_sel
     method pos_sel_chars = status_pos_sel_chars
     method button_dotview = button_dotview
+    method button_switch_diff_term = button_switch_diff_base
     method button_font_incr = button_font_incr
     method button_font_decr = button_font_decr
     method button_rowspacing_incr = button_rowspacing_incr

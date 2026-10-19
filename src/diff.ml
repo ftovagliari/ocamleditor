@@ -2,6 +2,9 @@ module ColorOps = Color
 
 let initialized : (int * (Margin_diff.local * Margin_diff.global)) list ref = ref []
 
+type base = HEAD | Stage [@@deriving show]
+let base : base ref = ref HEAD
+
 let update_models page diffs =
   let open Odiff in
   let diffs = List.sort begin fun a b ->
@@ -18,11 +21,11 @@ let update_models page diffs =
     | _ -> ()
   end
 
-let diff ?(ignore_whitespace=true) ?(with_=(`Head : [`Head | `Stage])) page continue_with =
+let diff ?(ignore_whitespace=true) page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
   | Some filename ->
       let open Printf in
-      let term = match with_ with `Head -> "HEAD" | `Stage -> "" in
+      let term = match !base with HEAD -> "HEAD" | Stage -> "" in
       let w_opt = if ignore_whitespace then " -w" else "" in
       let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
       (* Suppress errors to handle files not yet tracked in HEAD *)
@@ -39,7 +42,9 @@ let diff ?(ignore_whitespace=true) ?(with_=(`Head : [`Head | `Stage])) page cont
           end ()
         with ex ->
           Printf.eprintf "%s\n%s\nFile being parsed: %s\n%s\n%!" __LOC__
-            (Printexc.to_string ex) filename (Printexc.get_backtrace());
+            (Printexc.to_string ex)
+            filename
+            (Printexc.get_backtrace());
       end
       |> Async.start
   | _ -> ()
@@ -56,7 +61,8 @@ let try_diff ?(force=false) page =
         Option.iter begin fun (ml, mg) ->
           ml#sync_diff_time();
           mg#sync_diff_time();
-          page#margin_manager#build()
+          page#margin_manager#build();
+          if force then GtkBase.Widget.queue_draw page#as_widget
         end margins;
       with Gpointer.Null as ex -> ()
     end
@@ -68,14 +74,20 @@ let to_buffer (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
 let init_page page =
   match List.assoc_opt page#get_oid !initialized with
   | None ->
-      page#view#event#connect#focus_in ~callback:(fun _ -> try_diff ~force:true page; false) |> ignore;
+      page#view#event#connect#after#focus_in ~callback:(fun _ ->
+          Gmisclib.Idle.add ~prio:300 (fun () -> try_diff ~force:true page);
+          false) |> ignore;
       let margin_local = new Margin_diff.local page#view in
       let margin_global = new Margin_diff.global page#view in
       page#margin_manager#add (margin_local :> Margin.margin);
       page#margin_manager#add (margin_global :> Margin.margin);
+      page#statusbar#button_switch_diff_term#connect#clicked ~callback:begin fun () ->
+        base := (match !base with HEAD -> Stage | Stage -> HEAD);
+        try_diff ~force:true page;
+      end |> ignore;
       initialized := (page#get_oid, (margin_local, margin_global)) :: !initialized;
-      try_diff ~force:true page;
-      Gmisclib.Idle.add page#margin_manager#build
+      (*try_diff ~force:true page;*)
+      Gmisclib.Idle.add page#margin_manager#build;
   | _ -> ()
 
 let init_editor editor =
