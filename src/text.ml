@@ -34,7 +34,7 @@ class buffer =
   let word_bound = Utils.regexp "\\b" in
   fun ?project ?buffer ?file () ->
     let buffer = match buffer with None -> GText.buffer () | Some b -> b in
-    let create_tmp_filename () = Filename.temp_file "buffer-" ".tmp", None in
+    let new_tmp_filename () = Filename.temp_file "buffer-" ".tmp", None in
     object (self)
       inherit GText.buffer buffer#as_buffer
 
@@ -49,19 +49,17 @@ class buffer =
 
       initializer
         buffer#connect#changed ~callback:(fun () -> last_edit_time <- Unix.gettimeofday()) |> ignore;
-        self#reset_tmp_filename ();
+        self#create_tmp_filename ();
         at_exit begin fun () ->
           match project with
-          | None ->
-              if Sys.file_exists tmp_filename then Sys.remove tmp_filename
+          | None -> if Sys.file_exists tmp_filename then Sys.remove tmp_filename
           | _ -> ()
         end
 
-      method tmp_filename = tmp_filename
       method last_edit_time = last_edit_time
       method set_last_edit_time time = last_edit_time <- time
 
-      method reset_tmp_filename () =
+      method private create_tmp_filename () =
         let a, b =
           match project with
           | Some project ->
@@ -70,16 +68,15 @@ class buffer =
                 | Some file ->
                     begin
                       match Project.Path.tmp_of_abs project file#filename with
-                      | None -> create_tmp_filename ()
+                      | None -> new_tmp_filename ()
                       | (Some (tmp, relname) as temp) -> tmp // relname, temp
                     end;
-                | _ -> create_tmp_filename ()
+                | _ -> new_tmp_filename ()
               end;
-          | _ -> create_tmp_filename ()
+          | _ -> new_tmp_filename ()
         in
         tmp_filename <- a;
         project_tmp_path <- b
-
 
       method tag_ocamldoc_paragraph = tag_ocamldoc_paragraph
 
@@ -167,17 +164,10 @@ class buffer =
         self#select_range (stop#backward_chars (Glib.Utf8.length text)) stop;
         undo#end_block ();
 
-      method save_buffer ?(filename=tmp_filename) () =
-        let text = buffer#get_text () in
-        Utils.mkdir_p (Filename.dirname filename);
-        let chan = open_out_bin filename in
-        begin
-          try
-            output_string chan text;
-            close_out chan;
-            filename, project_tmp_path
-          with ex -> (close_out chan; raise ex)
-        end;
+      method write_tmp_file () =
+        Utils.mkdir_p (Filename.dirname tmp_filename);
+        Out_channel.with_open_bin tmp_filename (fun oc -> Out_channel.output_string oc (buffer#get_text ()));
+        tmp_filename, project_tmp_path
     end
 
 (** View *)

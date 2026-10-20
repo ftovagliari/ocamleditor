@@ -108,7 +108,7 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
   let activity_name = "Compiling " ^ page#get_filename ^ "..." in
   Activity.add Activity.Compile_buffer activity_name;
   try
-    match page#buffer#save_buffer ?filename:None () with
+    match page#buffer#write_tmp_file () with
     | _, None -> ()
     | _, Some (_, relpath) ->
         (* Compile *)

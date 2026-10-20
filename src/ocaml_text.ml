@@ -223,11 +223,6 @@ class buffer ?project ?file ?(lexical_enabled=false) () =
 
     initializer
       (* Lexical *)
-      (*let ocamldoc_paragraph_enabled =
-        match file with
-          | Some file when file#name ^^ ".ml" -> Oe_config.ocamldoc_paragraph_bgcolor_enabled
-          | _ -> false
-        in*)
       self#init_tags ();
       let tag_table = new GText.tag_table self#tag_table in
       lexical_tags <- List.map (fun x -> Some x) (List.filter_map begin fun n ->

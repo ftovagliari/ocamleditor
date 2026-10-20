@@ -297,14 +297,14 @@ class widget ~page ?packing () =
       model#clear();
       (* Buffer *)
       GtkThread.sync begin fun () ->
-        page#buffer#save_buffer ?filename:None () |> ignore;
-        let date = print_time (Unix.localtime (Unix.stat page#buffer#tmp_filename).Unix.st_mtime) in
+        let tmp_file, _ = page#buffer#write_tmp_file () in
+        let date = print_time (Unix.localtime (Unix.stat tmp_file).Unix.st_mtime) in
         let row = model#append () in
         model#set ~row ~column:col_rev "Buffer";
         model#set ~row ~column:col_date date;
         model#set ~row ~column:col_comment "";
         model#set ~row ~column:col_author (Glib.get_user_name ());
-        model#set ~row ~column:col_filename (Filename page#buffer#tmp_filename);
+        model#set ~row ~column:col_filename (Filename tmp_file);
       end ();
       (* Local Saved File *)
       GtkThread.sync begin fun () ->

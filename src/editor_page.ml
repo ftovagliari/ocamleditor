@@ -151,7 +151,9 @@ class page ?file ~project ~offset ~editor () =
 
     method set_tab_widget x = tab_widget <- Some x
     method tab_widget = match tab_widget with None -> assert false | Some x -> x
+
     method file = file
+
     method set_file file_obj =
       file <- file_obj;
       begin
@@ -162,7 +164,6 @@ class page ?file ~project ~offset ~editor () =
             self#update_statusbar();
         | None -> ()
       end;
-      buffer#reset_tmp_filename();
       file_changed#call file_obj
 
     method get_filename = match file with None -> "untitled.ml" | Some f -> f#filename

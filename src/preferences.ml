@@ -218,10 +218,10 @@ let editor_tag_label = function
   | "annotation"             -> "Annotation"
   | x -> x
 
-let filename = Filename.concat App_config.ocamleditor_user_home "settings.json"
+let settings_filename = Filename.concat App_config.ocamleditor_user_home "settings.json"
 
 let save () =
-  let chan = open_out_bin filename in
+  let chan = open_out_bin settings_filename in
   begin
     try
       let json = preferences#get |> Settings_j.string_of_settings |> Yojson.Safe.prettify in
@@ -230,14 +230,14 @@ let save () =
       preferences#set { preferences#get with timestamp = Unix.gettimeofday() }
     with ex ->
       begin
-        Printf.eprintf "Failed to save settings to file \"%s\".\n%s%!" filename (Printexc.to_string ex);
+        Printf.eprintf "Failed to save settings to file \"%s\".\n%s%!" settings_filename (Printexc.to_string ex);
         close_out_noerr chan
       end;
   end
 
 let load () =
-  if Sys.file_exists filename then begin
-    let chan = open_in_bin filename in
+  if Sys.file_exists settings_filename then begin
+    let chan = open_in_bin settings_filename in
     begin
       try
         let json = really_input_string chan (in_channel_length  chan) in
@@ -247,11 +247,11 @@ let load () =
       with ex ->
         begin
           close_in_noerr chan;
-          Printf.printf "Failed to load settings from file \"%s\", using defaults.\n%!" filename;
+          Printf.printf "Failed to load settings from file \"%s\", using defaults.\n%!" settings_filename;
         end;
     end;
   end else begin
-    Printf.printf "File \"%s\" not found, using defaults.\n%!" filename;
+    Printf.printf "File \"%s\" not found, using defaults.\n%!" settings_filename;
   end;
   begin
     match Themes.avail_themes with
@@ -265,11 +265,11 @@ let load () =
   Otherwidgets_config.geometry_memo := (fun () -> geometry_memo)
 
 let reset_defaults () =
-  if Sys.file_exists filename then Sys.remove filename;
+  if Sys.file_exists settings_filename then Sys.remove settings_filename;
   preferences#set default_values;
   save()
 
 let _ =
   let wrong_filename = Filename.concat App_config.ocamleditor_user_home "settings.new.json" in
-  if Sys.file_exists wrong_filename then Sys.rename wrong_filename filename;
+  if Sys.file_exists wrong_filename then Sys.rename wrong_filename settings_filename;
   load()
