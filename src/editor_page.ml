@@ -82,7 +82,7 @@ class page ?file ~project ~offset ~editor () =
   let file_changed             = new file_changed () in
   let load                     = new load () in
   let signals                  = new signals ~file_changed ~load in
-  let buffer                   = new Ocaml_text.buffer ~project ?file () in
+  let buffer                   = new Ocaml_text.buffer ?file () in
   let sw, text_view, ocaml_view = create_view ~project ~buffer ?file () in
   let vbox                     = GPack.vbox ~spacing:0 () in
   let paned                    = GPack.paned `HORIZONTAL ~packing:vbox#add () in
@@ -101,7 +101,6 @@ class page ?file ~project ~offset ~editor () =
     ]
   in
   let error_manager = new Error_indication.manager ocaml_view in
-  let mark_occurrences_manager = new Mark_occurrences.manager text_view in
   let outline = (new Outline.model ~buffer () :> Oe.outline) in
   let margin_manager = new Margin_manager.manager text_view#as_gtext_view in
   let margin_markers = new Margin_markers.markers text_view#as_gtext_view in
@@ -122,7 +121,7 @@ class page ?file ~project ~offset ~editor () =
     val mutable resized = false
     val mutable last_autosave_time = buffer#last_edit_time
     val mutable load_complete = false
-    val mutable quick_info = Quick_info.create ocaml_view
+    val mutable quick_info = None
     val mutable dotview = None
     val mutable word_wrap = editor#word_wrap
     val mutable show_whitespace = editor#show_whitespace_chars
@@ -130,11 +129,24 @@ class page ?file ~project ~offset ~editor () =
     val mutable signal_button_toggle_whitespace = None
     val mutable signal_button_dotview = None
     val mutable error_margin_markers = []
+    val mutable mark_occurrences_manager = None
 
     method outline = outline
 
     method error_manager = error_manager
-    method mark_occurrences_manager = mark_occurrences_manager
+
+    method mark_occurrences_manager =
+      match mark_occurrences_manager with Some instance -> instance | None ->
+        let instance = new Mark_occurrences.manager self in
+        mark_occurrences_manager <- Some instance;
+        instance
+
+    method quick_info =
+      match quick_info with Some instance -> instance | None ->
+        let instance = Quick_info.create (self :> Quick_info.page) in
+        quick_info <- Some instance;
+        instance
+
     method margin_manager = margin_manager
     method margin_markers = margin_markers
 
@@ -190,7 +202,7 @@ class page ?file ~project ~offset ~editor () =
 
     method redisplay () =
       Colorize.colorize_buffer ocaml_view;
-      Preferences_apply.apply view Preferences.preferences#get;
+      Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
       Gaux.may (GtkText.TagTable.lookup buffer#tag_table "tag_matching_delim")
         ~f:(fun x -> GtkText.TagTable.remove buffer#tag_table x);
       ignore (buffer#create_tag ~name:"tag_matching_delim" [
@@ -454,10 +466,8 @@ class page ?file ~project ~offset ~editor () =
             Gmisclib.Idle.add (fun () -> ignore (view#scroll_to_iter iter));
           end
 
-    method quick_info = quick_info
-
     method quick_info_at_iter iter =
-      Quick_info.at_iter quick_info iter ()
+      Quick_info.at_iter self#quick_info iter ()
 
     method private init_error_indication () =
       let create_gutter_markers error_indications kind icon color =
@@ -500,8 +510,8 @@ class page ?file ~project ~offset ~editor () =
           Gdk.Window.set_cursor (GdkEvent.get_window ev) (Gdk.Cursor.create `ARROW)) |> ignore;
 
     method private init_mark_occurrences () =
-      mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
-        margin_occurrences#build_occurrences ~words:mark_occurrences_manager#words ~refs:mark_occurrences_manager#refs;
+      self#mark_occurrences_manager#connect#mark_set ~callback:begin fun () ->
+        margin_occurrences#build_occurrences ~words:self#mark_occurrences_manager#words ~refs:self#mark_occurrences_manager#refs;
         GtkBase.Widget.queue_draw self#as_widget
       end |> ignore;
 
@@ -511,10 +521,10 @@ class page ?file ~project ~offset ~editor () =
       margin_manager#add (margin_errors :> Margin.margin);
       margin_manager#add (margin_occurrences :> Margin.margin);
       margin_manager#add (margin_current_line :> Margin.margin);
-      view#options#connect#mark_occurrences_changed ~callback:(fun _ -> mark_occurrences_manager#mark()) |> ignore;
+      view#options#connect#mark_occurrences_changed ~callback:(fun _ -> self#mark_occurrences_manager#mark()) |> ignore;
       view#options#connect#after#mark_occurrences_changed ~callback:begin function
       | true, _, color ->
-          mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
+          self#mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
       | _ -> ()
       end |> ignore;
       paned#set_position 300;

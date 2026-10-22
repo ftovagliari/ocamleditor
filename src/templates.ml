@@ -42,7 +42,6 @@ and t_elem =
   | T of string      (* Inserts a string without indenting *)
   | NL               (* Inserts a newline *)
   | CURRENT_LINE
-  | CURRENT_FILENAME (* Inserts the name of the currently open file *)
   | DESCRIPTION      (* Project description *)
   | I                (* Represents the insertion point *)
   | S                (* Represents the selection bound *)
@@ -142,7 +141,7 @@ module Action = struct
 
   let case_analysis (view : Ocaml_text.view) =
     let start, stop = view#buffer#selection_bounds in
-    let filename = match (view#obuffer#as_text_buffer :> Text.buffer)#file with Some file -> file#filename | _ -> "" in
+    let filename = match view#obuffer#file with Some file -> file#filename | _ -> "" in
     let open Merlin_j in
     Merlin.case_analysis ~start ~stop
       ~filename
@@ -178,7 +177,6 @@ let spec : spec list ref =
     "()", "(<selection>)", [T "("; SELECTION_TRIM ; T ")"; I];
 
     "descr", "Insert project description", [DESCRIPTION];
-    "curf",  "Insert current filename", [CURRENT_FILENAME];
 
     "be", "begin <selection> end",
     [T0 "begin"; NL; IN; SELECTION; OUT; T0 "end;"; I; NL];

@@ -273,7 +273,7 @@ class editor () =
             |> Option.iter (fun bm -> bm.Oe.bm_marker |> Option.iter (fun m -> Gutter.destroy_markers [m]));
             self#bookmark_remove ~num
         | Some page ->
-            self#goto_view page#view;
+            self#goto_view (page#view :> Text.view);
             Gmisclib.Idle.add ~prio:300 begin fun () ->
               Bookmark.map bm begin function
               | `OFFSET _ ->
@@ -323,7 +323,7 @@ class editor () =
           page#ocaml_view#scroll_aligned start;
           page#buffer#place_cursor ~where:(buffer#get_iter (`LINECHAR (line, col)));
           page#view#options#set_mark_occurrences old;
-          self#goto_view page#view;
+          self#goto_view (page#view :> Text.view);
           switch_page#call page;
           let iter = buffer#get_iter `INSERT in
           self#location_history_add ~page ~iter ~kind:(`BROWSE : Location_history.kind) ();

@@ -21,20 +21,17 @@
 *)
 
 
+open Option_syntax
+
 module Log = Common.Log.Make(struct let prefix = "MARK_OCCURRENCES" end)
 let _ =
   Log.set_print_timestamp true;
   Log.set_verbosity `DEBUG
 
-class manager view =
-  let buffer = view#tbuffer in
+class manager page =
+  let buffer = page#view#tbuffer in
   let [@inline] (=>) a b = not a || b in
   let match_whole_word_only = true in
-  let filename =
-    match buffer#file with
-    | Some (file : Editor_file.file) -> file#filename
-    | _ -> ""
-  in
   let tag = buffer#create_tag ?name:(Some "mark_occurrences") [] in
   let clear_func (m1, m2) =
     let start = buffer#get_iter_at_mark m1 in
@@ -97,13 +94,14 @@ class manager view =
       let line = iter#line + 1 in
       let col = iter#line_offset in
       if line <> last_merlin_invoke_line || col <> last_merlin_invoke_col then begin
-        view#filter_outline_text (function `Ref _ -> false | _ -> true);
+        page#view#filter_outline_text (function `Ref _ -> false | _ -> true);
         (*GtkBase.Widget.queue_draw view#as_widget;*)
         last_merlin_invoke_time <- buffer#last_edit_time;
         let text = buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
         last_merlin_invoke_line <- line;
         last_merlin_invoke_col <- col;
-        Merlin.occurrences ~identifier_at:(line, col) ~filename ~scope:`Buffer ~buffer:text ()
+        let@ file : Editor_file.file = page#file in
+        Merlin.occurrences ~identifier_at:(line, col) ~filename:file#filename ~scope:`Buffer ~buffer:text ()
         |> Async.start_with_continuation begin function
         | Merlin.Ok ranges ->
             let open Merlin_j in
@@ -135,7 +133,7 @@ class manager view =
                     else acc
                   end else acc
                 end []
-                |> view#add_outline_text;
+                |> page#view#add_outline_text;
                 mark_set#call();
               end ()
         | Merlin.Failure _ | Merlin.Error _ -> ()
@@ -144,7 +142,7 @@ class manager view =
 
     method private mark_words () =
       self#clear_words() |> ignore;
-      match view#options#mark_occurrences with
+      match page#view#options#mark_occurrences with
       | true, under_cursor, _ ->
           let text = buffer#selection_text () in
           let text =

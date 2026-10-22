@@ -44,7 +44,7 @@ let sync_editor ~editor ~page ~filename window =
 
 (** create_file *)
 let create_file ~editor ~page ~text ~filename window =
-  File_util.write filename text;
+  File_util.write ~filename ~text;
   sync_editor ~editor ~page ~filename window
 
 (** window *)

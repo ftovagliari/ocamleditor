@@ -296,8 +296,11 @@ class widget ~page ?packing () =
     method private load ?selection () =
       model#clear();
       (* Buffer *)
+      let tmp_file = Filename.temp_file "buffer-" ".tmp" in
+      self#misc#connect#destroy ~callback:(fun () -> if Sys.file_exists tmp_file then Sys.remove tmp_file) |> ignore;
       GtkThread.sync begin fun () ->
-        let tmp_file, _ = page#buffer#write_tmp_file () in
+        let text = (page#buffer : Ocaml_text.buffer)#get_text () in
+        File_util.write ~filename:tmp_file ~text;
         let date = print_time (Unix.localtime (Unix.stat tmp_file).Unix.st_mtime) in
         let row = model#append () in
         model#set ~row ~column:col_rev "Buffer";

@@ -32,9 +32,8 @@ type bound = Gtk.text_mark * Gtk.text_mark
 (** Buffer *)
 class buffer =
   let word_bound = Utils.regexp "\\b" in
-  fun ?project ?buffer ?file () ->
+  fun ?buffer () ->
     let buffer = match buffer with None -> GText.buffer () | Some b -> b in
-    let new_tmp_filename () = Filename.temp_file "buffer-" ".tmp", None in
     object (self)
       inherit GText.buffer buffer#as_buffer
 
@@ -43,40 +42,13 @@ class buffer =
       val mutable tab_spaces = true
       val mutable signal_handlers = []
       val mutable tag_ocamldoc_paragraph : GText.tag option = None
-      val mutable tmp_filename = ""
-      val mutable project_tmp_path = None (* project-tmp-dir * temp-filename *)
       val mutable last_edit_time = Unix.gettimeofday()
 
       initializer
         buffer#connect#changed ~callback:(fun () -> last_edit_time <- Unix.gettimeofday()) |> ignore;
-        self#create_tmp_filename ();
-        at_exit begin fun () ->
-          match project with
-          | None -> if Sys.file_exists tmp_filename then Sys.remove tmp_filename
-          | _ -> ()
-        end
 
       method last_edit_time = last_edit_time
       method set_last_edit_time time = last_edit_time <- time
-
-      method private create_tmp_filename () =
-        let a, b =
-          match project with
-          | Some project ->
-              begin
-                match file with
-                | Some file ->
-                    begin
-                      match Project.Path.tmp_of_abs project file#filename with
-                      | None -> new_tmp_filename ()
-                      | (Some (tmp, relname) as temp) -> tmp // relname, temp
-                    end;
-                | _ -> new_tmp_filename ()
-              end;
-          | _ -> new_tmp_filename ()
-        in
-        tmp_filename <- a;
-        project_tmp_path <- b
 
       method tag_ocamldoc_paragraph = tag_ocamldoc_paragraph
 
@@ -107,8 +79,6 @@ class buffer =
 
       method tab_spaces = tab_spaces
       method set_tab_spaces x = tab_spaces <- x
-
-      method file : Editor_file.file option = file
 
       method select_all () = self#select_range self#start_iter self#end_iter
 
@@ -164,15 +134,11 @@ class buffer =
         self#select_range (stop#backward_chars (Glib.Utf8.length text)) stop;
         undo#end_block ();
 
-      method write_tmp_file () =
-        Utils.mkdir_p (Filename.dirname tmp_filename);
-        Out_channel.with_open_bin tmp_filename (fun oc -> Out_channel.output_string oc (buffer#get_text ()));
-        tmp_filename, project_tmp_path
     end
 
 (** View *)
-and view ?project ?buffer () =
-  let buffer = match buffer with None -> new buffer ?project () | Some b -> b in
+and view ?buffer () =
+  let buffer = match buffer with None -> new buffer () | Some b -> b in
   let view = GText.view ~buffer:buffer#as_gtext_buffer () in
   let create_highlight_current_line_tag () =
     buffer#create_tag ~name:(sprintf "highlight_current_line_tag_%f" (Unix.gettimeofday())) []
@@ -197,8 +163,6 @@ and view ?project ?buffer () =
     method set_current_line_border_x1 x = current_line_border_x1 <- x
 
     method set_current_line_border_x2 x = current_line_border_x2 <- x
-
-    method project = project
 
     method as_gtext_view = (self :> GText.view)
     method tbuffer = buffer
@@ -581,7 +545,7 @@ and view ?project ?buffer () =
               self#tbuffer#add_signal_handler id;
               self#draw_current_line_background ~force:true (self#buffer#get_iter `INSERT)
         end);
-      Text_init.key_press ?project self;
+      Text_init.key_press self;
       (*Text_init.select_lines_from_gutter self;*)
       (** Margin and line spacings *)
       (* To avoid strange application crash, avoid to draw the border of

@@ -839,7 +839,7 @@ let write proj =
         let temporary = sprintf "%s.tmp.%d" filename (Unix.getpid ()) in
         begin
           try
-            File_util.write temporary content;
+            File_util.write ~filename:temporary ~text:content;
             if Sys.file_exists filename then Sys.remove filename;
             Sys.rename temporary filename;
             changed := relative :: !changed

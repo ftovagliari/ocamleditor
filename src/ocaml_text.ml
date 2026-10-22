@@ -29,12 +29,12 @@ let create_shell = ref ((fun () -> failwith "Ocaml_text.create_shell") : unit ->
 let show_messages = ref ((fun () -> failwith "Ocaml_text.show_messages") : unit -> unit)
 
 (** Buffer *)
-class buffer ?project ?file ?(lexical_enabled=false) () =
+class buffer ?file ?(lexical_enabled=false) () =
   let is_ocaml_file filename =
     filename ^^^ ".ml" || filename ^^^ ".mli" || filename ^^^ ".mll" || filename ^^^ ".mly"
   in
   object (self)
-    inherit Text.buffer ?project ?file () as super
+    inherit Text.buffer () as super
     val mutable lexical_enabled = (lexical_enabled || begin
         match file with
         | Some file when is_ocaml_file file#basename -> true
@@ -46,6 +46,7 @@ class buffer ?project ?file ?(lexical_enabled=false) () =
     val mutable select_word_state_init = None
     val mutable last_autocomp_time = 0.0
 
+    method file : Editor_file.file option = file
     method filename = match file with Some fn -> fn#filename | _ -> ""
 
     method is_ocaml_file = is_ocaml_file
@@ -250,12 +251,12 @@ class buffer ?project ?file ?(lexical_enabled=false) () =
 
 (** View *)
 and view ?project ?buffer () =
-  let buffer = match buffer with None -> new buffer ?project () | Some b -> b in
+  let buffer = match buffer with None -> new buffer () | Some b -> b in
   (* Double-click selects OCaml identifiers; click on a selected range
      reduces the selection to part of the identifier. *)
   let is_two_button_press = ref false in
   object (self)
-    inherit Text.view ?project ~buffer:buffer#as_text_buffer ()
+    inherit Text.view ~buffer:buffer#as_text_buffer ()
     val mutable popup = None
     val mutable smart_click = true;
     val mutable select_enclosing_expr = None
@@ -264,7 +265,25 @@ and view ?project ?buffer () =
       select_enclosing_expr <- Some (new Enclosing_expr.manager ~ocaml_view:self);
       self#create_highlight_current_line_tag(); (* recreate current line tag after code folding highlight to draw it above *)
       self#event#connect#button_release ~callback:self#button_release_handler |> ignore;
-      self#event#connect#button_press ~callback:self#button_press_handler |> ignore
+      self#event#connect#button_press ~callback:self#button_press_handler |> ignore;
+      self#event#connect#key_press ~callback:begin fun ev ->
+        let key = GdkEvent.Key.keyval ev in
+        if key = GdkKeysyms._Tab then begin
+          let ocp_indent_applied =
+            (match buffer#file with Some file when not (file#filename ^^^ ".ml") && not (file#filename ^^^ ".mli") -> false | _ -> true) &&
+            if Oe_config.ocp_indent_tab_key_enabled then
+              match project with
+              | Some project -> Ocp_indent.indent ~project ~view:self `SELECTION
+              | _ -> false
+            else false
+          in
+          if not ocp_indent_applied then begin
+            self#tbuffer#indent ?decrease:None ();
+            self#draw_current_line_background ?force:(Some true) (self#buffer#get_iter `INSERT);
+          end;
+          true
+        end else false
+      end |> ignore;
 
     method obuffer = buffer
 

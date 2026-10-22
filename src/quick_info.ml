@@ -2,6 +2,7 @@ open Merlin_j
 open Printf
 open Utils
 open Oe
+open Option_syntax
 
 module Log = Common.Log.Make(struct let prefix = "QUICK-INFO" end)
 let _ =
@@ -12,11 +13,6 @@ type effct = Motion (* Not tested *) | Fade
 
 let effct : effct option = (*None*) Some Fade
 
-let merlin (buffer : Ocaml_text.buffer) func cont =
-  let filename = match buffer#file with Some file -> file#filename | _ -> "" in
-  let buffer = buffer#get_text () in
-  (Merlin.as_cps func ~filename ~buffer) cont
-
 module OneShotSignal = struct
   let create () = ref []
   let save cell id = cell := id :: !cell
@@ -26,9 +22,14 @@ module OneShotSignal = struct
     | ids -> cell := []; List.iter (GtkSignal.disconnect widget) ids
 end
 
+class type page = object
+  method file : Editor_file.file option
+  method ocaml_view : Ocaml_text.view
+end
+
 type t = {
   view : Ocaml_text.view;
-  filename : string;
+  page : page;
   tag : GText.tag;
   motion_notify_signal : GtkSignal.id list ref;
   key_press_signal : GtkSignal.id list ref;
@@ -50,6 +51,11 @@ type hover = {
   mutable has_scroll : bool;
   mutable effect_timer : Glib.Timeout.id option;
 }
+
+let merlin (qi : t) func cont =
+  let@ file = qi.page#file in
+  let buffer = qi.view#obuffer#get_text () in
+  (Merlin.as_cps func ~filename:file#filename ~buffer) cont
 
 let hover : hover option ref = ref None
 
@@ -378,7 +384,7 @@ let get_type_info qi (entry : type_enclosing_value) (entry2 : type_enclosing_val
 
 let merlin_type qi position k =
   (*let l, c = position in Log.println `DEBUG "%s %d,%d" __FUNCTION__ l c;*)
-  merlin qi.view#obuffer @@ Merlin.type_enclosing ~position () |=> begin function
+  merlin qi @@ Merlin.type_enclosing ~position () |=> begin function
     | Merlin.Ok types ->
         begin
           match types with
@@ -390,14 +396,15 @@ let merlin_type qi position k =
     end
 
 let merlin_doc qi position k =
-  merlin qi.view#obuffer @@ Merlin.document ~position () |=> begin function
+  merlin qi @@ Merlin.document ~position () |=> begin function
     | Merlin.Ok doc -> GtkThread.async k doc
     | Merlin.Failure msg | Merlin.Error msg -> ()
     end
 
 let ocp_index_fullname qi start stop k =
   let ident = qi.view#obuffer#get_text ~start ~stop () in
-  let context = qi.filename, Some (start#line + 1), Some (start#line_offset + 1) in
+  let@ file = qi.page#file in
+  let context = file#filename, Some (start#line + 1), Some (start#line_offset + 1) in
   Ocp_index.fullname_async ~context ident
   |> Async.start_with_continuation ~name:__FUNCTION__ begin fun fullname ->
     try
@@ -561,17 +568,17 @@ let connect_to_view qi (view : Ocaml_text.view) =
   view#misc#set_has_tooltip qi.is_active;
   view#misc#connect#query_tooltip ~callback:(query_tooltip qi) |> ignore
 
-let create (view : Ocaml_text.view) =
+let create page =
   if !hover = None then setup_hover();
   let open Preferences in
   let bg_color = ?? (Preferences.preferences#get.Settings_t.editor_bg_color_popup) in
-  let filename = match view#obuffer#file with Some file -> file#filename | _ -> "" in
+  let view = page#ocaml_view in
   let qi =
     {
       markup_odoc = new Markup.odoc();
       is_active = Preferences.preferences#get.Settings_j.editor_quick_info_enabled;
       view;
-      filename;
+      page;
       tag = view#buffer#create_tag ~name:"quick-info" [`BACKGROUND bg_color];
       show_at = None;
       motion_notify_signal = OneShotSignal.create();
@@ -583,6 +590,7 @@ let create (view : Ocaml_text.view) =
     qi.view#misc#set_has_tooltip qi.is_active;
     qi.markup_odoc <- new Markup.odoc(); (* Reset preferences *)
   end |> ignore;
+  let filename = match page#file with Some file -> file#filename | _ -> "" in
   if view#obuffer#is_ocaml_file filename then
     connect_to_view qi view;
   qi

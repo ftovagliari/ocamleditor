@@ -114,11 +114,8 @@ let read filename =
   end /*finally*/ lazy (close_in ch)
 
 (** write *)
-let write filename text =
-  let ch = open_out_bin filename in
-  lazy begin
-    output_string ch text;
-  end /*finally*/ lazy (close_out ch)
+let write ~filename ~text =
+  Out_channel.with_open_bin filename (fun oc -> Out_channel.output_string oc text)
 
 (** Copy file *)
 let copy_file ic oc =

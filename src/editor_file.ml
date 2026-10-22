@@ -53,7 +53,7 @@ class file filename =
       Buffer.contents (File_util.read filename)
 
     method write text =
-      File_util.write filename text;
+      File_util.write ~filename ~text;
       self#update_ts ();
 
     method private perm =

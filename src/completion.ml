@@ -79,7 +79,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
   let view = page#ocaml_view in
   let buffer = view#buffer in
   let merlin merlin_func cont name =
-    let filename = match (view#obuffer#as_text_buffer :> Text.buffer)#file with Some file -> file#filename | _ -> "" in
+    let filename = match page#file with Some file -> file#filename | _ -> "" in
     let buffer = buffer#get_text () in
     (Merlin.as_cps merlin_func ~name ~filename ~buffer) cont
   in

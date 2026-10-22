@@ -23,12 +23,7 @@ open Option_syntax
 
 let ( // ) = Filename.concat
 
-let file_exists files =
-  let exception File_found of string in
-  try
-    List.iter (fun file -> if Sys.file_exists file then raise (File_found file)) files;
-    None
-  with File_found file -> Some file
+let file_exists = List.find_opt Sys.file_exists
 
 let find_ocp_indent_config' project =
   let root = Prj.(project.root) in

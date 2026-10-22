@@ -11,7 +11,7 @@ let iters_of_range buffer range =
 
 class manager ~ocaml_view =
   let (<<) (lower_bound, upper_bound) value = min (max lower_bound value) upper_bound in
-  let filename = match (ocaml_view#obuffer#as_text_buffer :> Text.buffer)#file with Some file -> file#filename | _ -> "" in
+  let filename = match ocaml_view#obuffer#file with Some file -> file#filename | _ -> "" in
   object (self)
     val mutable ranges = [||]
     val mutable index = 0

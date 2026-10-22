@@ -41,7 +41,7 @@ open Utils
   | _ -> ()
   end*)
 
-let key_press ?project view =
+let key_press view =
   view#event#connect#key_press ~callback:begin fun ev ->
     let state = GdkEvent.Key.state ev in
     let key = GdkEvent.Key.keyval ev in
@@ -50,7 +50,7 @@ let key_press ?project view =
     | [`CONTROL] when key = _Down -> ignore (view#scroll `DOWN); true
     | [`SHIFT] when key = _Home || key = _KP_7 -> Smart_keys.smart_home ~view state
     | [`SHIFT] when key = _End || key = _KP_1 -> Smart_keys.smart_end ~view state
-    | _ when key = _Tab ->
+    (*| _ when key = _Tab ->
         let ocp_indent_applied =
           (match view#tbuffer#file with Some file when not (file#filename ^^^ ".ml") && not (file#filename ^^^ ".mli") -> false | _ -> true) &&
           if Oe_config.ocp_indent_tab_key_enabled then
@@ -63,7 +63,7 @@ let key_press ?project view =
           view#tbuffer#indent ?decrease:None ();
           view#draw_current_line_background ?force:(Some true) (view#buffer#get_iter `INSERT);
         end;
-        true
+        true*)
     | _ when key = _ISO_Left_Tab ->
         view#tbuffer#indent ?decrease:(Some true) ();
         view#draw_current_line_background ?force:(Some true) (view#buffer#get_iter `INSERT);

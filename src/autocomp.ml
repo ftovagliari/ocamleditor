@@ -108,9 +108,12 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
   let activity_name = "Compiling " ^ page#get_filename ^ "..." in
   Activity.add Activity.Compile_buffer activity_name;
   try
-    match page#buffer#write_tmp_file () with
-    | _, None -> ()
-    | _, Some (_, relpath) ->
+    match Project.Path.tmp_of_abs project page#get_filename with
+    | None -> ()
+    | Some (basepath, relpath) ->
+        let tmp_filename = basepath // relpath in
+        Utils.mkdir_p (Filename.dirname tmp_filename);
+        File_util.write ~filename:tmp_filename ~text:((page#buffer : Ocaml_text.buffer)#get_text ());
         (* Compile *)
         let args =
           Array.concat [
