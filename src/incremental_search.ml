@@ -223,7 +223,7 @@ class incremental () =
           status#set_incremental inc;
           self#find ~control:STOP ~view ()
         in
-        let _ = GMisc.label ~markup:"<b>Search for: </b>\n<span size='48%'>Ctrl+F for Find/Replace</span>"
+        let _ = GMisc.label ~markup:"<b>Search for: </b>\n<span size='48%'>Alt-C to toggle case sensitivity\nCtrl+F for Find/Replace.</span>"
             ~xalign:0.0 ~xpad:0 ~packing:(box#pack ~expand:true ~fill:true) () in
         let entry = GEdit.entry ~width_chars:20 ~packing:(box#pack ~expand:false ~fill:false) () in
         entry#connect#changed ~callback:begin
@@ -241,12 +241,25 @@ class incremental () =
               end;
             end
         end |> ignore;
+        let set_secondary_icon ?(alloc=entry#misc#allocation) () =
+          let style = entry#misc#style in
+          let color = style#fg `NORMAL in
+          let icon = create_glyph_pixbuf alloc.Gtk.height color ~slashed:(not status#case_sensitive) "\u{eab1}" in
+          entry#set_secondary_icon_pixbuf icon;
+          entry#set_secondary_icon_tooltip_markup "<tt>Alt-C</tt> to toggle case sensitivity.";
+        in
         entry#event#connect#key_press ~callback:
           begin fun ev ->
             let keyval = GdkEvent.Key.keyval ev in
+            let state = GdkEvent.Key.state ev in
             if keyval = _Left || keyval = _Right || keyval = _Escape then (child#destroy(); true)
             else if keyval = _Up then (search `BACKWARD |> ignore; true)
             else if keyval = _Down then (search `FORWARD |> ignore; true)
+            else if keyval = _c && state = [`MOD1] then begin
+              status#set_case_sensitive (not status#case_sensitive);
+              set_secondary_icon ();
+              true
+            end
             else false;
           end |> ignore;
         child#misc#connect#destroy ~callback:
@@ -283,12 +296,6 @@ class incremental () =
           end;
         end |> ignore;
         entry#set_secondary_icon_activatable true;
-        let set_secondary_icon ?(alloc=entry#misc#allocation) () =
-          let style = entry#misc#style in
-          let color = style#fg `NORMAL in
-          let icon = create_glyph_pixbuf alloc.Gtk.height color ~slashed:(not status#case_sensitive) "\u{eab1}" in
-          entry#set_secondary_icon_pixbuf icon;
-        in
         let sign_id = ref None in
         sign_id := Some (entry#misc#connect#size_allocate ~callback:begin fun alloc ->
             Gmisclib.Idle.add begin fun () ->

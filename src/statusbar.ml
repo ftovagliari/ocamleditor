@@ -156,9 +156,9 @@ class editorbar ~view ?packing () =
     initializer
       button_switch_diff_base#misc#modify_font_by_name "sans 8";
       button_switch_diff_base#misc#set_size_request ~width:50 ();
-      button_switch_diff_base#connect#after#clicked ~callback:begin fun () ->
-        button_switch_diff_base#set_label (Diff.show_base !Diff.base)
-      end |> ignore;
+      button_switch_diff_base#connect#after#clicked ~callback:(fun () ->
+          button_switch_diff_base#set_label (Diff.show_base !Diff.base)) |> ignore;
+      view#connect#destroy ~callback:self#destroy |> ignore;
     method filename = status_filename
     method modified = status_modified
     method pos_box = pos_box

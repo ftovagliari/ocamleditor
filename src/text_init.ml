@@ -50,20 +50,6 @@ let key_press view =
     | [`CONTROL] when key = _Down -> ignore (view#scroll `DOWN); true
     | [`SHIFT] when key = _Home || key = _KP_7 -> Smart_keys.smart_home ~view state
     | [`SHIFT] when key = _End || key = _KP_1 -> Smart_keys.smart_end ~view state
-    (*| _ when key = _Tab ->
-        let ocp_indent_applied =
-          (match view#tbuffer#file with Some file when not (file#filename ^^^ ".ml") && not (file#filename ^^^ ".mli") -> false | _ -> true) &&
-          if Oe_config.ocp_indent_tab_key_enabled then
-            match project with
-            | Some project -> Ocp_indent.indent ~project ~view `SELECTION
-            | _ -> false
-          else false
-        in
-        if not ocp_indent_applied then begin
-          view#tbuffer#indent ?decrease:None ();
-          view#draw_current_line_background ?force:(Some true) (view#buffer#get_iter `INSERT);
-        end;
-        true*)
     | _ when key = _ISO_Left_Tab ->
         view#tbuffer#indent ?decrease:(Some true) ();
         view#draw_current_line_background ?force:(Some true) (view#buffer#get_iter `INSERT);

@@ -736,6 +736,7 @@ class editor () =
         | Some file ->
             pages_cache <- (file#filename, page) :: pages_cache;
             page#misc#hide();
+            page#update_statusbar();
             (* File history *)
             File_history.add file_history file#filename;
             file_history_changed#call file_history;

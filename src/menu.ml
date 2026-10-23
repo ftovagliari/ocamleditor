@@ -142,10 +142,17 @@ let edit ~browser ~group ~flags
   let complet = GMenu.menu_item ~label:"Completion" ~packing:menu#add () in
   ignore (complet#connect#activate ~callback:begin fun () ->
       browser#with_current_project begin fun project ->
-        editor#with_current_page (fun page -> Completion.create ~project ~page |> ignore)
+        editor#with_current_page (fun page -> Completion.create ~project ~page () |> ignore)
       end
     end);
   complet#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._space ~flags;
+  let complet_exp = GMenu.menu_item ~label:"Completion (experimental)" ~packing:menu#add () in
+  complet_exp#connect#activate ~callback:begin fun () ->
+    browser#with_current_project begin fun project ->
+      editor#with_current_page (fun page -> Completion.create ~use_names:true ~project ~page () |> ignore)
+    end
+  end |> ignore;
+  complet_exp#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._space ~flags;
   (* Quick Info *)
   let quick_info = GMenu.menu_item ~label:"Quick Info" ~packing:menu#add () in
   let quick_info_menu = GMenu.menu ~packing:quick_info#set_submenu () in
@@ -182,7 +189,7 @@ let edit ~browser ~group ~flags
         Some (select_comment :> GMenu.menu_item);
         Some (toggle_case :> GMenu.menu_item);
         Some (templates :> GMenu.menu_item);
-        Some (complet :> GMenu.menu_item);
+        Some (complet_exp :> GMenu.menu_item);
         Some (quick_info :> GMenu.menu_item);
         Some (to_shell :> GMenu.menu_item);
         Some (select_all :> GMenu.menu_item);
@@ -198,7 +205,7 @@ let edit ~browser ~group ~flags
           (comment :> GMenu.menu_item);
           (select_comment :> GMenu.menu_item);
           (templates :> GMenu.menu_item);
-          (complet :> GMenu.menu_item);
+          (complet_exp :> GMenu.menu_item);
           (quick_info :> GMenu.menu_item);
           (to_shell :> GMenu.menu_item);
         ];

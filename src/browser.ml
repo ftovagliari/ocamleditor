@@ -30,8 +30,9 @@ open Preferences
 class browser window =
   (* signals *)
   let startup                            = new startup () in
-  let switch_project                     = new switch_project () in
   let project_history_changed            = new project_history_changed () in
+  let project_opened                     = new project_opened () in
+  let project_closed                     = new project_closed () in
   (*  *)
   let get_menu_item_nav_history_backward = ref (fun () -> failwith "get_menu_item_nav_history_backward") in
   let get_menu_item_nav_history_forward  = ref (fun () -> failwith "get_menu_item_nav_history_forward") in
@@ -197,6 +198,8 @@ class browser window =
         Names.Cache.save ~project;
         Project.unload project;
         List.iter (fun p -> Autosave.delete ~filename:p#get_filename ()) editor#pages;
+        current_project#set None;
+        project_closed#call ();
       end
 
     method project_open filename =
@@ -205,7 +208,6 @@ class browser window =
       current_project#set (Some proj);
       Project.load_path proj;
       editor#set_history_switch_page_locked true;
-      (*crono ~label:"close_all" *)editor#close_all ();
       editor#set_project proj;
       Sys.chdir (proj.root // Prj.default_dir_src);
       Gmisclib.Idle.add ~prio:300 self#set_title;
@@ -219,7 +221,7 @@ class browser window =
           (Dialog.message ~title:"Warning" ~message:(sprintf "%s\n\n\"%s\"" msg details) `WARNING);
       end;
       (*Project.load_rc_icons proj;*)
-      switch_project#call();
+      project_opened#call ();
       (* Load files *)
       let is_active_set = ref false in
       List.iteri begin fun i (filename, scroll_offset, offset, active) ->
@@ -231,7 +233,6 @@ class browser window =
       editor#set_history_switch_page_locked false;
       proj.editor_view_state <- [];
       proj.modified <- false;
-      self#update_git_status();
       proj
 
     method dialog_project_open () =
@@ -379,37 +380,37 @@ class browser window =
 
     method update_git_status () =
       Gmisclib_util.idle_add ~prio:300 begin fun () ->
-        let with_project f =
-          match current_project#get with
-          | Some proj -> f proj
-          | _ -> ()
-        in
-        with_project begin fun proj ->
-          ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
-          label_project_name#misc#set_tooltip_text (Project.Path.fullname proj);
-        end;
-        Git.toplevel begin function
-        | Some toplevel ->
-            gitbar#button_gitpath#set_label (Filename.basename toplevel);
-            toplevel |> Filename.dirname |> gitbar#button_gitpath#misc#set_tooltip_text;
-        | _ ->
-            gitbar#button_gitpath#set_label "";
-            gitbar#button_gitpath#misc#set_tooltip_text "";
-        end;
-        Git.status begin function
-        | Some s ->
+        match current_project#get with
+        | Some proj ->
+            ksprintf label_project_name#set_label "<b>%s</b>" proj.Prj.name;
+            label_project_name#misc#set_tooltip_text (Project.Path.fullname proj);
             gitbar#misc#show();
-            gitbar#button_gitbranch#set_label s.Git.branch;
-            let changes =
-              s.Git.added + s.Git.modified + s.Git.deleted + s.Git.renamed + s.Git.copied + s.Git.untracked + s.Git.ignored
-            in
-            gitbar#button_gitpending#set_label (sprintf "%3d" changes);
-            Git.markup_of_status s |> gitbar#button_gitpending#misc#set_tooltip_markup;
-            gitbar#button_gitunpushed#set_label (sprintf "%3d" s.Git.ahead);
-            s.Git.ahead |> sprintf "%d unpushed commits" |> gitbar#button_gitunpushed#misc#set_tooltip_markup;
+            Git.toplevel begin function
+            | Some toplevel ->
+                gitbar#button_gitpath#set_label (Filename.basename toplevel);
+                toplevel |> Filename.dirname |> gitbar#button_gitpath#misc#set_tooltip_text;
+            | _ ->
+                gitbar#button_gitpath#set_label "";
+                gitbar#button_gitpath#misc#set_tooltip_text "";
+            end;
+            Git.status begin function
+            | Some s ->
+                gitbar#misc#show();
+                gitbar#button_gitbranch#set_label s.Git.branch;
+                let changes =
+                  s.Git.added + s.Git.modified + s.Git.deleted + s.Git.renamed + s.Git.copied + s.Git.untracked + s.Git.ignored
+                in
+                gitbar#button_gitpending#set_label (sprintf "%3d" changes);
+                Git.markup_of_status s |> gitbar#button_gitpending#misc#set_tooltip_markup;
+                gitbar#button_gitunpushed#set_label (sprintf "%3d" s.Git.ahead);
+                s.Git.ahead |> sprintf "%d unpushed commits" |> gitbar#button_gitunpushed#misc#set_tooltip_markup;
+            | _ ->
+                gitbar#misc#hide();
+            end;
         | _ ->
+            label_project_name#set_label "";
+            label_project_name#misc#set_tooltip_text "";
             gitbar#misc#hide();
-        end;
       end
 
     method set_title () =
@@ -951,7 +952,7 @@ class browser window =
             ]
           end;
         end);
-      ignore (self#connect#switch_project ~callback:begin fun () ->
+      ignore (self#connect#project_opened ~callback:begin fun _ ->
           toolbar#update current_project#get;
           self#set_menu_item_nav_history_sensitive()
         end);
@@ -1054,21 +1055,42 @@ class browser window =
         end else false
       end |> ignore;
 
-    method connect = new signals ~startup ~switch_project ~project_history_changed
+    method connect = new signals ~startup ~project_history_changed ~project_opened ~project_closed
+
+    method private connect_project_opened () =
+      self#connect#project_opened ~callback:begin fun () ->
+        self#update_git_status();
+        !Menu_items.close_project |> Option.iter (fun i -> i#misc#set_sensitive true);
+      end |> ignore;
+
+    method private connect_project_closed () =
+      self#connect#project_closed ~callback:begin fun () ->
+        editor#set_history_switch_page_locked true;
+        editor#close_all ();
+        editor#set_history_switch_page_locked false;
+        self#update_git_status();
+        !Menu_items.close_project |> Option.iter (fun i -> i#misc#set_sensitive false);
+      end |> ignore;
 
     initializer
+      self#connect_project_opened ();
+      self#connect_project_closed ();
       self#connect#startup ~callback:self#init |> ignore;
 
   end
 
 and startup () = object inherit [unit] signal () end
-and switch_project () = object inherit [unit] signal () end
 and project_history_changed () = object inherit [File_history.t] signal () end
-and signals ~startup ~switch_project ~project_history_changed =
+and project_opened () = object inherit [unit] signal () end
+and project_closed () = object inherit [unit] signal () end
+and signals ~startup ~project_history_changed ~project_opened ~project_closed =
   object
-    inherit ml_signals [startup#disconnect; switch_project#disconnect; project_history_changed#disconnect ]
+    inherit ml_signals [
+        startup#disconnect; project_history_changed#disconnect;
+        project_opened#disconnect; project_closed#disconnect ]
     method startup = startup#connect ~after
-    method switch_project = switch_project#connect ~after
+    method project_opened = project_opened#connect ~after
+    method project_closed = project_closed#connect ~after
     method project_history_changed = project_history_changed#connect ~after
   end
 

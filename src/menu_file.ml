@@ -149,6 +149,11 @@ let file ~browser ~group ~flags items =
         browser#set_title ()
       end
     end);
+  (* Close Current Project *)
+  let _ = GMenu.separator_item ~packing:menu#add () in
+  let close_project = GMenu.menu_item ~label:"Close Project" ~packing:menu#add () in
+  close_project#connect#activate ~callback:browser#project_close |> ignore;
+  Menu_items.close_project := Some close_project;
   (* Close current *)
   let _ = GMenu.separator_item ~packing:menu#add () in
   menu#add (items.file_close :> GMenu.menu_item);

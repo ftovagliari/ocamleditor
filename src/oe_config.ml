@@ -85,7 +85,7 @@ let location_history_max_length          = 30 (* hint *)
 let location_history_max_edit            = 5
 let module_browser_max_results           = 150 (* Max. number of search results to display in the search_entry as you type *)
 let module_browser_secondary_title_color = { light = "#877033"; dark = "#707070" }
-let completion_name_table_enabled        = true
+let completion_name_table_enabled        = false
 let layout_find_module_browser           = `VERTICAL
 (* Path relative to the project home directory where to find custom templates. *)
 let template_project_filename            = ".extensions" // "templates.cma"

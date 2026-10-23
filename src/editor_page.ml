@@ -218,27 +218,35 @@ class page ?file ~project ~offset ~editor () =
 
     method update_statusbar () =
       match self#file with
-      | None -> ()
-      | Some file ->
-          try
-            editorbar#filename#set_label self#get_title;
-            begin
-              match file#stat() with
-              | Some stat ->
-                  let tm = Unix.localtime (stat.Editor_file_type.mtime) in
-                  let last_modified = sprintf "%4d-%d-%d %02d:%02d:%02d" (tm.Unix.tm_year + 1900)
-                      (tm.Unix.tm_mon + 1) tm.Unix.tm_mday tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
-                  in
-                  ksprintf editorbar#filename#misc#set_tooltip_markup "%s%s\nLast modified: %s\n%s bytes - %s lines - %s characters"
-                    (if project.Prj.in_source_path file#filename <> None then "<b>" ^ project.Prj.name ^ "</b>\n" else "")
-                    self#get_title
-                    last_modified
-                    (Text_util.format_int stat.Editor_file_type.size)
-                    (Text_util.format_int buffer#line_count)
-                    (Text_util.format_int buffer#char_count);
-              | _ -> ()
-            end;
-          with _ -> ()
+      | Some file when self#misc#visible ->
+          begin
+            try
+              editorbar#filename#set_label self#get_title;
+              begin
+                match file#stat() with
+                | Some stat ->
+                    let tm = Unix.localtime (stat.Editor_file_type.mtime) in
+                    let last_modified = sprintf "%4d-%d-%d %02d:%02d:%02d" (tm.Unix.tm_year + 1900)
+                        (tm.Unix.tm_mon + 1) tm.Unix.tm_mday tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
+                    in
+                    ksprintf editorbar#filename#misc#set_tooltip_markup "%s%s\nLast modified: %s\n%s bytes - %s lines - %s characters"
+                      (if project.Prj.in_source_path file#filename <> None then "<b>" ^ project.Prj.name ^ "</b>\n" else "")
+                      self#get_title
+                      last_modified
+                      (Text_util.format_int stat.Editor_file_type.size)
+                      (Text_util.format_int buffer#line_count)
+                      (Text_util.format_int buffer#char_count);
+                | _ -> ()
+              end;
+            with _ -> ()
+          end
+      | _ ->
+          editorbar#filename#set_label "";
+          editorbar#pos_lin#set_label "";
+          editorbar#pos_col#set_label "";
+          editorbar#pos_off#set_label "";
+          editorbar#pos_sel#set_label "";
+          editorbar#pos_sel_chars#set_label "";
 
     method backup () = Gaux.may file ~f:begin fun (file : Editor_file.file) ->
         Project.File.backup project file
@@ -521,22 +529,23 @@ class page ?file ~project ~offset ~editor () =
       margin_manager#add (margin_errors :> Margin.margin);
       margin_manager#add (margin_occurrences :> Margin.margin);
       margin_manager#add (margin_current_line :> Margin.margin);
-      view#options#connect#mark_occurrences_changed ~callback:(fun _ -> self#mark_occurrences_manager#mark()) |> ignore;
-      view#options#connect#after#mark_occurrences_changed ~callback:begin function
+      view#options#connect#mark_occurrences_changed ~callback:begin function
       | true, _, color ->
           self#mark_occurrences_manager#tag#set_property (`BACKGROUND_GDK (GDraw.color (`NAME color)));
+          self#mark_occurrences_manager#mark()
       | _ -> ()
       end |> ignore;
       paned#set_position 300;
       (*  *)
       self#init_error_indication();
       self#init_mark_occurrences();
+      self#quick_info |> ignore; (* Create instance *)
       (*  *)
       self#misc#connect#destroy ~callback:begin fun () ->
         Option.iter (fun f -> f#cleanup()) file
       end |> ignore;
       view#hyperlink#enable();
-      (* Expose: Statusbar *)
+      (* Statusbar *)
       self#buffer#connect#after#mark_set ~callback:begin fun iter mark ->
         match GtkText.Mark.get_name mark with
         | Some "insert" ->

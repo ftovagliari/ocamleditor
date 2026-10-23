@@ -203,7 +203,6 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       self#update_preferences();
       Preferences.preferences#connect#changed ~callback:(fun _ -> self#update_preferences ()) |> ignore;
       self#toolbar_setup();
-      self#set_follow_cursor tool_follow_cursor#get_active;
 
       view#connect#row_activated ~callback:begin fun _ _ ->
         self#jump_to_definition();
@@ -257,11 +256,11 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       (* Cleanup on destroy *)
       view#misc#connect#destroy ~callback:begin fun _ ->
         Log.println `DEBUG "DESTROY";
+        self#set_follow_cursor false;
         outline#connect#disconnect sig_reset;
         outline#connect#disconnect sig_changes;
         GtkSignal.disconnect source_view#as_view sig_focus_in;
         GtkSignal.disconnect source_view#as_view sig_focus_out;
-        self#set_follow_cursor false;
       end |> ignore;
 
     method outline = outline
@@ -391,7 +390,7 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       if active then begin
         if timer_follow_cursor = None then
           timer_follow_cursor <- Some begin
-              let name = sprintf "timer_follow_cursor-%s" source_view#obuffer#filename in
+              let name = sprintf "timer_follow_cursor-%s" (Filename.basename source_view#obuffer#filename) in
               Gmisclib.Timeout.add name ~ms:1000 ~callback:begin fun () ->
                 let mark = buffer#get_mark `INSERT in
                 if timer_follow_cursor <> None then begin

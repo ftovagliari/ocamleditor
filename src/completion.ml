@@ -24,7 +24,7 @@ module String_utils = struct
 end
 let m_names = ref []
 
-class widget ~project ~(page : Editor_page.page) ?packing () =
+class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () =
   let ebox = GBin.event_box ?packing () in
   let vbox = GPack.vbox ~spacing:5 ~border_width:0 ~packing:ebox#add () in
   let spinner_box = GPack.hbox ~spacing:5 ~border_width:0 ~packing:(vbox#pack ~expand:false) () in
@@ -63,7 +63,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
   let _ = lview#append_column vc_name in
   let _ = lview#selection#set_mode `SINGLE in
   let _ = model_sort#set_sort_column_id col_prio.GTree.index `ASCENDING in
-  let _ = vc_source#set_visible false in
+  (*let _ = vc_source#set_visible false in*)
   let _ =
     model_sort#set_sort_func col_prio.GTree.index begin fun model r1 r2 ->
       let s1 = model#get ~row:r1 ~column:col_source in
@@ -266,7 +266,7 @@ class widget ~project ~(page : Editor_page.page) ?packing () =
             Printf.eprintf "%s\n%s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
         end name
       in
-      if Oe_config.completion_name_table_enabled then begin
+      if use_names || Oe_config.completion_name_table_enabled then begin
         if String.length (String.trim prefix) >= 2 then begin
           Async.create ~name:"compl-names" begin fun () ->
             project |> Names.update_all
@@ -560,9 +560,9 @@ and signals ~load_start ~load_complete =
 
 let single_instance = ref None
 
-let create ~project ~page =
+let create ?(use_names=false) ~project ~page () =
   !single_instance |> Option.iter (fun instance -> instance#destroy());
-  let compl = new widget ~project ~page () in
+  let compl = new widget ~use_names ~project ~page () in
   single_instance := Some compl;
-  compl#complete()
+  compl#complete ()
 
