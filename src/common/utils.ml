@@ -167,20 +167,38 @@ end
 
 module Memo =
 struct
-  let fast ~f =
+
+  let memo_calls = ref 0
+  let memo_hits = ref 0
+  let memo_length = ref 0
+  let memo_size = ref 0
+
+  let print_stats () =
+    Printf.printf "----- Memoization -----\n";
+    Printf.printf "Total calls  : %d\n" !memo_calls;
+    Printf.printf "Cache hits   : %d (%.1f)\n" !memo_hits ((float !memo_hits) /. (float !memo_calls));
+    Printf.printf "Stored items : %d\n" !memo_length;
+    Printf.printf "Memory size  : %d bytes\n" !memo_size
+
+  let sfast f =
     let memo = Hashtbl.create 7 in
-    fun ?(force=fun _ -> false) key ->
-      try
-        let data = Hashtbl.find memo key in
-        if force data then begin
-          Hashtbl.remove memo key;
-          raise Not_found;
-        end;
-        data
-      with Not_found ->
-        let data = f key in
-        Hashtbl.add memo key data;
-        data;;
+    let update_size data =
+      memo_size := !memo_size + Obj.reachable_words (Obj.repr data) * 8 (* 8 byte per architetture a 64-bit *)
+    in
+    fun key ->
+      incr memo_calls;
+      let data = try
+          let r = Hashtbl.find memo key in
+          incr memo_hits;
+          r
+        with Not_found ->
+          let data = f key in
+          incr memo_length;
+          Hashtbl.add memo key data;
+          update_size data;
+          data
+      in
+      data
 
   let create f =
     let memo = Hashtbl.create 7 in
@@ -193,44 +211,18 @@ struct
 
   let create2 f = create (fun x -> create (f x))
 
-  let sfast ~f =
-    let memo = Hashtbl.create 1 in
-    let count = ref 0 in
-    let found = ref 0 in
-    (fun ?(force=fun _ -> false) key ->
-       incr count;
-       let data = try
-           let r = Hashtbl.find memo key in
-           incr found;
-           if force r then begin
-             Hashtbl.remove memo key;
-             raise Not_found;
-           end;
-           r
-         with Not_found ->
-           let data = f key in
-           Hashtbl.add memo key data;
-           data
-       in
-       data),
-    (fun () ->
-       Printf.fprintf stdout "%i/%i = %f" !found !count (float(!found)/.float(!count));
-       print_newline()),
-    (fun () ->
-       Hashtbl.clear memo;
-       count := 0;
-       found := 0
-    )
+  let create = sfast
+
 end;;
 
 
 (** [Str.regexp] with memoization *)
-let (!~) = Memo.fast ~f:Str.regexp
-let (!~~) = Memo.fast ~f:Str.regexp_string
+let (!~) = Memo.create Str.regexp
+let (!~~) = Memo.create Str.regexp_string
 let regexp = (!~)
 let regexp_string = (!~~)
-let regexp_case_fold = Memo.fast ~f:Str.regexp_case_fold
-let regexp_string_case_fold = Memo.fast ~f:Str.regexp_string_case_fold
+let regexp_case_fold = Memo.create Str.regexp_case_fold
+let regexp_string_case_fold = Memo.create Str.regexp_string_case_fold
 
 (** Miscellaneus string functions *)
 
@@ -258,18 +250,22 @@ let rpad txt c width =
     or an exact string.
 *)
 let replace_all ?(memo=true) =
-  let mk_regexp = (!~) ~force:(fun _ -> not memo) in
+  let regexp_func = if memo then (!~) else Str.regexp in
   fun ?(regexp=true) re_te s ->
-    List.fold_left begin fun s' (re, te) ->
-      Str.global_replace (if not regexp then (!~~) ~force:(fun _ -> not memo) re else mk_regexp re) te s'
-    end s re_te
+    let mk_regexp re =
+      if not regexp then
+        (if memo then (!~~) else Str.regexp_string) re
+      else regexp_func re
+    in
+    List.fold_left (fun s' (re, te) -> Str.global_replace (mk_regexp re) te s') s re_te
 
 (** Like [replace_all] but only replaces the first occurrence. *)
 let replace_first ?(memo=true) =
-  let mk_regexp = (!~) ~force:(fun _ -> not memo) in
+  let regexp_func = if memo then (!~) else Str.regexp in
   fun ?(regexp=true) re_te s ->
+    let may_quote re = if not regexp then Str.quote re else re in
     List.fold_left begin fun s' (re, te) ->
-      Str.replace_first (mk_regexp (if not regexp then Str.quote re else re)) te s'
+      Str.replace_first (regexp_func (may_quote re)) te s'
     end s re_te
 
 (** [starts_with prefix s] returns [true] if and only if [s] starts with [prefix]. *)

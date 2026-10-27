@@ -362,7 +362,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
                             page#view#options#set_mark_occurrences (false, false, "");
                             let start = buffer#get_iter (`MARK mark_start) in
                             let stop = buffer#get_iter (`MARK mark_stop) in
-                            buffer#select_range start stop;
+                            buffer#select_range start stop; (* TODO Crashed here *)
                             page#ocaml_view#scroll_aligned start;
                             editor#goto_view page#view;
                             page#view#options#set_mark_occurrences old;

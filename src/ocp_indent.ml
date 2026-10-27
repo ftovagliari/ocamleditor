@@ -32,7 +32,7 @@ let find_ocp_indent_config' project =
     Some (Printexc.print File_util.read config_file |> Buffer.contents)
   with _ -> None
 
-let find_ocp_indent_config = Utils.Memo.fast ~f:find_ocp_indent_config'
+let find_ocp_indent_config = Utils.Memo.create find_ocp_indent_config'
 
 let indent_config ~project ~pref ?(syntaxes=[]) () =
   Approx_lexer.disable_extensions ();
