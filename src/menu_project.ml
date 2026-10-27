@@ -230,7 +230,7 @@ let project ~browser ~group ~flags items =
   let dialog_project_properties = Image_menu.item ~label:"Project Properties" ~image:(Icons.create (??? Icons.project_16))#coerce ~packing:menu#add () in
   ignore (dialog_project_properties#connect#activate ~callback:(fun () ->
       browser#dialog_project_properties ?page_num:(Some 0) ?show:(Some true) (())));
-  dialog_project_properties#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._P ~flags;
+  dialog_project_properties#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._p ~flags;
 
   (* Targets *)
   let project_targets = Image_menu.item ~image:(Icons.create (??? Icons.target_16))#coerce ~label:"Targets" ~packing:menu#add () in

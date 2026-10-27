@@ -10,6 +10,9 @@ let color_of_kind = function
   | "Variant" -> Preferences.editor_tag_color "uident"
   | "Label" -> Preferences.editor_tag_color "uident"
   | "Class" -> Preferences.editor_tag_color "structure"
+  | "Inherit" -> Preferences.editor_tag_color "structure"
+  | "ClassLets" -> ?? Oe_config.warning_underline_color |> GDraw.color
+  | "Initializer" -> Preferences.editor_tag_color "structure"
   | "Method" -> Preferences.editor_tag_color "structure"
   | "ClassType" -> Preferences.editor_tag_color "lident"
   | "Signature" -> Preferences.editor_tag_color "lident"
@@ -28,10 +31,13 @@ let icon_of_kind kind =
   | "Label" -> sprintf "<span color='%s'>󰌕</span>" color
   | "Class" -> sprintf "<span size='larger' color='%s'></span>" color
   | "ClassType" -> sprintf "<span size='larger' style='italic' color='%s'></span>" color
-  | "Method" -> sprintf "<span color='%s'></span>" color
+  | "Inherit" -> sprintf "<span size='larger' color='%s'>\u{f0043}</span>" color
+  | "Initializer" -> sprintf "<span color='%s'>\u{f0c04}</span>  initializer" color
+  | "Method" -> sprintf "<span color='%s'>\u{ea8c}</span>" color
   | "Signature" -> sprintf "<span size='larger' color='%s'> </span>" color
   | "Exn" -> sprintf "<span style='italic' color='%s'>󱈸</span>" color
   | "#" -> sprintf "<span color='%s'></span>" color
+  | "ClassLets" -> sprintf "<span color='%s'>\u{f4d3}</span> <i>let bindings</i>" color
   | x -> sprintf "<span color='%s'>%s</span>" color x
 
 let type_info ?(color=Oe_config.colored_types) text =

@@ -38,7 +38,7 @@ let create_small_toggle_button ?tooltip ?icon ?text ?callback ?packing ?show () 
   button;;
 
 class editorbar ~view ?packing () =
-  let icon_font_name = sprintf "FiraCode OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
+  let icon_font_name = sprintf "OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
   let box = GPack.hbox ~spacing:1 ~border_width:0 ?packing () in
   let _ = GMisc.separator `VERTICAL ~packing:box#pack () in
   let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:box#add () in

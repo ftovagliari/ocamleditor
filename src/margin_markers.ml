@@ -3,7 +3,7 @@ open Gutter
 open Printf
 
 class markers (view : GText.view) =
-  let font = "FiraCode OCamlEditor 12" in
+  let font = "OCamlEditor 12" in
   let last_id = Atomic.make 0 in
   object (self)
     inherit [(int * GObj.widget * Gutter.marker_kind * int) list] widget ()

@@ -459,9 +459,9 @@ class editor () =
             if is_insert_mark then begin
               if option_occurrences then
                 Debouncer.schedule debouncer_mark_words begin fun () ->
-                  Gmisclib.Idle.add begin fun () ->
-                    !Menu_items.find_definition |> Option.iter (Menu_search.set_has_definition page);
-                    !Menu_items.find_references |> Option.iter (Menu_search.set_has_references page);
+                  Gmisclib.Idle.add ~prio:300 begin fun () ->
+                    !Menu_items.Search.find_definition |> Option.iter (Menu_search.set_has_definition page);
+                    !Menu_items.Search.find_references |> Option.iter (Menu_search.set_has_references page);
                   end;
                   page#mark_occurrences_manager#mark();
                 end;

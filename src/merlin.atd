@@ -130,14 +130,14 @@ type outline_answer = [
 type outline_value = { value : outline list }
 
 type outline = {
-  ol_start <json name="start"> : pos;
+  ol_start <json name="start"> <ocaml mutable> : pos;
   ol_stop <json name="end"> <ocaml mutable> : pos;
   ol_name <json name="name"> : string;
   ol_kind <json name="kind"> : string;
   ?ol_type <json name="type"> : string option;
-  ol_children <json name="children"> : outline list;
+  ol_children <json name="children"> <ocaml mutable> : outline list;
   ol_deprecated <json name="deprecated"> : bool;
-  ol_selection <json name="selection"> : selection;
+  ol_selection <json name="selection"> <ocaml mutable> : selection;
   ~ol_level <ocaml mutable default="0"> : int;
   ~ol_parent <ocaml mutable default="None"> : outline option;
 }

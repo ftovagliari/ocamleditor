@@ -724,6 +724,7 @@ class browser window =
       let menu_item_view_messages = ref [] in
       let menu_item_view_hmessages = ref [] in
       let accel_group = GtkData.AccelGroup.create () in
+      Menu_items.accel_group := Some accel_group;
       window#add_accel_group accel_group;
       let group = accel_group in
       let menu_items = Menu.create ~browser:self ~group
@@ -1060,7 +1061,7 @@ class browser window =
     method private connect_project_opened () =
       self#connect#project_opened ~callback:begin fun () ->
         self#update_git_status();
-        !Menu_items.close_project |> Option.iter (fun i -> i#misc#set_sensitive true);
+        !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive true);
       end |> ignore;
 
     method private connect_project_closed () =
@@ -1069,7 +1070,7 @@ class browser window =
         editor#close_all ();
         editor#set_history_switch_page_locked false;
         self#update_git_status();
-        !Menu_items.close_project |> Option.iter (fun i -> i#misc#set_sensitive false);
+        !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive false);
       end |> ignore;
 
     initializer

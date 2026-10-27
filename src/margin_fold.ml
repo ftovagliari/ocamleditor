@@ -381,16 +381,6 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
   let tag_invisible = add_tag Oe_config.code_folding_tag_invisible_name
       (if suppress_invisible then [ `STRIKETHROUGH true ] else [ `INVISIBLE true ])
   in
-  (** Traverses an outline structure in depth-first order, applying function [f] to each node.
-      [f] receives the parent node (if any) and the current node as arguments. *)
-  let rec iter_depth_first f parent (ol : Merlin_j.outline list) =
-    match ol with
-    | [] -> ()
-    | hd :: tl ->
-        f parent hd;
-        iter_depth_first f (Some hd) hd.ol_children;
-        iter_depth_first f parent tl
-  in
   let char_width =
     let desc =
       (* TODO Update on preferences change *)
@@ -443,13 +433,15 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
                 cleanup();
                 is_refresh_pending#set false;
               end else begin
-                outline#get |> iter_depth_first begin fun parent node ->
-                  (*Log.println `DEBUG "%s %s %s - %s" ol.ol_kind ol.ol_name !!(ol.ol_start) !!(ol.ol_stop);*)
-                  node.ol_parent <- parent;
-                  if node.ol_kind = "Method" then methods := node :: !methods
-                  else self#upsert_expander node;
+                outline#get |> Outline.iter_depth_first begin fun parent node ->
+                  try
+                    Log.println `DEBUG "%s %s %s - %s" node.ol_kind node.ol_name !!(node.ol_start) !!(node.ol_stop);
+                    if node.ol_kind = "Method" || node.ol_kind = "Initializer" then methods := node :: !methods
+                    else self#upsert_expander node;
+                  with (Invalid_linechar _) as ex ->
+                    Log.println `ERROR "%s" (Printexc.to_string ex)
                 end None;
-                !methods |> List.iter (fun node -> self#upsert_expander node);
+                !methods |> List.iter self#upsert_expander;
                 is_refresh_pending#set false;
                 expanders |> List.iter begin fun ex ->
                   let new_hash = ex#calculate_hash () in
@@ -485,27 +477,30 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
       buffer#get_iter (`LINECHAR (ln, pos.col))
 
     method private upsert_expander node =
-      let start = self#get_iter_at_pos node.ol_start in
-      let stop = self#get_iter_at_pos node.ol_stop in
-      if stop#line > start#line then begin
-        let expander =
-          match expanders |> List.find_opt (fun exp -> exp#folding_point#equal start) with
-          | None ->
-              let expander = new expander ~tag_highlight ~tag_invisible ~view () in
-              expander#place_marks ~folding_point:start ~foot:stop;
-              expanders <- expander :: expanders;
-              expander#connect#after#begin_expand ~callback:(fun nested ->
-                  begin_expander_toggled#call (expander, nested)) |> ignore;
-              expander#connect#after#toggled ~callback:(fun _ -> expander_toggled#call expander) |> ignore;
-              expander#connect#refresh_needed ~callback:(fun () -> is_refresh_pending#set true) |> ignore;
-              expander
-          | Some expander ->
-              expander
-        in
-        expander#set_is_definition
-          (node.ol_kind = "Value" && (Oe_config.code_folding_deep_collapse || node.ol_parent <> None)
-           || node.ol_kind = "Method");
-      end
+      if node.ol_kind <> "ClassLets" then
+        try
+          let start = self#get_iter_at_pos node.ol_start in
+          let stop = self#get_iter_at_pos node.ol_stop in
+          if stop#line > start#line then begin
+            let expander =
+              match expanders |> List.find_opt (fun exp -> exp#folding_point#equal start) with
+              | None ->
+                  let expander = new expander ~tag_highlight ~tag_invisible ~view () in
+                  expander#place_marks ~folding_point:start ~foot:stop;
+                  expanders <- expander :: expanders;
+                  expander#connect#after#begin_expand ~callback:(fun nested ->
+                      begin_expander_toggled#call (expander, nested)) |> ignore;
+                  expander#connect#after#toggled ~callback:(fun _ -> expander_toggled#call expander) |> ignore;
+                  expander#connect#refresh_needed ~callback:(fun () -> is_refresh_pending#set true) |> ignore;
+                  expander
+              | Some expander ->
+                  expander
+            in
+            expander#set_is_definition
+              (node.ol_kind = "Value" && (Oe_config.code_folding_deep_collapse || node.ol_parent <> None)
+               || node.ol_kind = "Method" || node.ol_kind = "Initializer");
+          end
+        with ex -> Printf.eprintf "%s\n%s\n%d \n%!" node.ol_kind (Printexc.to_string ex) (node.ol_start.line);
 
     method find_nested_expanders (expander : expander) =
       let all_nested =

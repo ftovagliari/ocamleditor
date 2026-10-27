@@ -195,6 +195,165 @@ let for_renaming text pos =
   | Found result -> result
   | _ -> `None
 
+type let_info = {
+  name: string;
+  ident_start: int;
+  ident_stop: int;
+  mutable body_end: int option;
+}
 
+type inherit_info = {
+  inherit_start: int;
+  mutable inherit_end: int;
+  mutable class_name: string option;
+}
 
+let analyze_class text =
+  let lets = ref [] in
+  let current_let_group = ref [] in
+  let let_stack = ref [] in
+  let expecting_ident = ref false in
+  let in_object = ref false in
 
+  let found_init = ref false in
+  let init_start_val = ref 0 in
+  let init_end_val = ref 0 in
+  let in_initializer = ref false in
+  let init_depth = ref 0 in
+
+  let inherits = ref [] in
+  let current_inherit = ref None in
+  let in_inherit = ref false in
+  let inherit_depth = ref 0 in
+  let expecting_class_name = ref false in
+  let skip_brackets = ref false in
+  let inherit_bracket_depth = ref 0 in
+
+  scan text (fun ~token ~start ~stop ->
+      (* 1. Track initializer body and trim trailing whitespace *)
+      if !in_initializer then (
+        match token with
+        | Parser.LPAREN | Parser.LBRACE | Parser.LBRACKET | Parser.BEGIN ->
+            incr init_depth;
+            init_end_val := stop
+        | Parser.RPAREN | Parser.RBRACE | Parser.RBRACKET | Parser.END ->
+            if !init_depth > 0 then (
+              decr init_depth;
+              init_end_val := stop
+            )
+            else if token = Parser.END then
+              in_initializer := false
+        | Parser.METHOD | Parser.VAL | Parser.INHERIT | Parser.INITIALIZER | Parser.CONSTRAINT
+          when !init_depth = 0 ->
+            in_initializer := false
+        | _ ->
+            init_end_val := stop
+      );
+
+      (* 2. Track inherit body and extract class name (skipping type parameters like [...]) *)
+      if !in_inherit then (
+        match token with
+        | Parser.LPAREN | Parser.LBRACE | Parser.LBRACKET | Parser.BEGIN ->
+            incr inherit_depth;
+            if !skip_brackets then
+              incr inherit_bracket_depth
+            else if !expecting_class_name && token = Parser.LBRACKET then (
+              skip_brackets := true;
+              inherit_bracket_depth := 1;
+              expecting_class_name := false
+            );
+            (match !current_inherit with Some ih -> ih.inherit_end <- stop | None -> ())
+        | Parser.RPAREN | Parser.RBRACE | Parser.RBRACKET | Parser.END ->
+            if !skip_brackets && token = Parser.RBRACKET then (
+              decr inherit_bracket_depth;
+              if !inherit_bracket_depth = 0 then (
+                skip_brackets := false;
+                expecting_class_name := true
+              )
+            );
+            if !inherit_depth > 0 then (
+              decr inherit_depth;
+              (match !current_inherit with Some ih -> ih.inherit_end <- stop | None -> ())
+            )
+            else if token = Parser.END then (
+              in_inherit := false;
+              current_inherit := None;
+              expecting_class_name := false;
+              skip_brackets := false
+            )
+        | Parser.METHOD | Parser.VAL | Parser.INHERIT | Parser.INITIALIZER | Parser.CONSTRAINT
+          when !init_depth = 0 ->
+            in_inherit := false;
+            current_inherit := None;
+            expecting_class_name := false;
+            skip_brackets := false
+        | _ ->
+            if !expecting_class_name && not !skip_brackets then (
+              match token with
+              | Parser.UIDENT name | Parser.LIDENT name ->
+                  (match !current_inherit with Some ih -> ih.class_name <- Some name | None -> ());
+                  expecting_class_name := false
+              | _ -> ()
+            );
+            (match !current_inherit with Some ih -> ih.inherit_end <- stop | None -> ())
+      );
+
+      (* 3. Analyze let-bindings before OBJECT *)
+      if not !in_object then (
+        match token with
+        | Parser.OBJECT ->
+            in_object := true;
+            expecting_ident := false
+        | Parser.LET ->
+            if !current_let_group <> [] then (
+              let_stack := !current_let_group :: !let_stack;
+              current_let_group := []
+            );
+            expecting_ident := true
+        | Parser.AND ->
+            expecting_ident := true
+        | Parser.IN ->
+            let group =
+              if !current_let_group <> [] then !current_let_group
+              else match !let_stack with
+                | h :: t -> let_stack := t; h
+                | [] -> []
+            in
+            List.iter (fun b -> b.body_end <- Some stop) group;
+            lets := !lets @ group;
+            current_let_group := []
+        | _ when !expecting_ident ->
+            (match token with
+             | Parser.LIDENT name | Parser.UIDENT name ->
+                 let b = { name; ident_start = start; ident_stop = stop; body_end = None } in
+                 current_let_group := !current_let_group @ [b];
+                 expecting_ident := false
+             | Parser.REC -> ()
+             | _ -> expecting_ident := false)
+        | _ -> ()
+      );
+
+      (* 4. Detect start of initializer or inherit *)
+      match token with
+      | Parser.INITIALIZER when !in_object && not !found_init ->
+          found_init := true;
+          init_start_val := start;
+          init_end_val := stop;
+          in_initializer := true;
+          init_depth := 0
+      | Parser.INHERIT when !in_object ->
+          let ih = { inherit_start = start; inherit_end = stop; class_name = None } in
+          inherits := !inherits @ [ih];
+          current_inherit := Some ih;
+          in_inherit := true;
+          inherit_depth := 0;
+          expecting_class_name := true;
+          skip_brackets := false;
+          inherit_bracket_depth := 0
+      | _ -> ()
+    );
+
+  let initializer_range =
+    if !found_init then Some (!init_start_val, !init_end_val) else None
+  in
+  (!lets, initializer_range, !inherits)

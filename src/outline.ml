@@ -18,6 +18,27 @@ let enable_fuzzy_search = true
 
 open GUtil
 
+(** Traverses an outline structure in depth-first order, applying function [f] to each node.
+    [f] receives the parent node (if any) and the current node as arguments. *)
+let rec iter_depth_first f parent (ol : Merlin_j.outline list) =
+  match ol with
+  | [] -> ()
+  | hd :: tl ->
+      f parent hd;
+      iter_depth_first f (Some hd) hd.ol_children;
+      iter_depth_first f parent tl
+
+let get_iter_at_line (buffer : GText.buffer) pos =
+  let ln = pos.line - 1 in
+  if pos.line < 0 || ln > buffer#end_iter#line then raise (Invalid_linechar pos);
+  buffer#get_iter (`LINE ln)
+
+let get_iter_at_linechar (buffer : GText.buffer) pos =
+  let it = get_iter_at_line buffer pos in
+  if pos.col >= it#chars_in_line then raise (Invalid_linechar pos);
+  it#set_line_offset pos.col
+
+
 class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
   let merlin text func = func ~filename:buffer#filename ~buffer:text in
   object (self)
@@ -28,6 +49,106 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
     val changes = new changes()
     method get = outline
     method is_valid = buffer#last_edit_time < last_refresh_time || timer_id = None
+
+    method private add_other_class_items =
+      let merlin_pos_of_offset a start =
+        let abs_a = a + start in
+        let iter_a = buffer#get_iter_at_char abs_a in
+        { line = iter_a#line + 1; col = iter_a#line_offset }
+      in
+      let pos_0 = { line = 0; col = 0 } in
+      fun parent node ->
+        parent |> Option.iter (fun p -> node.ol_level <- p.ol_level + 1);
+        node.ol_parent <- parent;
+        match node.ol_kind with
+        | "Class" ->
+            let class_node = node in
+            let class_start = get_iter_at_linechar buffer#as_gtext_buffer class_node.ol_start in
+            let class_stop = get_iter_at_linechar buffer#as_gtext_buffer class_node.ol_stop in
+            let text = buffer#get_text ~start:class_start ~stop:class_stop () in
+            let lets, init_range, inherits = Lex.analyze_class text in
+            let cl_start_offs = class_start#offset in
+            begin
+              match init_range with
+              | Some (init_start, init_end) ->
+                  let start = merlin_pos_of_offset init_start cl_start_offs in
+                  let stop_init = merlin_pos_of_offset (init_start + 11) cl_start_offs in
+                  let stop = merlin_pos_of_offset init_end cl_start_offs in
+                  class_node.ol_children <- {
+                    ol_kind = "Initializer";
+                    ol_name = "";
+                    ol_start = start;
+                    ol_stop = stop;
+                    ol_selection = { start; stop = stop_init };
+                    ol_type = None;
+                    ol_deprecated = false;
+                    ol_parent = Some class_node;
+                    ol_children = [];
+                    ol_level = class_node.ol_level + 1;
+                  } :: class_node.ol_children;
+              | _ -> ()
+            end;
+            let open Lex in
+            inherits
+            |> List.iter begin fun inh ->
+              let start = merlin_pos_of_offset inh.inherit_start cl_start_offs in
+              let stop = merlin_pos_of_offset inh.inherit_end cl_start_offs in
+              class_node.ol_children <- {
+                ol_kind = "Inherit";
+                ol_name = inh.class_name |> Option.value ~default:"";
+                ol_start = start;
+                ol_stop = stop;
+                ol_selection = { start; stop };
+                ol_type = None;
+                ol_deprecated = false;
+                ol_parent = Some class_node;
+                ol_children = [];
+                ol_level = class_node.ol_level + 1;
+              } :: class_node.ol_children;
+            end;
+            let class_lets =
+              {
+                ol_kind = "ClassLets";
+                ol_name = "";
+                ol_start = pos_0;
+                ol_stop = pos_0;
+                ol_selection = { start = pos_0; stop = pos_0 };
+                ol_type = None;
+                ol_deprecated = false;
+                ol_parent = Some class_node;
+                ol_children = [];
+                ol_level = class_node.ol_level + 1;
+              }
+            in
+            lets
+            |> List.map begin fun li ->
+              let ol_start_sel = merlin_pos_of_offset li.ident_start cl_start_offs in
+              let ol_stop =
+                match li.body_end with
+                | Some body_end -> merlin_pos_of_offset body_end cl_start_offs
+                | _ -> ol_start_sel
+              in
+              let ol_stop_sel = merlin_pos_of_offset li.ident_stop cl_start_offs in
+              {
+                ol_kind = "Value";
+                ol_name = li.Lex.name;
+                ol_start = ol_start_sel;
+                ol_stop;
+                ol_selection = { start = ol_start_sel; stop = ol_stop_sel };
+                ol_type = None;
+                ol_deprecated = false;
+                ol_parent = Some class_lets;
+                ol_children = [];
+                ol_level = class_node.ol_level + 2;
+              }
+            end
+            |> (function [] -> () | lets ->
+                let hd = List.hd lets in
+                class_lets.ol_selection <- hd.ol_selection;
+                class_lets.ol_children <- lets;
+                class_node.ol_children <- class_lets :: class_node.ol_children)
+        | _ -> ()
+
     method private update ?(force=false) () =
       (*Log.println `DEBUG "UPDATE is_valid=%b force=%b" self#is_valid force;*)
       if not self#is_valid || force then begin
@@ -59,8 +180,16 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
                 }
               end
             in
+
+            Prf.register Prf.outline_initializer begin fun () ->
+              iter_depth_first begin fun parent node ->
+                parent |> Option.iter (fun p -> node.ol_level <- p.ol_level + 1);
+                node.ol_parent <- parent;
+                self#add_other_class_items parent node
+              end None ol
+            end ();
+
             if force then begin
-              (*outline <- [];*)
               last_refresh_time <- 0.0;
               GtkThread.sync reset#call ();
             end;
@@ -276,16 +405,6 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
           let acc = self#fold_depth_first f parent tl acc in
           acc
 
-    method private get_iter_at_line pos =
-      let ln = pos.line - 1 in
-      if pos.line < 0 || ln > buffer#end_iter#line then raise (Invalid_linechar pos);
-      buffer#get_iter (`LINE ln)
-
-    method private get_iter_at_linechar pos =
-      let it = self#get_iter_at_line pos in
-      if pos.col >= it#chars_in_line then raise (Invalid_linechar pos);
-      it#set_line_offset pos.col
-
     (** Jumps to the definition of the currently selected outline item.
         Selects the identifier name in the source buffer and scrolls it into view. *)
     method jump_to_definition () =
@@ -296,8 +415,8 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             try
               let row = model#get_iter path in
               let node = model#get ~row ~column:col_data in
-              let start = self#get_iter_at_linechar node.ol_selection.start in
-              let stop = self#get_iter_at_linechar node.ol_selection.stop in
+              let start = get_iter_at_linechar buffer#as_gtext_buffer node.ol_selection.start in
+              let stop = get_iter_at_linechar buffer#as_gtext_buffer node.ol_selection.stop in
               buffer#select_range start stop;
               source_view#scroll_aligned start;
             with Invalid_linechar pos ->
@@ -314,8 +433,8 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             try
               let row = model#get_iter path in
               let node = model#get ~row ~column:col_data in
-              let start = self#get_iter_at_linechar node.ol_start in
-              let stop = self#get_iter_at_linechar node.ol_stop in
+              let start = get_iter_at_linechar buffer#as_gtext_buffer node.ol_start in
+              let stop = get_iter_at_linechar buffer#as_gtext_buffer node.ol_stop in
               buffer#select_range start stop
             with Exit ->
               Log.println `ERROR "Invalid line/char"
@@ -341,11 +460,11 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
             if node.ol_kind <> "Placeholder" then begin
               let start, stop =
                 if node.ol_kind = "Method" then
-                  (self#get_iter_at_linechar node.ol_start)#set_line_offset 0,
-                  (self#get_iter_at_linechar node.ol_stop)#set_line_offset 0
+                  (get_iter_at_linechar buffer#as_gtext_buffer node.ol_start)#set_line_offset 0,
+                  (get_iter_at_linechar buffer#as_gtext_buffer node.ol_stop)#set_line_offset 0
                 else
-                  self#get_iter_at_linechar node.ol_start,
-                  let it = self#get_iter_at_linechar node.ol_stop in
+                  get_iter_at_linechar buffer#as_gtext_buffer node.ol_start,
+                  let it = get_iter_at_linechar buffer#as_gtext_buffer node.ol_stop in
                   if it#ends_line then it#forward_char else it#forward_to_line_end
               in
               if iter#in_range ~start ~stop then

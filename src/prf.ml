@@ -43,18 +43,6 @@ let create name =
   profiles := prf :: !profiles;
   prf
 
-(*
-let prf_draw_markers                 = create true  "prf_draw_markers_view_expose"
-let prf_error_indication_view_expose = create true  "prf_error_indication_view_expose"
-let prf_paint_global_gutter          = create true  "prf_paint_global_gutter"
-let prf_error_indication_tooltip     = create true  "prf_error_indication_tooltip"
-let prf_error_indication_appy_tag    = create true  "prf_error_indication_appy_tag"
-let prf_lexical_tag_insert           = create false "prf_lexical_tag_insert"
-let prf_draw_gutter          = create true  "prf_draw_gutter"
-let prf_none_other_markers           = create true  "prf_none_other_markers"
-let prf_draw_white_spces             = create true  "prf_draw_white_spces"
-*)
-
 let draw_margins = create __FUNCTION__
 let draw_margin_ln = create __FUNCTION__
 let build_margin_ln = create __FUNCTION__
@@ -64,19 +52,7 @@ let draw_margin_fold = create __FUNCTION__
 let show_fold_expander = create __FUNCTION__
 let build_margin_diff = create __FUNCTION__
 let expose = create __FUNCTION__
-
-(*let prf_line_numbers          = create true  "prf_line_numbers"
-  let prf_other_markers         = create true  "prf_other_markers"
-  let prf_scan_folding_points   = create true  "prf_scan_folding_points"
-  let prf_outline_select        = create true  "prf_outline_select"
-  let innermost_enclosing_delim = create true  "innermost_enclosing_delim"
-  let prf_delimiters_scan       = create true  "prf_delimiters_scan"
-  let prf_autosave              = create true  "prf_autosave"
-  let prf_compile_buffer        = create true  "prf_compile_buffer"
-  let prf_draw_dot_leaders      = create true  "prf_draw_dot_leaders"
-  let prf_location_history_add  = create true  "prf_location_history_add"
-  let prf_colorize_within_nearest_tag_bounds  = create true  "prf_colorize_within_nearest_tag_bounds"
-*)
+let outline_initializer = create __FUNCTION__
 
 let register prf f x =
   if not prf.enabled then (f x) else

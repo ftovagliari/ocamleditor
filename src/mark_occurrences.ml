@@ -176,8 +176,8 @@ class manager page =
       | _ -> ()
 
     method mark () =
-      self#mark_refs();
-      self#mark_words();
+      Gmisclib.Idle.add self#mark_refs;
+      Gmisclib.Idle.add self#mark_words;
 
     method connect = new signals ~mark_set
   end

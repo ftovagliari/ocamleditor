@@ -149,12 +149,12 @@ let file ~browser ~group ~flags items =
         browser#set_title ()
       end
     end);
-  (* Close Current Project *)
+  (* Close current project *)
   let _ = GMenu.separator_item ~packing:menu#add () in
-  let close_project = GMenu.menu_item ~label:"Close Project" ~packing:menu#add () in
+  let close_project = Menu_items.create Menu_items.File.close_project
+      ~label:"Close Project" ~packing:menu#add in
   close_project#connect#activate ~callback:browser#project_close |> ignore;
-  Menu_items.close_project := Some close_project;
-  (* Close current *)
+  (* Close current file *)
   let _ = GMenu.separator_item ~packing:menu#add () in
   menu#add (items.file_close :> GMenu.menu_item);
   items.file_close#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F4 ~flags;

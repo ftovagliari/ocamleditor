@@ -28,7 +28,7 @@ let set_last_incremental = ref (fun text regexp -> failwith "set_last_incrementa
 
 let create_glyph_pixbuf height color ~slashed text =
   let font_size = height * 62 / 100 in
-  let font_desc = Pango.Font.from_string (sprintf "FiraCode OCamlEditor Bold %d" font_size) in
+  let font_desc = Pango.Font.from_string (sprintf "OCamlEditor Bold %d" font_size) in
 
   let surface = Cairo.Image.create Cairo.Image.ARGB32 ~w:height ~h:height in
   let cr = Cairo.create surface in
