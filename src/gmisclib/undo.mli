@@ -86,6 +86,8 @@ class manager :
     (** Length of then internal undo and redo stacks. Intended for testing purposes. *)
     method length : int * int
 
+    method stats : int * int * int * int
+
   end
 
 and manager_signals :
