@@ -28,7 +28,7 @@ open Preferences
 let insert (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
   let diffs = ref [] in
   let process_in ic =
-    try diffs := Odiff.from_channel ic
+    try diffs := Diff_parse.from_channel ic
     with ex -> (Printf.eprintf "File \"plugin_diff.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace()); diffs := [] ) ;
   in
   let diff = Preferences.preferences#get.program_diff in
@@ -45,7 +45,7 @@ let insert (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
       Gmisclib.Util.set_tag_paragraph_background tag_del color_del;
       let tag_add = buffer#create_tag ~name:"tag_diff_add" [] in
       Gmisclib.Util.set_tag_paragraph_background tag_add color_add;
-      let open Odiff in
+      let open Diff_parse in
       let insert_lines prefix l1 text =
         let lines = Str.split (Str.regexp "\n") text in
         let i = ref l1 in

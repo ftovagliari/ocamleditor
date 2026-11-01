@@ -1,5 +1,5 @@
 open Margin
-open Odiff
+open Diff_parse
 module ColorOps = Color
 open Preferences
 open Cairo_drawable
@@ -25,7 +25,7 @@ class local (view : Text.view) =
   let tri_height = tri_half_height * 2 in
   object (self)
     inherit [int * diff_item] Margin.widget ()
-    val mutable diffs : Odiff.diffs = []
+    val mutable diffs : Diff_parse.diffs = []
     val mutable color_base = `COLOR (view#misc#style#bg `NORMAL)
     val mutable last_diff_time = view#tbuffer#last_edit_time
     val bar_width = bar_width

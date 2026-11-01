@@ -6,7 +6,7 @@ type base = HEAD | Stage [@@deriving show]
 let base : base ref = ref HEAD
 
 let update_models page diffs =
-  let open Odiff in
+  let open Diff_parse in
   let diffs = List.sort begin fun a b ->
       match a with
       | Delete _ -> (match b with Delete _ -> 0 | Add _ | Change _  -> 1)
@@ -25,17 +25,17 @@ let diff ?(ignore_whitespace=true) page continue_with =
   match Utils.filename_relative (Filename.dirname (Sys.getcwd())) page#get_filename with
   | Some filename ->
       let open Printf in
-      let term = match !base with HEAD -> "HEAD" | Stage -> "" in
+      let base = match !base with HEAD -> "HEAD" | Stage -> "" in
       let w_opt = if ignore_whitespace then " -w" else "" in
       let text = page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None () in
       (* Suppress errors to handle files not yet tracked in HEAD *)
-      let cmd = sprintf "bash -c 'diff%s <(git show %s:%s 2>/dev/null) -'" w_opt term filename in
+      let cmd = sprintf "bash -c 'diff%s <(git show %s:%s 2>/dev/null) -'" w_opt base filename in
       let ic, oc = Unix.open_process cmd in
       output_string oc text;
       close_out oc;
       Async.create ~name:__FUNCTION__ begin fun () ->
         try
-          let diffs = Odiff.from_channel ic in
+          let diffs = Diff_parse.from_channel ic in
           GtkThread.sync begin fun () ->
             continue_with diffs;
             ignore (Unix.close_process (ic, oc));

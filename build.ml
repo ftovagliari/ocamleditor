@@ -658,7 +658,7 @@ let create_process ?wd ?env program args =
         Sys.chdir x
   end;
   let args = Array.of_list (List.filter (fun x -> String.trim x <> "") (Array.to_list args)) in
-  (*Printf.printf "SPAWN:\n  %s\n  %s %s\n%!" (Sys.getcwd()) program (String.concat ";" (Array.to_list args));*)
+  (*Printf.printf "SPAWN:\n  %s\n  %s %s\n%!" (Sys.getcwd()) program (String.concat " " (Array.to_list args));*)
   let args = Array.append [| program |] args in
   try
     let pid =
@@ -3416,7 +3416,7 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild"; (* -I *)
     required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3626,7 +3626,7 @@ let targets = [
     compilation_bytecode = false;
     compilation_native   = true;
     toplevel_modules     = "ocamleditor_lib.ml";
-    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
     required_libraries   = "";
     compiler_flags       = "-w -s-y-x-m -g";
@@ -3656,7 +3656,7 @@ let targets = [
     compilation_bytecode = true;
     compilation_native   = false;
     toplevel_modules     = "ocamleditor.ml";
-    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocamldiff,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
+    package              = "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson";
     search_path          = "gmisclib common icons otherwidgets oebuild "; (* -I *)
     required_libraries   = "ocamlcommon gmisclib common icons otherwidgets oebuildlib ocamleditor_lib";
     compiler_flags       = "-w -s-y-x-m -g";

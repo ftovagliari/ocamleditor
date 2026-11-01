@@ -40,7 +40,6 @@ let get_project_source_filenames project =
 module FS = Fuzzy_search.Make(Fuzzy_search.Letter)
 
 let filter pattern db =
-  (*let compare = Utils.Memo.create ~f:(fun (a, b) -> FS.compare ~min_score:0.80 Greedy a b) in*)
   let compare (a, b) = FS.compare ~min_score:0.80 Greedy a b in
   Mutex.protect mx_name_db begin fun () ->
     db.table
