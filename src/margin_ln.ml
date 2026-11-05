@@ -3,18 +3,14 @@ open Preferences
 
 class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
   let padding_right = 0 in
-  let invisible_tag = ref None in
   let is_invisible_line line_num =
-    match !invisible_tag with
-    | Some tag ->
-        let start_iter = view#buffer#get_iter (`LINE line_num) in
-        let end_iter =
-          let it = start_iter#copy in
-          if not it#ends_line then ignore (it#forward_to_line_end);
-          it
-        in
-        start_iter#has_tag tag || end_iter#has_tag tag (*|| List.mem tag start_iter#tags*)
-    | _ -> false
+    let start_iter = view#buffer#get_iter (`LINE line_num) in
+    let end_iter =
+      let it = start_iter#copy in
+      if not it#ends_line then ignore (it#forward_to_line_end);
+      it
+    in
+    start_iter#has_tag Text_tag.fold_invisible || end_iter#has_tag Text_tag.fold_invisible (*|| List.mem tag start_iter#tags*)
   in
   object (self)
     inherit [int] widget ()
@@ -33,14 +29,6 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
     method index = 10
 
     initializer
-      view#misc#connect#map ~callback:begin fun () ->
-        invisible_tag :=
-          begin
-            match GtkText.TagTable.lookup view#buffer#tag_table Oe_config.code_folding_tag_invisible_name with
-            | None -> None
-            | Some tag -> Some (new GText.tag tag);
-          end;
-      end |> ignore;
       font_family <- Pango.Font.get_family font_desc;
       let pango_size = Pango.Font.get_size font_desc in
       let is_absolute = Pango.Font.get_size_is_absolute font_desc in

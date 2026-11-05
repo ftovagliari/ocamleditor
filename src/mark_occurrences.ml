@@ -32,7 +32,7 @@ class manager page =
   let buffer = page#view#tbuffer in
   let [@inline] (=>) a b = not a || b in
   let match_whole_word_only = true in
-  let tag = buffer#create_tag ?name:(Some "mark_occurrences") [] in
+  let tag = Text_tag.mark_occurrences in
   let clear_func (m1, m2) =
     let start = buffer#get_iter_at_mark m1 in
     let stop = buffer#get_iter_at_mark m2 in
@@ -188,4 +188,3 @@ and signals ~mark_set = object
 end
 
 and mark_set () = object inherit [unit] GUtil.signal () end
-

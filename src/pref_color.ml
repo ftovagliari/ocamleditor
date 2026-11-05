@@ -281,8 +281,8 @@ class pref_color title ?packing () =
       temp_pref.editor_tags <- tags;
       let tag_names, colors = tags |> List.map (fun t -> t.name, t) |> List.split in
       preview#tbuffer#init_tags ~tags:tag_names ~colors
-        ~ocamldoc_paragraph_bgcolor_1:temp_pref.editor_ocamldoc_paragraph_bgcolor_1
-        ~ocamldoc_paragraph_bgcolor_2:temp_pref.editor_ocamldoc_paragraph_bgcolor_2 ();
+        (*~ocamldoc_paragraph_bgcolor_1:temp_pref.editor_ocamldoc_paragraph_bgcolor_1
+          ~ocamldoc_paragraph_bgcolor_2:temp_pref.editor_ocamldoc_paragraph_bgcolor_2*) ();
       Lexical.tag (preview#buffer :> GText.buffer);
       Preferences_apply.apply (preview :> Text.view) temp_pref;
   end

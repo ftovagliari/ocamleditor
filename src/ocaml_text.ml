@@ -223,11 +223,8 @@ class buffer ?file ?(lexical_enabled=false) () =
     method tag_table_lexical : (GText.tag option) list = lexical_tags
 
     initializer
-      (* Lexical *)
-      self#init_tags ();
-      let tag_table = new GText.tag_table self#tag_table in
       lexical_tags <- List.map (fun x -> Some x) (List.filter_map begin fun n ->
-          match tag_table#lookup n with
+          match Text_tag.table#lookup n with
           | Some t -> Some (new GText.tag t)
           | _ -> None
         end !Lexical.tags);
@@ -263,7 +260,6 @@ and view ?project ?buffer () =
 
     initializer
       select_enclosing_expr <- Some (new Enclosing_expr.manager ~ocaml_view:self);
-      self#create_highlight_current_line_tag(); (* recreate current line tag after code folding highlight to draw it above *)
       self#event#connect#button_release ~callback:self#button_release_handler |> ignore;
       self#event#connect#button_press ~callback:self#button_press_handler |> ignore;
       self#event#connect#key_press ~callback:begin fun ev ->

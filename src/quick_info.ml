@@ -30,7 +30,6 @@ end
 type t = {
   view : Ocaml_text.view;
   page : page;
-  tag : GText.tag;
   motion_notify_signal : GtkSignal.id list ref;
   key_press_signal : GtkSignal.id list ref;
   mutable is_active : bool;
@@ -45,7 +44,7 @@ type hover = {
   vars_label : GMisc.label;
   doc_label : GMisc.label;
   mutable last_pos : (int * int);
-  mutable range : (GText.view * GText.tag * Gtk.text_mark * Gtk.text_mark) option;
+  mutable range : (GText.view * Gtk.text_mark * Gtk.text_mark) option;
   mutable is_pointer_over : bool;
   mutable is_pinned : bool;
   mutable has_scroll : bool;
@@ -133,7 +132,7 @@ let unpin () =
 
 let remove_highlight hover =
   match hover.range with
-  | Some (view, tag, m_start, m_stop) ->
+  | Some (view, m_start, m_stop) ->
       Fun.protect begin fun () ->
         let start =
           match Gmisclib.Util.get_iter_at_mark_opt view#buffer#as_buffer m_start with
@@ -145,7 +144,7 @@ let remove_highlight hover =
           | Some it -> new GText.iter it
           | _ -> view#buffer#end_iter
         in
-        view#buffer#remove_tag tag ~start ~stop;
+        view#buffer#remove_tag Text_tag.quick_info ~start ~stop;
       end ~finally:begin fun () ->
         hover.range <- None;
         if not (GtkText.Mark.get_deleted m_start) then view#buffer#delete_mark (`MARK m_start);
@@ -191,6 +190,7 @@ let setup_hover () =
       ~focus_on_map:false
       ~show:false ()
   in
+  window#misc#style_context#add_class "quick-info-window";
   Gmisclib.Util.esc_destroy_window window;
   window#set_skip_pager_hint true;
   window#set_skip_taskbar_hint true;
@@ -319,17 +319,16 @@ let display qi tooltip_x tooltip_y start stop =
       in
       hover.range <-
         Some (qi.view#as_gtext_view,
-              qi.tag,
               qi.view#buffer#create_mark ~name:"qi-start" start,
               qi.view#buffer#create_mark ~name:"qi-stop" stop);
       begin
         match hover.range with
-        | Some (view, tag, m_start, m_stop) ->
+        | Some (view, m_start, m_stop) ->
             begin
               try
                 let start = Gmisclib.Util.get_iter_at_mark_safe view#buffer#as_buffer m_start in
                 let stop = Gmisclib.Util.get_iter_at_mark_safe view#buffer#as_buffer m_stop in
-                GtkText.Buffer.apply_tag view#buffer#as_buffer tag#as_tag start stop
+                GtkText.Buffer.apply_tag view#buffer#as_buffer Text_tag.quick_info#as_tag start stop
               with Gmisclib_util.Mark_deleted -> Log.println `WARN "Mark_deleted"
             end;
         | _ -> ()
@@ -473,7 +472,7 @@ let process_location qi x y =
     if bx > 0 then begin
       let iter = qi.view#get_iter_at_location ~x:bx ~y:by in
       match current_range with
-      | Some (_, _, start, stop) when in_range qi.view#buffer#as_buffer iter#as_iter ~start ~stop ->
+      | Some (_, start, stop) when in_range qi.view#buffer#as_buffer iter#as_iter ~start ~stop ->
           qi.view#misc#set_has_tooltip qi.is_active;
       | _ when hover.is_pinned -> ()
       (*| _ when qi.view#buffer#has_selection -> ()*)
@@ -570,8 +569,6 @@ let connect_to_view qi (view : Ocaml_text.view) =
 
 let create page =
   if !hover = None then setup_hover();
-  let open Preferences in
-  let bg_color = ?? (Preferences.preferences#get.Settings_t.editor_bg_color_popup) in
   let view = page#ocaml_view in
   let qi =
     {
@@ -579,7 +576,6 @@ let create page =
       is_active = Preferences.preferences#get.Settings_j.editor_quick_info_enabled;
       view;
       page;
-      tag = view#buffer#create_tag ~name:"quick-info" [`BACKGROUND bg_color];
       show_at = None;
       motion_notify_signal = OneShotSignal.create();
       key_press_signal = OneShotSignal.create();

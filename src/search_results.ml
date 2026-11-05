@@ -574,4 +574,3 @@ and signals ~search_started ~search_finished =
     method search_started = search_started#connect ~after
     method search_finished = search_finished#connect ~after
   end
-

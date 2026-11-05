@@ -80,6 +80,7 @@ let create_small_toggle_button ?tooltip ~icon ?callback ?packing ?show () =
 (** Editor page *)
 class page ?file ~project ~offset ~editor () =
   let file_changed             = new file_changed () in
+  (** Editor page *)
   let load                     = new load () in
   let signals                  = new signals ~file_changed ~load in
   let buffer                   = new Ocaml_text.buffer ?file () in
@@ -93,12 +94,6 @@ class page ?file ~project ~offset ~editor () =
       GMisc.separator `HORIZONTAL ~packing:(vbox#pack ~expand:false) () |> ignore;
       vbox#pack editorbar#coerce;
     end
-  in
-  let _                        =
-    buffer#create_tag ~name:"tag_matching_delim" [
-      `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
-      `BACKGROUND_FULL_HEIGHT_SET true;
-    ]
   in
   let error_manager = new Error_indication.manager ocaml_view in
   let outline = (new Outline.model ~buffer () :> Oe.outline) in
@@ -203,17 +198,9 @@ class page ?file ~project ~offset ~editor () =
     method redisplay () =
       Colorize.colorize_buffer ocaml_view;
       Preferences_apply.apply (view :> Text.view) Preferences.preferences#get;
-      Gaux.may (GtkText.TagTable.lookup buffer#tag_table "tag_matching_delim")
-        ~f:(fun x -> GtkText.TagTable.remove buffer#tag_table x);
-      ignore (buffer#create_tag ~name:"tag_matching_delim" [
-          `BACKGROUND_GDK (Preferences.editor_tag_color "highlight");
-          `BACKGROUND_FULL_HEIGHT_SET true;
-        ]);
-      self#error_manager#create_tags();
       self#error_manager#set_flag_underline Preferences.preferences#get.editor_err_underline;
       self#error_manager#set_flag_tooltip Preferences.preferences#get.editor_err_tooltip;
       self#error_manager#set_flag_gutter Preferences.preferences#get.editor_err_gutter;
-      self#view#create_highlight_current_line_tag();
       error_manager#set_phase ();
 
     method update_statusbar () =
@@ -467,7 +454,7 @@ class page ?file ~project ~offset ~editor () =
                 ~start:(iter#backward_chars (Glib.Utf8.length text))#backward_line
                 ~stop:iter#forward_line;
             end;
-            buffer#remove_tag view#highlight_current_line_tag
+            buffer#remove_tag Text_tag.current_line_highlight
               ~start:(iter#backward_chars (Glib.Utf8.length text))#backward_line
               ~stop:iter#forward_line;
             view#draw_current_line_background ~force:true iter;

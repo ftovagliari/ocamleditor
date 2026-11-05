@@ -140,7 +140,7 @@ class widget
       preview#set_smart_click false;
       let current_line_border_color = ColorOps.name_of_gdk (Preferences.editor_tag_color "highlight_current_line") in
       let current_line_color = ColorOps.name_of_gdk (Preferences.editor_tag_bg_color "highlight_current_line") in
-      preview#options#set_highlight_current_line (Some (current_line_border_color, current_line_color));
+      preview#options#set_current_line_highlight (Some (current_line_border_color, current_line_color));
       preview#options#set_show_line_numbers false;
       preview#options#set_show_markers false;
       preview#options#set_current_line_border_color (`NAME current_line_border_color);
@@ -853,8 +853,6 @@ class widget
         end);
       ignore (preview#event#connect#focus_in ~callback:begin fun ev ->
           if tbuf#char_count > 0 then begin
-            let bgcolor = ColorOps.name_of_gdk (Preferences.editor_tag_bg_color "highlight_current_line") in
-            Gmisclib.Util.set_tag_paragraph_background preview#highlight_current_line_tag bgcolor;
             let iter = tbuf#get_iter `INSERT in
             self#select_line iter;
             self#activate ~grab_focus:false iter;

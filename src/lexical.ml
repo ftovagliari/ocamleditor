@@ -17,66 +17,58 @@ let tags, colors =
   in ref tags, ref colors
 
 (* Initialization *)
-let init_tags ?(tags=(!tags)) ?(colors=(!colors))
-    ?(ocamldoc_paragraph_enabled=Oe_config.ocamldoc_paragraph_bgcolor_enabled)
-    ?(ocamldoc_paragraph_bgcolor_1=(Preferences.preferences#get.editor_ocamldoc_paragraph_bgcolor_1))
-    ?(ocamldoc_paragraph_bgcolor_2=(Preferences.preferences#get.editor_ocamldoc_paragraph_bgcolor_2))
-    (tb : #GText.buffer) =
-  let table = new GText.tag_table tb#tag_table in
+let init_tags ?(tags=(!tags)) ?(colors=(!colors)) (tb : #GText.buffer) = ()
+(*let table = new GText.tag_table tb#tag_table in
   let to_gdk_color x = GDraw.color (`NAME ?? x) in
   List.iter2
-    begin fun tagname (tagprop : Settings_t.editor_tag) ->
-      if tagname <> "highlight_current_line" then begin
-        begin
-          match table#lookup tagname with
-          | None -> ()
-          | Some t -> table#remove t
+  begin fun tagname (tagprop : Settings_t.editor_tag) ->
+    if tagname <> "current_line_highlight" then begin
+      begin
+        match table#lookup tagname with
+        | None -> ()
+        | Some t -> table#remove t
+      end;
+      let fg_color = `FOREGROUND_GDK (to_gdk_color tagprop.color) in
+      let properties = [
+        Some fg_color;
+        (match tagprop.scale with 1.0 -> None | _ -> Some (`SCALE (`CUSTOM tagprop.scale)));
+        (match tagprop.style with `NORMAL -> None | _ -> Some (`STYLE `ITALIC));
+        (match tagprop.underline with `NONE -> None | _ -> Some (`UNDERLINE `SINGLE));
+        (if tagprop.weight > 0 then Some (`WEIGHT (`CUSTOM tagprop.weight)) else None)
+      ] |> List.filter_map Fun.id in
+      let properties = if tagprop.bg_default then properties else (`BACKGROUND_GDK (to_gdk_color tagprop.bg_color)) :: properties in
+      let tag = tb#create_tag ~name:tagname properties in
+
+      ()
+
+      (*if false && tagname = "ocamldoc" then begin
+        if ocamldoc_paragraph_enabled then begin
+
+          ?? ocamldoc_paragraph_bgcolor_2
+          |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
+
+          (*            Gaux.may ocamldoc_paragraph_bgcolor_2 ~f:begin fun bg2 ->
+                        Gmisclib.Util.set_tag_paragraph_background tag (?? bg2);
+                        end;*)
         end;
-        let fg_color = `FOREGROUND_GDK (to_gdk_color tagprop.color) in
-        let properties = [
-          Some fg_color;
-          (match tagprop.scale with 1.0 -> None | _ -> Some (`SCALE (`CUSTOM tagprop.scale)));
-          (match tagprop.style with `NORMAL -> None | _ -> Some (`STYLE `ITALIC));
-          (match tagprop.underline with `NONE -> None | _ -> Some (`UNDERLINE `SINGLE));
-          (if tagprop.weight > 0 then Some (`WEIGHT (`CUSTOM tagprop.weight)) else None)
-        ] |> List.filter_map Fun.id in
-        let properties = if tagprop.bg_default then properties else (`BACKGROUND_GDK (to_gdk_color tagprop.bg_color)) :: properties in
-        let tag = tb#create_tag ~name:tagname properties in
-        if tagname = "ocamldoc" then begin
-          if ocamldoc_paragraph_enabled then begin
+        let tag = Tags.ocamldoc_paragraph in
+        if ocamldoc_paragraph_enabled then begin
+          ?? ocamldoc_paragraph_bgcolor_1
+          |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
 
-            ?? ocamldoc_paragraph_bgcolor_2
-            |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
-
-            (*            Gaux.may ocamldoc_paragraph_bgcolor_2 ~f:begin fun bg2 ->
-                          Gmisclib.Util.set_tag_paragraph_background tag (?? bg2);
-                          end;*)
-          end;
-          Gaux.may (table#lookup "ocamldoc-paragraph") ~f:table#remove;
-          let properties = [
-            Some fg_color;
-            (if tagprop.weight > 0 then Some (`WEIGHT (`CUSTOM tagprop.weight)) else None);
-            (match tagprop.scale with 1.0 -> None | _ -> Some (`SCALE (`CUSTOM tagprop.scale)));
-            (match tagprop.style with `NORMAL -> None | _ -> Some (`STYLE `ITALIC));
-            (match tagprop.underline with `NONE -> None | _ -> Some (`UNDERLINE `SINGLE));
-            Some (`PIXELS_BELOW_LINES 1);
-            Some (`PIXELS_ABOVE_LINES 1)
-          ] |> List.filter_map (fun x -> x) in
-          let tag = tb#create_tag ~name:"ocamldoc-paragraph" properties in
-          if ocamldoc_paragraph_enabled then begin
-            ?? ocamldoc_paragraph_bgcolor_1
-            |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
-
-            (*            Gaux.may ocamldoc_paragraph_bgcolor_1 ~f:begin fun bg1 ->
-                          Gmisclib.Util.set_tag_paragraph_background tag (?? bg1);
-                          end*)
-          end
+          (*            Gaux.may ocamldoc_paragraph_bgcolor_1 ~f:begin fun bg1 ->
+                        Gmisclib.Util.set_tag_paragraph_background tag (?? bg1);
+                        end*)
         end
-      end
-    end tags colors;
+        end*)
+
+
+
+    end
+  end tags colors;
   (* Give the unused warning tag the highest priority *)
   table#lookup Oe_config.warning_unused_tag_name
-  |> Option.iter (fun t -> GtkText.Tag.set_priority t (table#size - 1))
+  |> Option.iter (fun t -> GtkText.Tag.set_priority t (table#size - 1))*)
 
 (* Line_offset *)
 let line_starts s =
@@ -142,9 +134,9 @@ let tag ?start ?stop (tb : GText.buffer) =
   let in_record_label = ref false in
   let in_annotation = ref false in
   List.iter begin function
-  | tagname when tagname <> "highlight_current_line" -> tb#remove_tag_by_name tagname ~start ~stop
+  | tagname when tagname <> Text_tag.Name.current_line_highlight -> tb#remove_tag_by_name tagname ~start ~stop
   | _ -> ()
-  end !tags;
+  end (Text_tag.Name.ocamldoc :: Text_tag.Name.ocamldoc_paragraph :: !tags);
   try
     while true do
       try
@@ -310,10 +302,10 @@ let tag ?start ?stop (tb : GText.buffer) =
           let tag, start =
             let iter = start#backward_line in
             if iter#ends_line
-            then ("ocamldoc-paragraph", start#set_line_index 0)
-            else ("ocamldoc", start#set_line_index 0) (* start *)
+            then (Text_tag.ocamldoc_paragraph, start#set_line_index 0)
+            else (Text_tag.ocamldoc, start#set_line_index 0) (* start *)
           in
-          tb#apply_tag_by_name tag ~start ~stop;
+          tb#apply_tag tag ~start ~stop;
         end
       end (match global_comments with Comments.Locale x -> x | _ -> failwith "Lexical: Comments.Utf8")
   | (Lexer.Error (error, _)) as ex -> ()
@@ -324,7 +316,7 @@ let tag ?start ?stop (tb : GText.buffer) =
 
 
 
-
+(*let tag ?(start : GText.iter option) ?(stop : GText.iter option) (tb : GText.buffer) = ()*)
 
 
 

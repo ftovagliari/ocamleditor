@@ -32,17 +32,17 @@ type bound = Gtk.text_mark * Gtk.text_mark
 (** Buffer *)
 class buffer =
   let word_bound = Utils.regexp "\\b" in
-  fun ?buffer () ->
-    let buffer = match buffer with None -> GText.buffer () | Some b -> b in
+  fun () ->
+    let buffer = GText.buffer ~tag_table:Text_tag.table () in
     object (self)
-      inherit GText.buffer buffer#as_buffer
+      inherit GText.buffer buffer#as_buffer as super
 
       val undo = Gmisclib.Text.undo_manager ~buffer
       val mutable tab_width = 2
       val mutable tab_spaces = true
       val mutable signal_handlers = []
-      val mutable tag_ocamldoc_paragraph : GText.tag option = None
       val mutable last_edit_time = Unix.gettimeofday()
+      val mutable marks = []
 
       initializer
         buffer#connect#changed ~callback:(fun () -> last_edit_time <- Unix.gettimeofday()) |> ignore;
@@ -50,18 +50,8 @@ class buffer =
       method last_edit_time = last_edit_time
       method set_last_edit_time time = last_edit_time <- time
 
-      method tag_ocamldoc_paragraph = tag_ocamldoc_paragraph
-
-      method init_tags ?tags ?colors
-          ?ocamldoc_paragraph_enabled
-          ?ocamldoc_paragraph_bgcolor_1
-          ?ocamldoc_paragraph_bgcolor_2 () =
-        Lexical.init_tags ?tags ?colors
-          ?ocamldoc_paragraph_enabled
-          ?ocamldoc_paragraph_bgcolor_1
-          ?ocamldoc_paragraph_bgcolor_2 self#as_gtext_buffer;
-        let table = new GText.tag_table self#tag_table in
-        tag_ocamldoc_paragraph <- Gaux.may_map ~f:(new GText.tag) (table#lookup "ocamldoc-paragraph");
+      method init_tags ?tags ?colors () =
+        Lexical.init_tags ?tags ?colors self#as_gtext_buffer;
 
       method as_gtext_buffer = (self :> GText.buffer)
 
@@ -85,6 +75,13 @@ class buffer =
       (* Deprecated: use get_iter_at_mark_opt *)
       method get_iter_at_mark mark =
         new GText.iter (Gmisclib.Util.get_iter_at_mark_safe self#as_buffer (self#get_mark mark))
+
+      method! create_mark ?name ?left_gravity iter =
+        let mark = super#create_mark ?name ?left_gravity iter in
+        marks <- mark :: marks;
+        mark
+
+      method marks = marks
 
       method get_iter_at_mark_opt mark =
         match Gmisclib.Util.get_iter_at_mark_opt self#as_buffer (self#get_mark mark) with
@@ -140,16 +137,12 @@ class buffer =
 and view ?buffer () =
   let buffer = match buffer with None -> new buffer () | Some b -> b in
   let view = GText.view ~buffer:buffer#as_gtext_buffer () in
-  let create_highlight_current_line_tag () =
-    buffer#create_tag ~name:(sprintf "highlight_current_line_tag_%f" (Unix.gettimeofday())) []
-  in
   object (self)
     inherit GText.view view#as_view as super
 
     val mutable options = new Text_options.options ()
     val mutable tbuffer = buffer
     val mutable prev_line_background = 0
-    val mutable highlight_current_line_tag = create_highlight_current_line_tag ()
     val mutable current_matching_tag_bounds = []
     val mutable text_outline = ([] : [ `Ref of bound | `Word of bound | `Delim of bound ] list)
     val mutable approx_char_width = 0
@@ -173,11 +166,6 @@ and view ?buffer () =
 
     method signal_expose = signal_expose
 
-    method set_buffer buf =
-      let tbuf = new buffer ~buffer:buf () in
-      tbuffer <- tbuf;
-      super#set_buffer buf
-
     method approx_char_width = approx_char_width
 
     method add_outline_text bounds = text_outline <- List.rev_append text_outline bounds
@@ -187,14 +175,6 @@ and view ?buffer () =
       self#misc#modify_font_by_name fontname;
       approx_char_width <- GPango.to_pixels (self#misc#pango_context#get_metrics())#approx_digit_width;
       Gmisclib.Idle.add self#build_gutter
-
-    method create_highlight_current_line_tag () =
-      let tag_table = new GText.tag_table buffer#tag_table in
-      tag_table#remove highlight_current_line_tag#as_tag;
-      highlight_current_line_tag <- create_highlight_current_line_tag();
-      self#options#set_highlight_current_line options#highlight_current_line
-
-    method highlight_current_line_tag = highlight_current_line_tag
 
     method scroll_aligned iter =
       Gtk_util.scroll_aligned view iter ~xalign:1.0 ~yalign:0.38;
@@ -233,11 +213,11 @@ and view ?buffer () =
             current_matching_tag_bounds <-
               ((self#buffer#create_mark ~name:"delim_left_start" lstart),
                (self#buffer#create_mark ~name:"delim_left_stop" lstop)) :: [];
-            self#buffer#apply_tag_by_name "tag_matching_delim" ~start:lstart ~stop:lstop;
+            self#buffer#apply_tag Text_tag.matching_delim ~start:lstart ~stop:lstop;
             current_matching_tag_bounds <-
               ((self#buffer#create_mark ~name:"delim_right_start" rstart),
                (self#buffer#create_mark ~name:"delim_right_stop" rstop)) :: current_matching_tag_bounds;
-            self#buffer#apply_tag_by_name "tag_matching_delim" ~start:rstart ~stop:rstop;
+            self#buffer#apply_tag Text_tag.matching_delim ~start:rstart ~stop:rstop;
             self#add_outline_text (current_matching_tag_bounds |> List.map (fun x -> `Delim x));
             (*GtkBase.Widget.queue_draw self#as_widget;*)
             delim
@@ -253,7 +233,7 @@ and view ?buffer () =
         let mstop = (`MARK stop) in
         let start = self#buffer#get_iter_at_mark mstart in
         let stop = self#buffer#get_iter_at_mark mstop in
-        self#buffer#remove_tag_by_name "tag_matching_delim" ~start ~stop;
+        self#buffer#remove_tag Text_tag.matching_delim ~start ~stop;
         self#buffer#delete_mark mstart;
         self#buffer#delete_mark mstop;
       end current_matching_tag_bounds;
@@ -343,15 +323,23 @@ and view ?buffer () =
     method draw_current_line_background ?(force=false) (ins : GText.iter) =
       let cur_line = ins#line in
       if cur_line <> prev_line_background || ins#ends_line || force then begin
+
+
+        (*GtkText.TagTable.lookup self#buffer#tag_table Tags.Name.current_line_highlight
+          |> Option.iter (fun t -> Printf.printf "---> %s FOUND 1\n%!" Tags.Name.current_line_highlight);
+
+          Tags.table#lookup Tags.Name.current_line_highlight
+          |> Option.iter (fun t -> Printf.printf "---> %s FOUND 2\n%!" Tags.Name.current_line_highlight);*)
+
         let prev = self#buffer#get_iter (`LINE prev_line_background) in
         let prev_0 = prev#set_line_offset 0 in
-        self#buffer#remove_tag highlight_current_line_tag
+        self#buffer#remove_tag Text_tag.current_line_highlight
           ~start:prev_0#backward_line ~stop:prev#forward_line#forward_to_line_end;
         let ins_0 = ins#set_line_offset 0 in
         let ins_1 = ins_0#backward_char in
         let start = if ins_1#starts_line then ins_0 else ins_1 in
         let stop = ins_0#forward_char in
-        self#buffer#apply_tag highlight_current_line_tag ~start ~stop;
+        self#buffer#apply_tag Text_tag.current_line_highlight ~start ~stop;
         prev_line_background <- cur_line;
       end
 
@@ -387,9 +375,6 @@ and view ?buffer () =
               (* Indentation guidelines *)
               if options#show_indent_lines && not options#show_whitespace_chars
               then (Text_indent_lines.draw_indent_lines self drawable) start stop y0;
-              (* ocamldoc_paragraph_bgcolor_enabled *)
-              (*if Oe_config.ocamldoc_paragraph_border_enabled
-                then (self#draw_paragraph_border drawable start stop y0 w0);*)
               (* Whitespace characters *)
               if options#show_whitespace_chars then begin
                 let iter        = ref expose_top in
@@ -450,7 +435,7 @@ and view ?buffer () =
               (* Current line border *)
               begin
                 if self#has_focus && options#current_line_border_enabled then begin
-                  match options#highlight_current_line with
+                  match options#current_line_highlight with
                   | Some _ ->
                       let iter = buffer#get_iter `INSERT in
                       let y, h = view#get_line_yrange iter in
@@ -476,35 +461,6 @@ and view ?buffer () =
         Printf.eprintf "File \"text.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
         false
 
-    method private draw_paragraph_border drawable start stop y0 w0 =
-      match buffer#tag_ocamldoc_paragraph with
-      | Some tag ->
-          begin
-            let start = ref (start#set_line_index 0) in
-            let stop = stop#forward_line#set_line_index 0 in
-            match ?? (Preferences.preferences#get.editor_ocamldoc_paragraph_bgcolor_1) with
-            | Some color ->
-                set_foreground drawable (*(`NAME "red")*) (`NAME (ColorOps.modify color ~sat:0.1 ~value:0.1));
-                set_line_attributes drawable ~width:1 ~style:`SOLID ();
-                let hadjust = int_of_float view#hadjustment#value in
-                while !start#forward_line#compare stop <= 0 && not (!start#equal self#buffer#end_iter) do
-                  if !start#has_tag tag then begin
-                    let x = 0 - hadjust + self#left_margin in
-                    let y1, _ = view#get_line_yrange !start in
-                    let y = y1 - y0 in
-                    let width = w0 + hadjust - self#left_margin - 2 in
-                    let stop_tag = !start#forward_to_tag_toggle (Some tag) in
-                    let y2, h = view#get_line_yrange stop_tag in
-                    let height = y2 - y0 + h - y in
-                    rectangle drawable ~x ~y ~width ~height ();
-                    start := stop_tag#set_line_index 0;
-                  end;
-                  start := !start#forward_line;
-                done
-            | _ -> ()
-          end
-      | _ -> ()
-
     initializer
       view#event#add [`FOCUS_CHANGE];
       view#misc#connect#style_set ~callback:begin fun () ->
@@ -523,7 +479,7 @@ and view ?buffer () =
       ignore (options#connect#after#show_markers_changed ~callback:(fun _ ->
           Gmisclib.Idle.add self#build_gutter));
       ignore (options#connect#word_wrap_changed ~callback:(fun x -> self#set_wrap_mode (if x then `WORD else `NONE)));
-      ignore (options#connect#after#highlight_current_line_changed ~callback:begin fun x ->
+      ignore (options#connect#after#current_line_highlight_changed ~callback:begin fun x ->
           prev_line_background <- 0;
           match x with
           | None ->
@@ -535,7 +491,6 @@ and view ?buffer () =
           | Some (fg_color, bg_color) ->
               options#set_current_line_bg_color (`NAME bg_color);
               options#set_current_line_border_color (`NAME fg_color);
-              Gmisclib.Util.set_tag_paragraph_background highlight_current_line_tag bg_color;
               let id = self#buffer#connect#mark_set ~callback:begin fun iter mark ->
                   match GtkText.Mark.get_name mark with
                   | Some name when name = "insert" -> self#draw_current_line_background iter
