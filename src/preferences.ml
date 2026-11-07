@@ -86,11 +86,11 @@ let default_values =
         color = { light = "deeppink3"; dark = "#D85991" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
         weight = 400; style = `ITALIC; underline = `NONE; scale = 1.0; bg_default = true };
-      { name = "highlight";
-        color = { light = "#ffff00"; dark = "#1e1e1e" };
+      { name = "matching_delim";
+        color = { light = "#ff0000"; dark = "#ff0000" };
         bg_color = { light = "#ffffff"; dark = "#000000" };
         weight = 0; style = `NORMAL; underline = `NONE; scale = 1.0; bg_default = true };
-      { name = "highlight_current_line";
+      { name = "current_line_highlight";
         color = { light = "#90e090"; dark = "#2E7100" };
         bg_color = { light = "#e3ffe3"; dark = "#223316" };
         weight = 0; style = `NORMAL; underline = `NONE; scale = 1.0; bg_default = true };
@@ -178,19 +178,19 @@ let (??) = Color.get_themed_color
 (** Alias for [Color.get_themed_icon] *)
 let (???) = Icon.get_themed_icon
 
-let editor_tag_bg_color_name tagname =
-  let color = (List.find (fun t -> t.name = tagname) preferences#get.editor_tags).bg_color in
+let editor_tag_bg_color_name ?(pref=preferences#get) tagname =
+  let color = (List.find (fun t -> t.name = tagname) pref.editor_tags).bg_color in
   let color_name = Color.get_themed_color color in
   (`NAME color_name)
 
-let [@ inline] editor_tag_bg_color tagname = editor_tag_bg_color_name tagname |> GDraw.color
+let [@ inline] editor_tag_bg_color ?pref tagname = editor_tag_bg_color_name ?pref tagname |> GDraw.color
 
-let editor_tag_color_name tagname =
-  let color = (List.find (fun t -> t.name = tagname) preferences#get.editor_tags).color in
+let editor_tag_color_name ?(pref=preferences#get) tagname =
+  let color = (List.find (fun t -> t.name = tagname) pref.editor_tags).color in
   let color_name = Color.get_themed_color color in
   `NAME color_name
 
-let [@ inline] editor_tag_color tagname = editor_tag_color_name tagname |> GDraw.color
+let [@ inline] editor_tag_color ?pref tagname = editor_tag_color_name ?pref tagname |> GDraw.color
 
 let editor_tag_scale tagname =
   (List.find (fun t -> t.name = tagname) preferences#get.editor_tags).scale
@@ -211,8 +211,8 @@ let editor_tag_label = function
   | "method_name_def"        -> "Method name definition"
   | "comment"                -> "Comment"
   | "ocamldoc"               -> "ocamldoc"
-  | "highlight"              -> "Delimiter match highlight"
-  | "highlight_current_line" -> "Line highlight"
+  | "matching_delim"         -> "Delimiter match highlight"
+  | "current_line_highlight" -> "Line highlight"
   | "record_label"           -> "Record label"
   | "selection"              -> "Selection"
   | "annotation"             -> "Annotation"
@@ -242,6 +242,22 @@ let load () =
       try
         let json = really_input_string chan (in_channel_length  chan) in
         let settings = Settings_j.settings_of_string json in
+        begin
+          match settings.editor_tags |> List.find_opt (fun t -> t.name = "highlight_current_line") with
+          | Some tagprop ->
+              settings.editor_tags <-
+                { tagprop with name = "current_line_highlight" } ::
+                (settings.editor_tags |> List.filter (fun t -> t.name <> "highlight_current_line"))
+          | _ -> ()
+        end;
+        begin
+          match settings.editor_tags |> List.find_opt (fun t -> t.name = "highlight") with
+          | Some tagprop ->
+              settings.editor_tags <-
+                { tagprop with name = "matching_delim" } ::
+                (settings.editor_tags |> List.filter (fun t -> t.name <> "highlight"))
+          | _ -> ()
+        end;
         preferences#set settings;
         close_in chan
       with ex ->

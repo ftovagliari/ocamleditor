@@ -99,12 +99,13 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
     window#set_skip_pager_hint true;
     window#set_skip_taskbar_hint true;
     window#set_urgency_hint false;
+    window#misc#style_context#add_class "completion";
     Gaux.may (GWindow.toplevel page#view) ~f:(fun x -> window#set_transient_for x#as_window);
     window#add ebox#coerce;
     window
   in
   let label_type = GMisc.label ~markup:"" ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:false () in
-  let separator = GMisc.separator `HORIZONTAL ~show:true () in
+  let separator = GMisc.separator `HORIZONTAL () in
   let label_doc = GMisc.label ~markup:"" ~xalign:0.0 ~yalign:0.0 ~xpad:0 ~ypad:0 ~line_wrap:true ~show:false () in
   let vbox_window_info = GPack.vbox ~spacing:5 ~border_width:5 () in
   let window_info =
@@ -122,6 +123,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
     window#set_skip_pager_hint true;
     window#set_skip_taskbar_hint true;
     window#set_urgency_hint false;
+    window#misc#style_context#add_class "completion";
     Gaux.may (GWindow.toplevel page#view) ~f:(fun x -> window#set_transient_for x#as_window);
     vbox_window_info#pack ~expand:false label_type#coerce;
     vbox_window_info#pack ~expand:false separator#coerce;
@@ -169,7 +171,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
     method private get_info_geometry path =
       let r0 = self#misc#allocation in
       let wx, wy = Gdk.Window.get_position self#misc#toplevel#misc#window in
-      let x = wx + r0.Gtk.width in
+      let x = wx + r0.Gtk.width + 3 in
       let y = wy (*+ Gdk.Rectangle.y (lview#get_cell_area ~path ())*) in
       let _, hi = window_info#misc#allocation.Gtk.width, window_info#misc#allocation.Gtk.height in
       match GWindow.toplevel view with
@@ -398,7 +400,8 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
           label_doc#set_label markup_doc;
           label_doc#misc#show();
           separator#misc#show();
-        end;
+        end else
+          separator#misc#hide();
         window_info#show();
         self#add_window_info_scollbar ();
         Gmisclib.Idle.add ~prio:300 begin fun () ->
@@ -518,7 +521,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
 
     initializer
       label_doc#set_width_chars 40;
-      ebox#set_visible_window false;
+      ebox#set_visible_window true;
       view#misc#connect#after#realize ~callback:(fun _ -> vc_name#set_sizing `GROW_ONLY) |> ignore;
       self#misc#connect#destroy ~callback:begin fun () ->
         window_compl#destroy();
@@ -565,4 +568,3 @@ let create ?(use_names=false) ~project ~page () =
   let compl = new widget ~use_names ~project ~page () in
   single_instance := Some compl;
   compl#complete ()
-

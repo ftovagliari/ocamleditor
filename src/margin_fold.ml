@@ -369,18 +369,10 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
   let size = if is_debug then 30 else 18 in
   let spacing = 5 in
   let buffer = view#obuffer in
-  let add_tag name properties =
-    match GtkText.TagTable.lookup buffer#tag_table name with
-    | Some tag -> new GText.tag tag
-    | _ -> buffer#create_tag ~name properties
-  in
   let color_expander = Preferences.editor_tag_color_name "comment" in
   let color_occurrences = `NAME ?? (Preferences.preferences#get.Settings_j.editor_mark_occurrences_bg_color) in
-  let tag_highlight = add_tag Oe_config.code_folding_tag_highlight_name
-      [ `PARAGRAPH_BACKGROUND (?? Oe_config.code_folding_highlight_color) ] in
-  let tag_invisible = add_tag Oe_config.code_folding_tag_invisible_name
-      (if suppress_invisible then [ `STRIKETHROUGH true ] else [ `INVISIBLE true ])
-  in
+  let tag_highlight = Text_tag.main.fold_highlight in
+  let tag_invisible = Text_tag.main.fold_invisible in
   let char_width =
     let desc =
       (* TODO Update on preferences change *)

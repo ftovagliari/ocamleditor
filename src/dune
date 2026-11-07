@@ -179,7 +179,6 @@
   dynlink
   inotify
   lablgtk3
-  ocamldiff
   ocp-indent.lib
   odoc-parser
   ppx_deriving.show
@@ -210,7 +209,6 @@
   dynlink
   inotify
   lablgtk3
-  ocamldiff
   ocp-indent.lib
   odoc-parser
   ppx_deriving.show

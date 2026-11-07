@@ -88,7 +88,6 @@ class widget
   let preview           = new Ocaml_text.view ~buffer:tbuf () in
   let _                 = Preferences_apply.apply (preview :> Text.view) Preferences.preferences#get in
   let _                 = rsw#add preview#coerce in
-  let _                 = tbuf#create_tag ~name:"find_text_result_line" [] in
   (*  *)
   let cols              = new GTree.column_list in
   let col_file          = cols#add Gobject.Data.string in
@@ -124,8 +123,6 @@ class widget
     val mutable current_line_selected = None
     val mutable n_rows = 0
 
-    (*method parent_changed messages = ()*)
-
     initializer
       ignore (button_detach#connect#clicked ~callback:(fun () -> self#detach button_detach));
       ignore (self#connect_detach#detached ~callback:begin fun _ ->
@@ -138,9 +135,9 @@ class widget
       vc_hits#set_sort_column_id 1;
       vc_path#set_sort_column_id 2;
       preview#set_smart_click false;
-      let current_line_border_color = ColorOps.name_of_gdk (Preferences.editor_tag_color "highlight_current_line") in
-      let current_line_color = ColorOps.name_of_gdk (Preferences.editor_tag_bg_color "highlight_current_line") in
-      preview#options#set_highlight_current_line (Some (current_line_border_color, current_line_color));
+      let current_line_border_color = ColorOps.name_of_gdk (Preferences.editor_tag_color "current_line_highlight") in
+      let current_line_color = ColorOps.name_of_gdk (Preferences.editor_tag_bg_color "current_line_highlight") in
+      preview#options#set_current_line_highlight (Some (current_line_border_color, current_line_color));
       preview#options#set_show_line_numbers false;
       preview#options#set_show_markers false;
       preview#options#set_current_line_border_color (`NAME current_line_border_color);
@@ -158,27 +155,10 @@ class widget
               end
           | _ -> ()
         end);
-      let bgcolor =
-        match fst Oe_config.find_text_output_highlight with
-        | `DEFAULT -> [`BACKGROUND_GDK (preview#misc#style#bg `ACTIVE)]
-        | `NAME name -> [`BACKGROUND name]
-        | `NONE -> []
-      in
-      let fgcolor =
-        match snd Oe_config.find_text_output_highlight with
-        | `DEFAULT -> [`FOREGROUND_GDK (preview#misc#style#fg `ACTIVE)]
-        | `NAME name -> [`FOREGROUND name]
-        | `NONE -> []
-      in
-      let _ = tbuf#create_tag ~name:"find_text_result_hit" (bgcolor @ fgcolor) in
-      let _ = tbuf#create_tag ~name:"find_text_result_linenum"
-          [`FOREGROUND (?? Oe_config.find_text_output_linenumber_fgcolor); `WEIGHT `NORMAL;
-           `BACKGROUND_FULL_HEIGHT_SET true; `SCALE `SMALL;] in
-      let _ = tbuf#create_tag ~name:"find_text_insensitive"
-          [`FOREGROUND "#b0b0b0"; `STYLE `ITALIC] in
-      let tag_test = tbuf#create_tag ~name:"test" [`FOREGROUND "green"; `STYLE `ITALIC] in
-      Gmisclib.Util.set_tag_paragraph_background tag_test "yellow";
-      let _ = Gaux.may (preview#get_window `TEXT) ~f:(fun w -> Gdk.Window.set_cursor w (Gdk.Cursor.create `ARROW)) in
+      preview#event#connect#after#button_release ~callback:begin fun _ ->
+        Gaux.may (preview#get_window `TEXT) ~f:(fun w -> Gdk.Window.set_cursor w (Gdk.Cursor.create `ARROW));
+        false
+      end |> ignore;
       (*  *)
       ignore (button_remove#connect#clicked ~callback:self#remove_entry);
       ignore (button_stop#connect#clicked ~callback:(fun () -> canceled <- true));
@@ -648,10 +628,10 @@ class widget
     method private select_line iter =
       let where = iter#set_line_offset 0 in
       preview#buffer#place_cursor ~where;
-      preview#buffer#remove_tag_by_name "find_text_result_line"
+      preview#buffer#remove_tag Text_tag.main.find_text_result_line
         ~start:preview#buffer#start_iter ~stop:preview#buffer#end_iter;
       let _ = self#get_selected_result () in
-      preview#buffer#apply_tag_by_name "find_text_result_line"
+      preview#buffer#apply_tag Text_tag.main.find_text_result_line
         ~start:(iter#set_line_offset 0)
         ~stop:((iter#set_line_offset 0)#forward_to_line_end);
       preview#draw_current_line_background ~force:true iter;
@@ -675,9 +655,9 @@ class widget
 
     (** set_insensitive *)
     method private set_insensitive () =
-      preview#buffer#remove_tag_by_name "find_text_result_line"
+      preview#buffer#remove_tag Text_tag.main.find_text_result_line
         ~start:preview#buffer#start_iter ~stop:preview#buffer#end_iter;
-      preview#buffer#apply_tag_by_name "find_text_insensitive"
+      preview#buffer#apply_tag Text_tag.main.find_text_insensitive
         ~start:preview#buffer#start_iter ~stop:preview#buffer#end_iter;
 
       (** activate *)
@@ -713,13 +693,12 @@ class widget
 
     (** display *)
     method private display () =
+      Gaux.may (preview#get_window `TEXT) ~f:(fun w -> Gdk.Window.set_cursor w (Gdk.Cursor.create `ARROW));
       (* Sort *)
       List.iter begin fun result ->
         result.lines <- List.sort (fun {linenum = l1} {linenum = l2} -> compare l1 l2) result.lines
       end results;
       results <- List.sort (fun {filename=f1} {filename=f2} -> compare f1 f2) results;
-      (*  *)
-      Gaux.may (preview#get_window `TEXT) ~f:(fun w -> Gdk.Window.set_cursor w (Gdk.Cursor.create `ARROW));
       (*    (* Line result at iter *)
             let result_line iter =
             let res = self#get_selected_result () in
@@ -829,13 +808,13 @@ class widget
                             (Lexical.tag (tbuf :> GText.buffer) ~start ~stop:start#forward_to_line_end);
                         end;
                       end;
-                      tbuf#apply_tag_by_name "find_text_result_linenum"
+                      tbuf#apply_tag Text_tag.main.find_text_result_linenum
                         ~start:(tbuf#get_iter (`LINECHAR (!i, 0)))
                         ~stop:(tbuf#get_iter (`LINECHAR (!i, maxlinenum_length + 2)));
                       List.iter begin fun (start, stop) ->
                         let start = start + maxlinenum_length + 2 - scarto in
                         let stop = stop + maxlinenum_length + 2 - scarto in
-                        tbuf#apply_tag_by_name "find_text_result_hit"
+                        tbuf#apply_tag Text_tag.main.find_text_result_hit
                           ~start:(tbuf#get_iter (`LINECHAR (!i, start)))
                           ~stop:(tbuf#get_iter (`LINECHAR (!i, stop)));
                       end hits;
@@ -853,8 +832,6 @@ class widget
         end);
       ignore (preview#event#connect#focus_in ~callback:begin fun ev ->
           if tbuf#char_count > 0 then begin
-            let bgcolor = ColorOps.name_of_gdk (Preferences.editor_tag_bg_color "highlight_current_line") in
-            Gmisclib.Util.set_tag_paragraph_background preview#highlight_current_line_tag bgcolor;
             let iter = tbuf#get_iter `INSERT in
             self#select_line iter;
             self#activate ~grab_focus:false iter;

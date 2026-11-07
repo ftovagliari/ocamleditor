@@ -304,6 +304,10 @@ class manager ~(buffer : GText.buffer) =
 
     method length = Stack.length undos, Stack.length redos
 
+    method stats =
+      Stack.length undos, Obj.reachable_words (Obj.repr undos) * 8,
+      Stack.length redos, Obj.reachable_words (Obj.repr redos) * 8
+
     method connect = new manager_signals ~undo ~redo ~can_undo_changed ~can_redo_changed
   end
 

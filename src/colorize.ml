@@ -1,7 +1,6 @@
 let colorize_buffer (view : Ocaml_text.view) =
   let buffer = view#obuffer in
   if buffer#lexical_enabled then begin
-    buffer#init_tags ();
     let buffer = (buffer :> GText.buffer) in
     let colorize start stop () = Lexical.tag ~start ~stop buffer in
     let vstart, vstop, vlines =

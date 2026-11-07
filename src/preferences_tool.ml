@@ -53,7 +53,7 @@ class preferences ~editor () =
   let cancel_button     = GButton.button ~label:"Cancel" ~packing:button_box#add () in
   let reset_button      = GButton.button ~label:"Reset All" ~packing:button_box#add () in
   let _                 = button_box#set_child_secondary reset_button#coerce true in
-  let reset_page_button = GButton.button ~label:"Reset Page" ~packing:button_box#add () in
+  let reset_page_button = GButton.button ~label:"Reset Page Defaults" ~packing:button_box#add () in
   let _                 = button_box#set_child_secondary reset_page_button#coerce true in
   object (self)
     inherit GObj.widget vbox#as_widget

@@ -40,15 +40,15 @@ let count_marks (page : Editor_page.page) =
 ;;
 
 let print ~editor () =
-  printf "%-80s  %4s/%4s %10s\n-----------------------\n%!" "Filename" "undo" "redo" "marks";
+  printf "%-80s  %4s/%4s/%-6s %10s\n-----------------------\n%!" "Filename" "undo" "redo" "Kb" "marks";
   let current_page_marks = ref None in
   let current_page = editor#get_page `ACTIVE in
   List.iter begin fun p ->
-    let l1, l2 = (p#buffer :> Text.buffer)#undo#length in
+    let l1, s1, l2, s2 = (p#buffer :> Text.buffer)#undo#stats in
     let (mnames, mdel) as marks = count_marks p in
     Gaux.may current_page ~f:(fun page ->
         if page#get_oid = p#get_oid then current_page_marks := Some (page, marks));
-    printf "%-80s: %4d/%4d %4d(%d)\n%!" p#get_filename l1 l2 (List.length mnames) mdel;
+    printf "%-80s: %4d/%4d/%4.2f %4d(%d)\n%!" p#get_filename l1 l2 (float (s1 + s2) /. 1024.) (List.length mnames) mdel;
   end editor#pages;
   (*  *)
   begin
@@ -59,13 +59,15 @@ let print ~editor () =
         let mnames = List.map (function (Some m, d) ->
             m ^ (if d then "(del)" else "") | _ -> "") mnames in
         printf "%s\n%!" (String.concat "; " mnames);
-        let open Location in
-        Lex.comments ((current_page#buffer :> Text.buffer)#as_gtext_buffer#get_text())
-        |> List.iter begin fun (c, loc) ->
-          let t1, start_ln, start_cn = Location.get_pos_info loc.loc_start in
-          let t2, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in
-          Printf.printf "comment: %d,%d - %d,%d %S\n%!" start_ln start_cn stop_ln stop_cn c;
-        end;
+        let print_comments = false in
+        if print_comments then
+          let open Location in
+          Lex.comments ((current_page#buffer :> Text.buffer)#as_gtext_buffer#get_text())
+          |> List.iter begin fun (c, loc) ->
+            let t1, start_ln, start_cn = Location.get_pos_info loc.loc_start in
+            let t2, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in
+            Printf.printf "comment: %d,%d - %d,%d %S\n%!" start_ln start_cn stop_ln stop_cn c;
+          end;
     | _ -> ()
   end;
   (*  *)
@@ -79,5 +81,7 @@ let print ~editor () =
     |> Async.start
   end;
   Gmisclib.Timeout.print();
+  Utils.Memo.print_stats();
+  Gc.full_major();
   Gc.compact()
 ;;

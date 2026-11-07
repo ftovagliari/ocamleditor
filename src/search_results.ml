@@ -147,11 +147,10 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
   let _                 = view_lines#append_column vc_line_num in
   let _                 = view_lines#append_column vc_markup in
   (*  *)
-  let _                 = view_lines#misc#modify_bg [ `NORMAL, `NAME editor_bg_color_user ] in
-  let _                 = view_lines#misc#modify_base [
+  let _                 = view_lines#misc#modify_bg [
       `NORMAL,   `NAME editor_bg_color_user;
-      `SELECTED, `COLOR (Preferences.editor_tag_bg_color "highlight_current_line");
-      `ACTIVE,   `COLOR (Preferences.editor_tag_bg_color "highlight_current_line");
+      `SELECTED, `COLOR (Preferences.editor_tag_bg_color "current_line_highlight");
+      `ACTIVE,   `COLOR (Preferences.editor_tag_bg_color "current_line_highlight");
     ] in
   let _                 = view_lines#misc#modify_text [
       `SELECTED, `COLOR (Preferences.editor_tag_color "lident");
@@ -362,7 +361,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
                             page#view#options#set_mark_occurrences (false, false, "");
                             let start = buffer#get_iter (`MARK mark_start) in
                             let stop = buffer#get_iter (`MARK mark_stop) in
-                            buffer#select_range start stop;
+                            buffer#select_range start stop; (* TODO Crashed here *)
                             page#ocaml_view#scroll_aligned start;
                             editor#goto_view page#view;
                             page#view#options#set_mark_occurrences old;
@@ -574,4 +573,3 @@ and signals ~search_started ~search_finished =
     method search_started = search_started#connect ~after
     method search_finished = search_finished#connect ~after
   end
-

@@ -29,7 +29,7 @@ class options () =
     val mutable base_color : GDraw.color = `WHITE
     val mutable indent_lines_color_solid : GDraw.color = `BLACK
     val mutable indent_lines_color_dashed : GDraw.color = `BLACK
-    val mutable highlight_current_line : (string * string) option = None
+    val mutable current_line_highlight : (string * string) option = None
     val mutable current_line_border_enabled = true;
     val mutable current_line_border_color : GDraw.color = `NAME "#d0d0d0"
     val mutable current_line_bg_color : GDraw.color = `NAME "#f0f0f0"
@@ -46,7 +46,7 @@ class options () =
     val mutable line_numbers_font = ""
     val mutable mark_occurrences_changed = new mark_occurrences_changed ()
     val mutable line_numbers_changed = new line_numbers_changed ()
-    val mutable highlight_current_line_changed = new highlight_current_line_changed ()
+    val mutable current_line_highlight_changed = new current_line_highlight_changed ()
     val mutable line_numbers_font_changed = new line_numbers_font_changed ()
     val mutable show_markers_changed = new show_markers_changed ()
     val mutable word_wrap_changed = new word_wrap_changed ()
@@ -54,7 +54,7 @@ class options () =
     initializer
       ignore (self#connect#line_numbers_changed ~callback:(fun x -> show_line_numbers <- x));
       ignore (self#connect#line_numbers_font_changed ~callback:(fun x -> line_numbers_font <- x));
-      ignore (self#connect#highlight_current_line_changed ~callback:(fun x -> highlight_current_line <- x));
+      ignore (self#connect#current_line_highlight_changed ~callback:(fun x -> current_line_highlight <- x));
       ignore (self#connect#show_markers_changed ~callback:(fun x -> show_markers <- x));
       ignore (self#connect#word_wrap_changed ~callback:(fun x -> word_wrap <- x));
       ignore (self#connect#mark_occurrences_changed ~callback:(fun x -> mark_occurrences <- x));
@@ -71,8 +71,8 @@ class options () =
     method set_indent_lines_color_dashed x = indent_lines_color_dashed <- x
     method indent_lines_color_dashed = indent_lines_color_dashed
 
-    method set_highlight_current_line = highlight_current_line_changed#call
-    method highlight_current_line = highlight_current_line
+    method set_current_line_highlight = current_line_highlight_changed#call
+    method current_line_highlight = current_line_highlight
 
     method current_line_border_enabled = current_line_border_enabled
     method set_current_line_border_enabled x = current_line_border_enabled <- x
@@ -119,7 +119,7 @@ class options () =
     method connect = new signals
       ~line_numbers_changed
       ~line_numbers_font_changed
-      ~highlight_current_line_changed
+      ~current_line_highlight_changed
       ~show_markers_changed
       ~word_wrap_changed
       ~mark_occurrences_changed
@@ -128,7 +128,7 @@ class options () =
 (** Signals *)
 and line_numbers_changed () = object inherit [bool] signal () end
 and line_numbers_font_changed () = object inherit [string] signal () end
-and highlight_current_line_changed () = object inherit [(string * string) option] signal () end
+and current_line_highlight_changed () = object inherit [(string * string) option] signal () end
 and show_markers_changed () = object inherit [bool] signal () end
 and word_wrap_changed () = object inherit [bool] signal () end
 and mark_occurrences_changed () = object inherit [bool * bool * string] signal () end
@@ -136,7 +136,7 @@ and mark_occurrences_changed () = object inherit [bool * bool * string] signal (
 and signals
     ~line_numbers_changed
     ~line_numbers_font_changed
-    ~highlight_current_line_changed
+    ~current_line_highlight_changed
     ~show_markers_changed
     ~word_wrap_changed
     ~mark_occurrences_changed =
@@ -144,16 +144,15 @@ and signals
     inherit ml_signals [
         line_numbers_changed#disconnect;
         line_numbers_font_changed#disconnect;
-        highlight_current_line_changed#disconnect;
+        current_line_highlight_changed#disconnect;
         show_markers_changed#disconnect;
         word_wrap_changed#disconnect;
         mark_occurrences_changed#disconnect
       ]
     method line_numbers_changed = line_numbers_changed#connect ~after
     method line_numbers_font_changed = line_numbers_font_changed#connect ~after
-    method highlight_current_line_changed = highlight_current_line_changed#connect ~after
+    method current_line_highlight_changed = current_line_highlight_changed#connect ~after
     method show_markers_changed = show_markers_changed#connect ~after
     method word_wrap_changed = word_wrap_changed#connect ~after
     method mark_occurrences_changed = mark_occurrences_changed#connect ~after
   end
-

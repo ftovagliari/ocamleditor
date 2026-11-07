@@ -125,8 +125,8 @@ class pref_view title ?packing () =
                 let open Settings_t in
                 let ltags, prop =
                   Preferences.preferences#get.editor_tags |> List.map (fun t -> t.Settings_t.name, t) |> List.split in
-                Lexical.tags := ltags;
-                Lexical.colors := prop;
+                (*Lexical.tags := ltags;
+                  Lexical.colors := prop;*)
                 (* Setting preferences refreshes editor pages *)
                 Preferences.preferences#set {
                   Preferences.preferences#get with

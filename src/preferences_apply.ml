@@ -67,10 +67,11 @@ class "GtkTextView" style "s1"
   view#options#set_base_color default_bg_color;
   let editor_tags = pref.editor_tags in
   if pref.editor_highlight_current_line then begin
-    view#options#set_highlight_current_line
-      (Some (match (List.find_opt (fun t -> t.name = "highlight_current_line") editor_tags)
-             with Some t -> (?? (t.color)), (?? (t.bg_color)) | _ -> assert false));
-  end else (view#options#set_highlight_current_line None);
+    view#options#set_current_line_highlight
+      (Some (match (List.find_opt (fun t ->
+           t.name = Text_tag.Name.current_line_highlight) editor_tags)
+          with Some t -> (?? (t.color)), (?? (t.bg_color)) | _ -> assert false));
+  end else (view#options#set_current_line_highlight None);
   view#tbuffer#set_tab_width pref.editor_tab_width;
   view#tbuffer#set_tab_spaces pref.editor_tab_spaces;
   view#options#set_smart_home (pref.editor_smart_keys_home = 0);

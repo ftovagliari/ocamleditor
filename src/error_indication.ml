@@ -36,22 +36,9 @@ let forward_non_blank iter =
 
 class manager (view : Ocaml_text.view) =
   let buffer = view#tbuffer in
-  let tag_table = new GText.tag_table buffer#tag_table in
-  let create_tags () =
-    let ts = Unix.gettimeofday() in
-    let tag_error = buffer#create_tag ~name:(sprintf "tag_error-%f" ts) [`LEFT_MARGIN view#left_margin] in
-    begin
-      match Oe_config.error_underline_mode with
-      | `CUSTOM -> ()
-      | `GTK ->
-          Gobject.Property.set tag_error#as_tag {Gobject.name="underline"; conv=Gobject.Data.int} 4;
-    end;
-    let tag_warning = buffer#create_tag ~name:(sprintf "tag_warning-%f" ts) [`LEFT_MARGIN view#left_margin] in
-    let tag_warning_unused = buffer#create_tag ~name:Oe_config.warning_unused_tag_name
-        [`FOREGROUND (?? Oe_config.warning_unused_color); `STYLE `ITALIC] in
-    tag_error, tag_warning, tag_warning_unused
-  in
-  let tag_error, tag_warning, tag_warning_unused = create_tags () in
+  let tag_error = Text_tag.main.error in
+  let tag_warning = Text_tag.main.warning in
+  let tag_warning_unused = Text_tag.main.warning_unused in
   let is_warning_unused = function [@warning "-4"]
     | Oe.Warning (20, _) | Oe.Warning (26, _) | Oe.Warning (27, _) -> true
     | _ -> false
@@ -87,21 +74,12 @@ class manager (view : Ocaml_text.view) =
     method flag_gutter = flag_gutter
     method set_flag_underline x =
       flag_underline <- x;
-      self#remove_tag();
-      match Oe_config.error_underline_mode with
-      | `CUSTOM -> ()
-      | `GTK ->
+      (*self#remove_tag();
+        match Oe_config.error_underline_mode with
+        | `CUSTOM -> ()
+        | `GTK ->
           Gobject.Property.set tag_error#as_tag {Gobject.name="underline"; conv=Gobject.Data.int}
-            (if flag_underline then 4 else 0)
-
-    method create_tags () =
-      tag_table#remove tag_error#as_tag;
-      tag_table#remove tag_warning#as_tag;
-      tag_table#remove tag_warning_unused#as_tag;
-      let tg_error, tg_warning, tg_warning_unused = create_tags () in
-      tag_error <- tg_error;
-      tag_warning <- tg_warning;
-      tag_warning_unused <- tg_warning_unused
+            (if flag_underline then 4 else 0)*)
 
     method tag_of_error error =
       match [@warning "-4"] error.Oe.er_level with
@@ -270,7 +248,7 @@ class manager (view : Ocaml_text.view) =
                   label#misc#modify_font_by_name Preferences.preferences#get.editor_completion_font;
                   label#misc#modify_fg [`NORMAL, `BLACK];
                   (* Positioning *)
-                  begin 
+                  begin
                     popup#move ~x:(-1000) ~y:(-1000);
                     match location with
                     | `ITER _ ->
