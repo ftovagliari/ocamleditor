@@ -10,7 +10,7 @@ class line_numbers (view : GText.view) (markers : Margin_markers.markers) =
       if not it#ends_line then ignore (it#forward_to_line_end);
       it
     in
-    start_iter#has_tag Text_tag.fold_invisible || end_iter#has_tag Text_tag.fold_invisible (*|| List.mem tag start_iter#tags*)
+    start_iter#has_tag Text_tag.main.fold_invisible || end_iter#has_tag Text_tag.main.fold_invisible (*|| List.mem tag start_iter#tags*)
   in
   object (self)
     inherit [int] widget ()

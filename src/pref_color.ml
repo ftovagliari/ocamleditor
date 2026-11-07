@@ -26,6 +26,7 @@ module ColorOps = Color
 open Pref_page
 open Preferences
 open Settings_t
+open Option_syntax
 
 (** pref_color *)
 class pref_color title ?packing () =
@@ -106,7 +107,8 @@ class pref_color title ?packing () =
   let _                   = button_odoc_bg2#set_relief `NONE in
   (* OCaml Preview *)
   let osw                 = GBin.scrolled_window ~height:200 ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN () in
-  let buffer              = new Ocaml_text.buffer ~lexical_enabled:true () in
+  let tag_group           = Text_tag.create_group "preview" in
+  let buffer              = new Ocaml_text.buffer ~lexical_enabled:true ~tag_group () in
   let _                   = buffer#set_text ocaml_preview in
   let preview             = new Ocaml_text.view ~buffer () in
   let _                   = Gmisclib.Idle.add (fun () -> preview#buffer#place_cursor ~where:(preview#buffer#start_iter#forward_lines 5)) in
@@ -139,15 +141,14 @@ class pref_color title ?packing () =
   let _                   = notebook#append_page ~tab_label:(GMisc.label ~text:"Message Pane" ())#coerce color_other#coerce in
   object (self)
     inherit page title vbox
-    val mutable tags = []
-    val mutable current_tag = ""
     val mutable signals = []
+    val mutable pref_copy = None
 
     initializer
       let signal_id = Preferences.preferences#connect#changed ~callback:self#read in
       self#misc#connect#destroy ~callback:(fun () ->
           Preferences.preferences#connect#disconnect signal_id) |> ignore;
-      view_tag#selection#connect#after#changed ~callback:self#read_tags |> ignore;
+      view_tag#selection#connect#after#changed ~callback:self#enable_controls |> ignore;
       signals <- [
         check_tag_bg#coerce,        check_tag_bg#connect#toggled ~callback:self#update_preview;
         button_tag_fg#coerce,       button_tag_fg#connect#color_set ~callback:self#update_preview;
@@ -162,38 +163,56 @@ class pref_color title ?packing () =
       check_tag_bg#connect#after#clicked ~callback:(fun () ->
           button_tag_bg#misc#set_sensitive (not check_tag_bg#active)) |> ignore;
 
+    method private copy_pref base =
+      pref_copy <- Some begin
+          let module C = Preferences.Color in
+          { base with
+            (* The font preferred by the user, rather than the default one (although they
+               are the same initially, they become different when "Reset Page Defaults" is performed) *)
+            editor_base_font = preferences#get.editor_base_font;
+            editor_bg_color_theme = base.editor_bg_color_theme;
+            editor_bg_color_user =
+              C.new_themed_color (button_default_bg#color |> ColorOps.name_of_gdk) base.editor_bg_color_user;
+            editor_ocamldoc_paragraph_bgcolor_1 =
+              C.new_themed_color
+                (Some (button_odoc_bg#color |> ColorOps.name_of_gdk)) base.editor_ocamldoc_paragraph_bgcolor_1;
+            editor_ocamldoc_paragraph_bgcolor_2 =
+              C.new_themed_color
+                (Some (button_odoc_bg2#color |> ColorOps.name_of_gdk)) base.editor_ocamldoc_paragraph_bgcolor_2;
+          } end
+
     method write pref =
-      let set tc btn = Preferences.Color.set_themed_color tc (btn#color |> ColorOps.name_of_gdk) in
-      let set_opt tc btn = Preferences.Color.set_themed_color tc (Some (btn#color |> ColorOps.name_of_gdk)) in
-      set  pref.editor_bg_color_popup                  button_tag_bg_popup;
-      set  pref.editor_fg_color_popup                  button_tag_fg_popup;
+      let set tc (btn : GButton.color_button) =
+        Preferences.Color.set_themed_color tc (btn#color |> ColorOps.name_of_gdk) in
+      let set_opt tc (btn : GButton.color_button) =
+        Preferences.Color.set_themed_color tc (Some (btn#color |> ColorOps.name_of_gdk)) in
       pref.editor_bg_color_theme <- false;
-      set  pref.editor_bg_color_user                   button_default_bg;
-      pref.editor_tags <- tags;
-      let ltags, prop = tags |> List.map (fun t -> t.Settings_t.name, t) |> List.split in
-      Lexical.tags := ltags;
-      Lexical.colors := prop;
-      set  pref.output_bg_color                        button_bg;
-      set  pref.output_stdin_fg_color                  button_fg_stdin;
-      set  pref.output_stdout_fg_color                 button_fg_stdout;
-      set  pref.output_err_fg_color                    button_fg_err;
-      set  pref.output_warn_fg_color                   button_fg_warn;
+      set pref.editor_bg_color_popup                  button_tag_bg_popup;
+      set pref.editor_fg_color_popup                  button_tag_fg_popup;
+      set pref.editor_bg_color_user                   button_default_bg;
+      set pref.output_bg_color                        button_bg;
+      set pref.output_stdin_fg_color                  button_fg_stdin;
+      set pref.output_stdout_fg_color                 button_fg_stdout;
+      set pref.output_err_fg_color                    button_fg_err;
+      set pref.output_warn_fg_color                   button_fg_warn;
       set_opt pref.editor_ocamldoc_paragraph_bgcolor_1 button_odoc_bg;
       set_opt pref.editor_ocamldoc_paragraph_bgcolor_2 button_odoc_bg2;
+      let@ pref_copy = pref_copy in
+      pref.editor_tags <- pref_copy.editor_tags;
 
     method read pref =
       (`NAME ??(pref.editor_bg_color_popup)) |> GDraw.color |> button_tag_bg_popup#set_color;
       (`NAME ??(pref.editor_fg_color_popup)) |> GDraw.color |> button_tag_fg_popup#set_color;
-      tags <- List.sort (fun a b -> compare a.Settings_t.name b.name) pref.editor_tags;
       (`NAME ??(pref.editor_bg_color_user)) |> GDraw.color |> button_default_bg#set_color;
       tag_model#clear();
-      List.iter begin fun tag ->
+      let tags = List.sort (fun a b -> compare a.Settings_t.name b.name) pref.editor_tags in
+      tags |> List.iter begin fun tag ->
         let tagname = tag.Settings_t.name in
         let row = tag_model#append () in
         let label = Preferences.editor_tag_label tagname in
         tag_model#set ~row ~column:tag_col tagname;
         tag_model#set ~row ~column:lab_col label;
-      end tags;
+      end;
       view_tag#selection#select_path (GTree.Path.create [0]);
       (`NAME ??(pref.output_bg_color))     |> GDraw.color |> button_bg#set_color;
       (`NAME ??(pref.output_stdin_fg_color))  |> GDraw.color |> button_fg_stdin#set_color;
@@ -202,89 +221,96 @@ class pref_color title ?packing () =
       (`NAME ??(pref.output_warn_fg_color))   |> GDraw.color |> button_fg_warn#set_color;
       ??(pref.editor_ocamldoc_paragraph_bgcolor_1) |> Option.iter (fun c -> (`NAME c) |> GDraw.color |> button_odoc_bg#set_color);
       ??(pref.editor_ocamldoc_paragraph_bgcolor_2) |> Option.iter (fun c -> (`NAME c) |> GDraw.color |> button_odoc_bg2#set_color);
+      self#copy_pref pref;
       self#update_preview ();
 
-    method private read_tags () =
+    method private selected_tag =
       match view_tag#selection#get_selected_rows with
       | path :: _ ->
-          List.iter (fun (w, s) -> w#misc#handler_block s) signals;
           let row = tag_model#get_iter path in
-          let tname = tag_model#get ~row ~column:tag_col in
-          current_tag <- tname;
-          begin
-            let open Settings_t in
-            match List.find_opt (fun t -> t.name = tname) tags with
-            | Some t ->
-                (`NAME ??(t.color)) |> GDraw.color |> button_tag_fg#set_color;
-                scale_tag_weight#adjustment#set_value (float_of_int t.weight);
-                check_tag_style#set_active (t.style <> `NORMAL);
-                check_tag_underline#set_active (t.underline <> `NONE);
-                check_tag_bg#set_active t.bg_default;
-                (`NAME ??(t.bg_color)) |> GDraw.color |> button_tag_bg#set_color;
-            | _ -> ()
-          end;
-          if Oe_config.ocamldoc_paragraph_bgcolor_enabled && tname = "ocamldoc"
-          then begin
-            box_odoc_bg#misc#show();
-            label_tag_bg#misc#set_sensitive false;
-            button_tag_bg#misc#set_sensitive false;
-            check_tag_bg#misc#set_sensitive false;
-          end else begin
-            box_odoc_bg#misc#hide();
-            label_tag_bg#misc#set_sensitive true;
-            button_tag_bg#misc#set_sensitive true;
-            check_tag_bg#misc#set_sensitive true;
-          end;
-          if tname = "highlight_current_line" then begin
-            check_tag_bg#set_active false;
-            check_tag_bg#misc#set_sensitive false;
-          end;
-          button_tag_bg#misc#set_sensitive (not check_tag_bg#active);
-          self#update_preview();
-          List.iter (fun (w, s) -> w#misc#handler_unblock s) signals;
-      | [] -> ()
+          Some (tag_model#get ~row ~column:tag_col)
+      | _ -> None
+
+    method private enable_controls () =
+      self#selected_tag |> Option.iter begin fun current_tag ->
+        List.iter (fun (w, s) -> w#misc#handler_block s) signals;
+        begin
+          let open Settings_t in
+          match preferences#get.editor_tags |> List.find_opt (fun t -> t.name = current_tag) with
+          | Some t ->
+              (* Enable font controls *)
+              (`NAME ??(t.color)) |> GDraw.color |> button_tag_fg#set_color;
+              scale_tag_weight#adjustment#set_value (float_of_int t.weight);
+              check_tag_style#set_active (t.style <> `NORMAL);
+              check_tag_underline#set_active (t.underline <> `NONE);
+              check_tag_bg#set_active t.bg_default;
+              (`NAME ??(t.bg_color)) |> GDraw.color |> button_tag_bg#set_color;
+          | _ -> ()
+        end;
+        (* Extra controls for ocamldoc *)
+        if Oe_config.ocamldoc_paragraph_bgcolor_enabled && current_tag = Text_tag.Name.ocamldoc
+        then begin
+          box_odoc_bg#misc#show();
+          label_tag_bg#misc#set_sensitive false;
+          button_tag_bg#misc#set_sensitive false;
+          check_tag_bg#misc#set_sensitive false;
+        end else begin
+          box_odoc_bg#misc#hide();
+          label_tag_bg#misc#set_sensitive true;
+          button_tag_bg#misc#set_sensitive true;
+          check_tag_bg#misc#set_sensitive true;
+        end;
+        (* Extra controls for current line highlight *)
+        if current_tag = Text_tag.Name.current_line_highlight then begin
+          check_tag_bg#set_active false;
+          check_tag_bg#misc#set_sensitive false;
+        end;
+        button_tag_bg#misc#set_sensitive (not check_tag_bg#active);
+        (*self#update_preview();*)
+        List.iter (fun (w, s) -> w#misc#handler_unblock s) signals;
+      end
 
     method private update_preview () =
-      let module C = Preferences.Color in
-      let color      = button_tag_fg#color |> ColorOps.name_of_gdk in
-      let weight     = scale_tag_weight#adjustment#value |> int_of_float in
-      let style      = if check_tag_style#active then `ITALIC else `NORMAL in
-      let underline  = if check_tag_underline#active then `SINGLE else `NONE in
-      let scale      = editor_tag_scale current_tag in
-      let bg_default = check_tag_bg#active in
-      let bg_color   = button_tag_bg#color |> ColorOps.name_of_gdk in
-      if current_tag <> "" then begin
-        let prev_tag =
-          tags |> List.find_opt (fun t -> t.name = current_tag) |> Option.get
-        in
-        tags <-
-          {
-            name = current_tag;
-            color = C.new_themed_color color prev_tag.color;
-            bg_color = C.new_themed_color bg_color prev_tag.bg_color;
-            scale; weight; style; underline; bg_default;
-          } ::
-          (List.filter (fun t -> t.name <> current_tag) tags);
-      end;
-      let temp_pref =
-        { preferences#get with
-          editor_bg_color_theme = false;
-          editor_bg_color_user =
-            C.new_themed_color (button_default_bg#color |> ColorOps.name_of_gdk) preferences#get.editor_bg_color_user;
-          editor_ocamldoc_paragraph_bgcolor_1 =
-            C.new_themed_color
-              (Some (button_odoc_bg#color |> ColorOps.name_of_gdk)) preferences#get.editor_ocamldoc_paragraph_bgcolor_1;
-          editor_ocamldoc_paragraph_bgcolor_2 =
-            C.new_themed_color
-              (Some (button_odoc_bg2#color |> ColorOps.name_of_gdk)) preferences#get.editor_ocamldoc_paragraph_bgcolor_2;
-        } in
-      temp_pref.editor_tags <- tags;
-      let tag_names, colors = tags |> List.map (fun t -> t.name, t) |> List.split in
-      preview#tbuffer#init_tags ~tags:tag_names ~colors
-        (*~ocamldoc_paragraph_bgcolor_1:temp_pref.editor_ocamldoc_paragraph_bgcolor_1
-          ~ocamldoc_paragraph_bgcolor_2:temp_pref.editor_ocamldoc_paragraph_bgcolor_2*) ();
-      Lexical.tag (preview#buffer :> GText.buffer);
-      Preferences_apply.apply (preview :> Text.view) temp_pref;
+      self#selected_tag |> Option.iter begin fun selected_tag ->
+        try
+          begin
+            let@ pref_copy = pref_copy in
+            let module C = Preferences.Color in
+            let color      = button_tag_fg#color |> ColorOps.name_of_gdk in
+            let weight     = scale_tag_weight#adjustment#value |> int_of_float in
+            let style      = if check_tag_style#active then `ITALIC else `NORMAL in
+            let underline  = if check_tag_underline#active then `SINGLE else `NONE in
+            let scale      = editor_tag_scale selected_tag in
+            let bg_default = check_tag_bg#active in
+            let bg_color   = button_tag_bg#color |> ColorOps.name_of_gdk in
+            let base_bg_color =
+              C.new_themed_color
+                (button_default_bg#color |> ColorOps.name_of_gdk)
+                preferences#get.editor_bg_color_user in
+            let odoc_par_bg_color_1 = C.new_themed_color
+                (Some (button_odoc_bg#color |> ColorOps.name_of_gdk)) preferences#get.editor_ocamldoc_paragraph_bgcolor_1 in
+            let odoc_par_bg_color_2 = C.new_themed_color
+                (Some (button_odoc_bg2#color |> ColorOps.name_of_gdk)) preferences#get.editor_ocamldoc_paragraph_bgcolor_2 in
+            match pref_copy.editor_tags |> List.find_opt (fun t -> t.name = selected_tag) with
+            | Some tag ->
+                let new_editor_tags =
+                  { tag with
+                    color = C.new_themed_color color tag.color;
+                    bg_color = C.new_themed_color bg_color tag.bg_color;
+                    scale; weight; style; underline; bg_default;
+                  } :: (pref_copy.editor_tags |> List.filter (fun t -> t.name <> selected_tag))
+                in
+                pref_copy.editor_bg_color_user <- base_bg_color;
+                pref_copy.editor_ocamldoc_paragraph_bgcolor_1 <- odoc_par_bg_color_1;
+                pref_copy.editor_ocamldoc_paragraph_bgcolor_2 <- odoc_par_bg_color_2;
+                pref_copy.editor_tags <- new_editor_tags;
+                Text_tag.update_properties tag_group pref_copy;
+                Preferences_apply.apply (preview :> Text.view) pref_copy;
+                Lexical.tag ~tags:tag_group (preview#buffer :> GText.buffer);
+            | _ -> failwith (Printf.sprintf "tag %s not fount \n%!" selected_tag);
+          end;
+        with ex -> Printf.eprintf "%s\n%s\n%s\n%!" __LOC__ (Printexc.to_string ex) (Printexc.get_backtrace());
+      end
   end
 
 (** pref_color_structure *)

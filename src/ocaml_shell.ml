@@ -74,8 +74,6 @@ class ocaml_shell ?project () =
       inherit Shell_view.widget ~prog ~env:(Unix.environment()) ~args ~packing:sw#add ()
       method! private lex ~start ~stop =
         if start#compare stop < 0 then Lexical.tag buffer ~start ~stop
-      initializer
-        Lexical.init_tags buffer;
     end
   in
   let _ = Ocaml_text.shells := sh :: !Ocaml_text.shells in

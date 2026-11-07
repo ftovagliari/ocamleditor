@@ -105,7 +105,7 @@ type settings = {
 
   ~editor_mark_occurrences_enabled     <ocaml default="true" mutable> : bool;
   ~editor_mark_occurrences_under_cursor <ocaml default="true" mutable> : bool;
-  ~editor_mark_occurrences_bg_color    <ocaml default="{light=\"#c8ffc8\"; dark=\"#3C4E00\"}" mutable> : string color;
+  ~editor_mark_occurrences_bg_color    <ocaml default="{light=\"#c8ffc8\"; dark=\"#006035\"}" mutable> : string color;
 
   ~editor_ocamldoc_paragraph_bgcolor_1 <ocaml default="{light=Some \"#FAF7FA\"; dark=Some \"#181818\"}" mutable> : string option color;
   ~editor_ocamldoc_paragraph_bgcolor_2 <ocaml default="{light=Some \"#FAF7FA\"; dark=Some \"#181818\"}" mutable> : string option color;

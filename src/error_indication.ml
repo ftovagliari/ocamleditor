@@ -36,9 +36,9 @@ let forward_non_blank iter =
 
 class manager (view : Ocaml_text.view) =
   let buffer = view#tbuffer in
-  let tag_error = Text_tag.error in
-  let tag_warning = Text_tag.warning in
-  let tag_warning_unused = Text_tag.warning_unused in
+  let tag_error = Text_tag.main.error in
+  let tag_warning = Text_tag.main.warning in
+  let tag_warning_unused = Text_tag.main.warning_unused in
   let is_warning_unused = function [@warning "-4"]
     | Oe.Warning (20, _) | Oe.Warning (26, _) | Oe.Warning (27, _) -> true
     | _ -> false

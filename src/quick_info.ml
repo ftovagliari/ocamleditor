@@ -144,7 +144,7 @@ let remove_highlight hover =
           | Some it -> new GText.iter it
           | _ -> view#buffer#end_iter
         in
-        view#buffer#remove_tag Text_tag.quick_info ~start ~stop;
+        view#buffer#remove_tag Text_tag.main.quick_info ~start ~stop;
       end ~finally:begin fun () ->
         hover.range <- None;
         if not (GtkText.Mark.get_deleted m_start) then view#buffer#delete_mark (`MARK m_start);
@@ -328,7 +328,7 @@ let display qi tooltip_x tooltip_y start stop =
               try
                 let start = Gmisclib.Util.get_iter_at_mark_safe view#buffer#as_buffer m_start in
                 let stop = Gmisclib.Util.get_iter_at_mark_safe view#buffer#as_buffer m_stop in
-                GtkText.Buffer.apply_tag view#buffer#as_buffer Text_tag.quick_info#as_tag start stop
+                GtkText.Buffer.apply_tag view#buffer#as_buffer Text_tag.main.quick_info#as_tag start stop
               with Gmisclib_util.Mark_deleted -> Log.println `WARN "Mark_deleted"
             end;
         | _ -> ()

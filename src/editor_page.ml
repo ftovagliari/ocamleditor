@@ -82,6 +82,7 @@ class page ?file ~project ~offset ~editor () =
   let file_changed             = new file_changed () in
   (** Editor page *)
   let load                     = new load () in
+  let zz = 0 in
   let signals                  = new signals ~file_changed ~load in
   let buffer                   = new Ocaml_text.buffer ?file () in
   let sw, text_view, ocaml_view = create_view ~project ~buffer ?file () in
@@ -454,7 +455,7 @@ class page ?file ~project ~offset ~editor () =
                 ~start:(iter#backward_chars (Glib.Utf8.length text))#backward_line
                 ~stop:iter#forward_line;
             end;
-            buffer#remove_tag Text_tag.current_line_highlight
+            buffer#remove_tag Text_tag.main.current_line_highlight
               ~start:(iter#backward_chars (Glib.Utf8.length text))#backward_line
               ~stop:iter#forward_line;
             view#draw_current_line_background ~force:true iter;

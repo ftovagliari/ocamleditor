@@ -69,7 +69,7 @@ class "GtkTextView" style "s1"
   if pref.editor_highlight_current_line then begin
     view#options#set_current_line_highlight
       (Some (match (List.find_opt (fun t ->
-           t.name = Text_tag.Name.current_line_highlight || t.name = Text_tag.Name.old_current_line_highlight) editor_tags)
+           t.name = Text_tag.Name.current_line_highlight) editor_tags)
           with Some t -> (?? (t.color)), (?? (t.bg_color)) | _ -> assert false));
   end else (view#options#set_current_line_highlight None);
   view#tbuffer#set_tab_width pref.editor_tab_width;

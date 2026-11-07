@@ -32,10 +32,10 @@ type bound = Gtk.text_mark * Gtk.text_mark
 (** Buffer *)
 class buffer =
   let word_bound = Utils.regexp "\\b" in
-  fun () ->
-    let buffer = GText.buffer ~tag_table:Text_tag.table () in
+  fun ?(tag_group=Text_tag.main) () ->
+    let buffer = GText.buffer ~tag_table:tag_group.Text_tag.table () in
     object (self)
-      inherit GText.buffer buffer#as_buffer as super
+      inherit GText.buffer buffer#as_buffer
 
       val undo = Gmisclib.Text.undo_manager ~buffer
       val mutable tab_width = 2
@@ -49,10 +49,7 @@ class buffer =
 
       method last_edit_time = last_edit_time
       method set_last_edit_time time = last_edit_time <- time
-
-      method init_tags ?tags ?colors () =
-        Lexical.init_tags ?tags ?colors self#as_gtext_buffer;
-
+      method tag_group = tag_group
       method as_gtext_buffer = (self :> GText.buffer)
 
       method undo = undo
@@ -70,37 +67,37 @@ class buffer =
       method tab_spaces = tab_spaces
       method set_tab_spaces x = tab_spaces <- x
 
-      method select_all () = self#select_range self#start_iter self#end_iter
+      method select_all () = buffer#select_range buffer#start_iter buffer#end_iter
 
       (* Deprecated: use get_iter_at_mark_opt *)
       method get_iter_at_mark mark =
-        new GText.iter (Gmisclib.Util.get_iter_at_mark_safe self#as_buffer (self#get_mark mark))
+        new GText.iter (Gmisclib.Util.get_iter_at_mark_safe buffer#as_buffer (buffer#get_mark mark))
 
-      method! create_mark ?name ?left_gravity iter =
-        let mark = super#create_mark ?name ?left_gravity iter in
+      method create_mark ?name ?left_gravity iter =
+        let mark = buffer#create_mark ?name ?left_gravity iter in
         marks <- mark :: marks;
         mark
 
       method marks = marks
 
       method get_iter_at_mark_opt mark =
-        match Gmisclib.Util.get_iter_at_mark_opt self#as_buffer (self#get_mark mark) with
+        match Gmisclib.Util.get_iter_at_mark_opt buffer#as_buffer (buffer#get_mark mark) with
         | Some i -> Some (new GText.iter i)
         | _ -> None
 
       method select_marks ~start ~stop =
-        self#select_range (self#get_iter_at_mark stop) (self#get_iter_at_mark start);
+        buffer#select_range (self#get_iter_at_mark stop) (self#get_iter_at_mark start);
 
       method selection_text () =
-        let start, stop = self#selection_bounds in
-        self#get_text ~start ~stop ()
+        let start, stop = buffer#selection_bounds in
+        buffer#get_text ~start ~stop ()
 
       method get_line_at_iter (it : GText.iter) =
-        self#get_text ~start:(it#set_line_index 0) ~stop:it#forward_line ()
+        buffer#get_text ~start:(it#set_line_index 0) ~stop:it#forward_line ()
 
       method indent = Alignment.indent ~buffer:self
 
-      method select_word ?(iter=(self#get_iter `INSERT)) ?(pat=word_bound) ?(select=true) ?(search=true) () =
+      method select_word ?(iter=(buffer#get_iter `INSERT)) ?(pat=word_bound) ?(select=true) ?(search=true) () =
         let line = self#get_line_at_iter iter in
         let pos = iter#line_index in
         let start = try Str.search_backward pat line pos with Not_found -> 0 in
@@ -115,20 +112,20 @@ class buffer =
           let stop = try Str.search_forward pat line pos with Not_found -> Glib.Utf8.length line in
           let start = iter#set_line_index start in
           let stop = iter#set_line_index stop in
-          if select then self#select_range start stop;
+          if select then buffer#select_range start stop;
           (start, stop)
         end
 
       method toggle_case () =
         undo#begin_block ~name:"toggle_case";
-        let start, stop = self#get_iter `SEL_BOUND, self#get_iter `INSERT in
-        let text = self#get_text ~start ~stop () in
+        let start, stop = buffer#get_iter `SEL_BOUND, buffer#get_iter `INSERT in
+        let text = buffer#get_text ~start ~stop () in
         let uppercase = Glib.Utf8.uppercase text in
         let text = if text = uppercase then Glib.Utf8.lowercase text else uppercase in
-        self#delete ~start ~stop;
-        self#insert text;
-        let stop = self#get_iter `INSERT in
-        self#select_range (stop#backward_chars (Glib.Utf8.length text)) stop;
+        buffer#delete ~start ~stop;
+        buffer#insert text;
+        let stop = buffer#get_iter `INSERT in
+        buffer#select_range (stop#backward_chars (Glib.Utf8.length text)) stop;
         undo#end_block ();
 
     end
@@ -138,7 +135,7 @@ and view ?buffer () =
   let buffer = match buffer with None -> new buffer () | Some b -> b in
   let view = GText.view ~buffer:buffer#as_gtext_buffer () in
   object (self)
-    inherit GText.view view#as_view as super
+    inherit GText.view view#as_view
 
     val mutable options = new Text_options.options ()
     val mutable tbuffer = buffer
@@ -205,21 +202,18 @@ and view ?buffer () =
           let lstop = self#buffer#get_iter (`OFFSET lstop) in
           let rstart = self#buffer#get_iter (`OFFSET rstart) in
           let rstop = self#buffer#get_iter (`OFFSET rstop) in
-          (* To satisfy code folding, if the right delim. is not visible
-             we do not even draw the background of the left delim.
-             See also "Border around matching delimiters" *)
           let rtext = rstart#get_visible_text ~stop:rstop in
           if String.length rtext > 0 then begin
             current_matching_tag_bounds <-
               ((self#buffer#create_mark ~name:"delim_left_start" lstart),
                (self#buffer#create_mark ~name:"delim_left_stop" lstop)) :: [];
-            self#buffer#apply_tag Text_tag.matching_delim ~start:lstart ~stop:lstop;
+            self#buffer#apply_tag Text_tag.main.matching_delim ~start:lstart ~stop:lstop;
             current_matching_tag_bounds <-
               ((self#buffer#create_mark ~name:"delim_right_start" rstart),
                (self#buffer#create_mark ~name:"delim_right_stop" rstop)) :: current_matching_tag_bounds;
-            self#buffer#apply_tag Text_tag.matching_delim ~start:rstart ~stop:rstop;
+            self#buffer#apply_tag Text_tag.main.matching_delim ~start:rstart ~stop:rstop;
             self#add_outline_text (current_matching_tag_bounds |> List.map (fun x -> `Delim x));
-            (*GtkBase.Widget.queue_draw self#as_widget;*)
+            GtkBase.Widget.queue_draw self#as_widget;
             delim
           end else None
       | Some (_, lstop, rstart, _) (*as delim*) when lstop = rstart ->
@@ -229,15 +223,16 @@ and view ?buffer () =
 
     method matching_delim_remove_tag () =
       List.iter begin function (start, stop) ->
-        let mstart = (`MARK start) in
-        let mstop = (`MARK stop) in
+        let mstart = `MARK start in
+        let mstop = `MARK stop in
         let start = self#buffer#get_iter_at_mark mstart in
         let stop = self#buffer#get_iter_at_mark mstop in
-        self#buffer#remove_tag Text_tag.matching_delim ~start ~stop;
+        self#buffer#remove_tag Text_tag.main.matching_delim ~start ~stop;
         self#buffer#delete_mark mstart;
         self#buffer#delete_mark mstop;
       end current_matching_tag_bounds;
       text_outline <- text_outline |> List.filter (function `Word _ -> true | `Ref _ -> true | `Delim _ -> false);
+      GtkBase.Widget.queue_draw self#as_widget;
       current_matching_tag_bounds <- [];
 
     method matching_delim () =
@@ -323,23 +318,15 @@ and view ?buffer () =
     method draw_current_line_background ?(force=false) (ins : GText.iter) =
       let cur_line = ins#line in
       if cur_line <> prev_line_background || ins#ends_line || force then begin
-
-
-        (*GtkText.TagTable.lookup self#buffer#tag_table Tags.Name.current_line_highlight
-          |> Option.iter (fun t -> Printf.printf "---> %s FOUND 1\n%!" Tags.Name.current_line_highlight);
-
-          Tags.table#lookup Tags.Name.current_line_highlight
-          |> Option.iter (fun t -> Printf.printf "---> %s FOUND 2\n%!" Tags.Name.current_line_highlight);*)
-
         let prev = self#buffer#get_iter (`LINE prev_line_background) in
         let prev_0 = prev#set_line_offset 0 in
-        self#buffer#remove_tag Text_tag.current_line_highlight
-          ~start:prev_0#backward_line ~stop:prev#forward_line#forward_to_line_end;
+        let tag = buffer#tag_group.Text_tag.current_line_highlight in
+        self#buffer#remove_tag tag ~start:prev_0#backward_line ~stop:prev#forward_line#forward_to_line_end;
         let ins_0 = ins#set_line_offset 0 in
         let ins_1 = ins_0#backward_char in
         let start = if ins_1#starts_line then ins_0 else ins_1 in
         let stop = ins_0#forward_char in
-        self#buffer#apply_tag Text_tag.current_line_highlight ~start ~stop;
+        self#buffer#apply_tag tag ~start ~stop;
         prev_line_background <- cur_line;
       end
 

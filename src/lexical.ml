@@ -9,67 +9,6 @@ let multi_space = regexp "\\( \\( +\\)\\)\\|(\\*\\*\\(\\*+\\)\\|(\\*\\* \\|(\\* 
 
 let _ = Lexer.init()
 
-let tags, colors =
-  let tags, colors =
-    Preferences.preferences#get.editor_tags
-    |> List.map (fun (t : Settings_t.editor_tag) -> t.name, t)
-    |> List.split
-  in ref tags, ref colors
-
-(* Initialization *)
-let init_tags ?(tags=(!tags)) ?(colors=(!colors)) (tb : #GText.buffer) = ()
-(*let table = new GText.tag_table tb#tag_table in
-  let to_gdk_color x = GDraw.color (`NAME ?? x) in
-  List.iter2
-  begin fun tagname (tagprop : Settings_t.editor_tag) ->
-    if tagname <> "current_line_highlight" then begin
-      begin
-        match table#lookup tagname with
-        | None -> ()
-        | Some t -> table#remove t
-      end;
-      let fg_color = `FOREGROUND_GDK (to_gdk_color tagprop.color) in
-      let properties = [
-        Some fg_color;
-        (match tagprop.scale with 1.0 -> None | _ -> Some (`SCALE (`CUSTOM tagprop.scale)));
-        (match tagprop.style with `NORMAL -> None | _ -> Some (`STYLE `ITALIC));
-        (match tagprop.underline with `NONE -> None | _ -> Some (`UNDERLINE `SINGLE));
-        (if tagprop.weight > 0 then Some (`WEIGHT (`CUSTOM tagprop.weight)) else None)
-      ] |> List.filter_map Fun.id in
-      let properties = if tagprop.bg_default then properties else (`BACKGROUND_GDK (to_gdk_color tagprop.bg_color)) :: properties in
-      let tag = tb#create_tag ~name:tagname properties in
-
-      ()
-
-      (*if false && tagname = "ocamldoc" then begin
-        if ocamldoc_paragraph_enabled then begin
-
-          ?? ocamldoc_paragraph_bgcolor_2
-          |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
-
-          (*            Gaux.may ocamldoc_paragraph_bgcolor_2 ~f:begin fun bg2 ->
-                        Gmisclib.Util.set_tag_paragraph_background tag (?? bg2);
-                        end;*)
-        end;
-        let tag = Tags.ocamldoc_paragraph in
-        if ocamldoc_paragraph_enabled then begin
-          ?? ocamldoc_paragraph_bgcolor_1
-          |> Gaux.may ~f:(fun c -> Gmisclib.Util.set_tag_paragraph_background tag c);
-
-          (*            Gaux.may ocamldoc_paragraph_bgcolor_1 ~f:begin fun bg1 ->
-                        Gmisclib.Util.set_tag_paragraph_background tag (?? bg1);
-                        end*)
-        end
-        end*)
-
-
-
-    end
-  end tags colors;
-  (* Give the unused warning tag the highest priority *)
-  table#lookup Oe_config.warning_unused_tag_name
-  |> Option.iter (fun t -> GtkText.Tag.set_priority t (table#size - 1))*)
-
 (* Line_offset *)
 let line_starts s =
   let len = String.length s in
@@ -107,25 +46,24 @@ let tag_lident = function
 
 
 let [@inline] use_custom lexeme = lexeme = "failwith" || lexeme = "raise" || lexeme = "invalid_arg"
-(* Tagging *)
 
-let tag ?start ?stop (tb : GText.buffer) =
-  let start = Gaux.default tb#start_iter ~opt:start
-  and stop = Gaux.default tb#end_iter ~opt:stop in
+let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
+  let start = Gaux.default buffer#start_iter ~opt:start
+  and stop = Gaux.default buffer#end_iter ~opt:stop in
   (* Se start e stop sono all'interno di commenti allora prendo come start e stop
      l'inizio del primo commento e la fine del secondo. *)
-  let global_comments = Comments.scan (tb#get_text ()) in
+  let global_comments = Comments.scan (buffer#get_text ()) in
   let start = match Comments.enclosing global_comments start#offset with
     | None -> start
-    | Some (x, _) -> tb#get_iter_at_char x in
+    | Some (x, _) -> buffer#get_iter_at_char x in
   let stop = match Comments.enclosing global_comments stop#offset with
     | None -> stop
-    | Some (_, y) -> tb#get_iter_at_char y in
+    | Some (_, y) -> buffer#get_iter_at_char y in
   (*  *)
-  let text = tb#get_text ~start ~stop () in
+  let text = buffer#get_text ~start ~stop () in
   let lines = line_starts text in
   let tpos = tpos ~start ~lines in
-  let buffer = Lexing.from_string text in
+  let lexbuf = Lexing.from_string text in
   let comments = Comments.scan_utf8 text in
   let succ_comments = ref comments in
   let last = ref ("", EOF, 0, 0) in
@@ -133,16 +71,13 @@ let tag ?start ?stop (tb : GText.buffer) =
   let in_record = ref false in
   let in_record_label = ref false in
   let in_annotation = ref false in
-  List.iter begin function
-  | tagname when tagname <> Text_tag.Name.current_line_highlight -> tb#remove_tag_by_name tagname ~start ~stop
-  | _ -> ()
-  end (Text_tag.Name.ocamldoc :: Text_tag.Name.ocamldoc_paragraph :: !tags);
+  List.iter (fun (n, t) -> buffer#remove_tag_by_name n ~start ~stop) tags.Text_tag.lexical;
   try
     while true do
       try
-        let token = Lexer.token buffer in
-        let lstart = Lexing.lexeme_start buffer in
-        let lstop = Lexing.lexeme_end buffer in
+        let token = Lexer.token lexbuf in
+        let lstart = Lexing.lexeme_start lexbuf in
+        let lstop = Lexing.lexeme_end lexbuf in
         let _, succ, start = Comments.partition !succ_comments lstart  in
         succ_comments := succ;
         let tag =
@@ -209,7 +144,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | INFIXOP4 _
           | PREFIXOP _
           | HASH | HASHOP _
-          | BANG | LESS | GREATER | COLONCOLON
+          | BANG | LESS | GREATER | COLONCOLON | LESSMINUS | COLONEQUAL
             -> "infix"
           | LABEL _
           | OPTLABEL _
@@ -219,7 +154,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | UIDENT _ | BACKQUOTE -> "uident"
           | LIDENT _ when !in_annotation -> "annotation"
           | LIDENT _ ->
-              let lexeme = Lexing.lexeme buffer in
+              let lexeme = Lexing.lexeme lexbuf in
               begin match  [@warning "-4"] !last with
               | _, (QUESTION | TILDE), _, _ -> "label"
               | _, BACKQUOTE, _, _ -> "number"
@@ -245,7 +180,7 @@ let tag ?start ?stop (tb : GText.buffer) =
               begin match [@warning "-4"] !last with
                 _, LIDENT _, lstart, lstop ->
                   if lstop = start then
-                    tb#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos lstop);
+                    buffer#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos lstop);
                   ""
               | _ -> ""
               end
@@ -254,9 +189,9 @@ let tag ?start ?stop (tb : GText.buffer) =
           | RBRACE -> in_record := false; in_record_label := false; "symbol"
           | EQUAL when !in_record -> in_record_label := false; "symbol"
           | LPAREN | RPAREN | LBRACKET | BARRBRACKET | LBRACKETLESS | LBRACKETGREATER | GREATERRBRACKET
-          | LBRACELESS | GREATERRBRACE | LBRACKETBAR | LESSMINUS
+          | LBRACELESS | GREATERRBRACE | LBRACKETBAR
           | EQUAL | PLUS | MINUS | STAR | QUOTE | SEMI | SEMISEMI | MINUSGREATER
-          | COMMA | DOT | DOTDOT | COLONEQUAL | UNDERSCORE
+          | COMMA | DOT | DOTDOT | UNDERSCORE
           | PLUSDOT | MINUSDOT
           | PLUSEQ | PERCENT
           | COLONGREATER
@@ -273,7 +208,7 @@ let tag ?start ?stop (tb : GText.buffer) =
           | EOF -> raise End_of_file
         in
         if tag <> "" then
-          tb#apply_tag_by_name tag ~start:(tpos start) ~stop:(tpos lstop);
+          buffer#apply_tag_by_name tag ~start:(tpos start) ~stop:(tpos lstop);
         last_but_one := !last;
         last := (tag, token, start, lstop)
       with Lexer.Error _ -> ()
@@ -287,25 +222,24 @@ let tag ?start ?stop (tb : GText.buffer) =
               Utils.Search.Append (pos, pos + String.length mat, mat)
             end (String.sub text b (e - b)) in
           let (*b = b and*) e = e - 2 in
-          let tag = "comment" in
-          tb#apply_tag_by_name tag ~start:(tpos b) ~stop:(tpos e);
+          buffer#apply_tag_by_name Text_tag.Name.comment ~start:(tpos b) ~stop:(tpos e);
           List.iter begin fun (b1, e1, _) ->
-            tb#apply_tag_by_name tag ~start:(tpos (b + b1)) ~stop:(tpos (b + e1))
+            buffer#apply_tag_by_name Text_tag.Name.comment ~start:(tpos (b + b1)) ~stop:(tpos (b + e1))
           end ms
         end
       end (match comments with Comments.Utf8 x -> x | _ -> failwith "Lexical: Comments.Locale");
       (* ocamldoc and ocamldoc-paragraph *)
       List.iter begin fun (b, e, ocamldoc) ->
         if ocamldoc then begin
-          let start = tb#get_iter (`OFFSET b) in
-          let stop = tb#get_iter (`OFFSET e) in
+          let start = buffer#get_iter (`OFFSET b) in
+          let stop = buffer#get_iter (`OFFSET e) in
           let tag, start =
             let iter = start#backward_line in
             if iter#ends_line
-            then (Text_tag.ocamldoc_paragraph, start#set_line_index 0)
-            else (Text_tag.ocamldoc, start#set_line_index 0) (* start *)
+            then (tags.Text_tag.ocamldoc_paragraph, start#set_line_index 0)
+            else (tags.Text_tag.ocamldoc, start#set_line_index 0) (* start *)
           in
-          tb#apply_tag tag ~start ~stop;
+          buffer#apply_tag tag ~start ~stop;
         end
       end (match global_comments with Comments.Locale x -> x | _ -> failwith "Lexical: Comments.Utf8")
   | (Lexer.Error (error, _)) as ex -> ()
@@ -313,10 +247,7 @@ let tag ?start ?stop (tb : GText.buffer) =
 
 
 
-
-
-
-(*let tag ?(start : GText.iter option) ?(stop : GText.iter option) (tb : GText.buffer) = ()*)
+(*let tag ?(start : GText.iter option) ?(stop : GText.iter option) ?(tags : Text_tag.group option) (tb : GText.buffer) = ()*)
 
 
 

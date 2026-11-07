@@ -147,11 +147,10 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
   let _                 = view_lines#append_column vc_line_num in
   let _                 = view_lines#append_column vc_markup in
   (*  *)
-  let _                 = view_lines#misc#modify_bg [ `NORMAL, `NAME editor_bg_color_user ] in
-  let _                 = view_lines#misc#modify_base [
+  let _                 = view_lines#misc#modify_bg [
       `NORMAL,   `NAME editor_bg_color_user;
-      `SELECTED, `COLOR (Preferences.editor_tag_bg_color "highlight_current_line");
-      `ACTIVE,   `COLOR (Preferences.editor_tag_bg_color "highlight_current_line");
+      `SELECTED, `COLOR (Preferences.editor_tag_bg_color "current_line_highlight");
+      `ACTIVE,   `COLOR (Preferences.editor_tag_bg_color "current_line_highlight");
     ] in
   let _                 = view_lines#misc#modify_text [
       `SELECTED, `COLOR (Preferences.editor_tag_color "lident");

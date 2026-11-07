@@ -29,12 +29,12 @@ let create_shell = ref ((fun () -> failwith "Ocaml_text.create_shell") : unit ->
 let show_messages = ref ((fun () -> failwith "Ocaml_text.show_messages") : unit -> unit)
 
 (** Buffer *)
-class buffer ?file ?(lexical_enabled=false) () =
+class buffer ?file ?(lexical_enabled=false) ?tag_group () =
   let is_ocaml_file filename =
     filename ^^^ ".ml" || filename ^^^ ".mli" || filename ^^^ ".mll" || filename ^^^ ".mly"
   in
   object (self)
-    inherit Text.buffer () as super
+    inherit Text.buffer ?tag_group () as super
     val mutable lexical_enabled = (lexical_enabled || begin
         match file with
         | Some file when is_ocaml_file file#basename -> true
@@ -223,11 +223,11 @@ class buffer ?file ?(lexical_enabled=false) () =
     method tag_table_lexical : (GText.tag option) list = lexical_tags
 
     initializer
-      lexical_tags <- List.map (fun x -> Some x) (List.filter_map begin fun n ->
+      (*lexical_tags <- List.map (fun x -> Some x) (List.filter_map begin fun n ->
           match Text_tag.table#lookup n with
           | Some t -> Some (new GText.tag t)
           | _ -> None
-        end !Lexical.tags);
+        end !Lexical.tags);*)
       (* Lexical coloring disabled for undo of indent *)
       let old_lexical = ref lexical_enabled in
       ignore (undo#connect#undo ~callback:begin fun ~name ->

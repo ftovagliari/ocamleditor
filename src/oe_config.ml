@@ -38,7 +38,7 @@ let ocamldoc_paragraph_bgcolor_enabled   = true
 let fade_window_enabled                  = true (* Fade effect for popup windows *)
 let matching_delim_border_color : dcolor = { light = `NAME "#ff0000"; dark = `NAME "#ff0000" }
 let word_border_color : dcolor           = { light = `NAME "#ffffff"; dark = `NAME "#ffffff" }
-let ref_border_color : dcolor            = { light = `NAME "#0090d0"; dark = `NAME "#00d090" }
+let ref_border_color : dcolor            = { light = `NAME "#0090d0"; dark = `NAME "#00F0B0" }
 let ref_bg_color : dcolor                = { light = `NAME "#0090d0"; dark = `NAME "#00d090" }
 let error_popup_bg_color : dcolor        = { light = `NAME "#ffeef2"; dark = `NAME "#ffc6d4" }
 let error_popup_border_color : dcolor    = { light = `NAME "#ff6a99"; dark = `NAME "#ff6a99" }
@@ -73,8 +73,6 @@ let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#ff0000"
 let global_gutter_diff_color_change      = { light = "#0079FF"; dark = "#0079FF" }
 let global_gutter_diff_style             = (`COLOR false : [`BW | `COLOR of bool])
 let find_replace_history_max_length      = 75
-let find_text_output_highlight           = `DEFAULT, `DEFAULT (*`NAME "#ffff7e", `NONE*) (* Background and foreground colors to highlight occurrences where the pattern matches.
-                                                                                            (`NONE=do not change color; `DEFAULT=default color; `NAME=specific color)*)
 let find_text_output_linenumber_fgcolor  = { light = "#000000"; dark = "#e1e1e1" }
 let file_history_filename                = App_config.ocamleditor_user_home // "file_history"
 let file_history_max_length              = 300

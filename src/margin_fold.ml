@@ -371,8 +371,8 @@ class margin_fold (outline : Oe.outline) (view : Ocaml_text.view) (error_manager
   let buffer = view#obuffer in
   let color_expander = Preferences.editor_tag_color_name "comment" in
   let color_occurrences = `NAME ?? (Preferences.preferences#get.Settings_j.editor_mark_occurrences_bg_color) in
-  let tag_highlight = Text_tag.fold_highlight in
-  let tag_invisible = Text_tag.fold_invisible in
+  let tag_highlight = Text_tag.main.fold_highlight in
+  let tag_invisible = Text_tag.main.fold_invisible in
   let char_width =
     let desc =
       (* TODO Update on preferences change *)

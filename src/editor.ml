@@ -57,7 +57,6 @@ class editor () =
     val mutable pages = []
     val mutable pages_cache = []
     val mutable project = Project.create ~filename:"untitled.xyz" ()
-    val debouncer_matching_delim = Debouncer.create ~ms:1500 ()
     val debouncer_mark_ref = Debouncer.create ~ms:300 ()
     val debouncer_colorize = Debouncer.create ~ms:300 ()
     val debouncer_mark_words = Debouncer.create ~ms:300 ()
@@ -427,16 +426,9 @@ class editor () =
           end;
           (*view#build_gutter ();*)
         in
-        let matching_delim_callback () =
-          buffer#block_signal_handlers();
-          view#matching_delim ();
-          (*page#error_manager#hide_tooltip();*)
-          buffer#unblock_signal_handlers();
-        in
         let callback iter _ =
           Gmisclib.Idle.add ~prio:100 (fun () -> view#draw_current_line_background ~force:true (buffer#get_iter `INSERT));
           Debouncer.schedule debouncer_colorize colorize_callback;
-          Debouncer.schedule debouncer_matching_delim matching_delim_callback;
           self#location_history_add ~page ~iter ~kind:`EDIT ();
         in
         buffer#add_signal_handler (buffer#connect#insert_text ~callback);
@@ -465,7 +457,6 @@ class editor () =
                   end;
                   page#mark_occurrences_manager#mark();
                 end;
-              Debouncer.schedule debouncer_matching_delim matching_delim_callback;
             end
           end);
         (* Paste clipboard *)
@@ -833,7 +824,7 @@ class editor () =
                     let offset = (page#buffer#get_iter `INSERT)#offset in
                     if not page#buffer#has_selection && offset <> !last_cursor_offset then begin
                       page#view#matching_delim ();
-                      last_cursor_offset := (page#buffer#get_iter `INSERT)#offset
+                      last_cursor_offset := offset
                     end;
                   end;
                 end;
