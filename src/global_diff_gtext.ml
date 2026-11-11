@@ -36,15 +36,11 @@ let insert (buffer : GText.buffer) ignore_whitespace filename1 filename2 =
     [ if ignore_whitespace then "--ignore-all-space" else ""; filename1; filename2 ]
     |> List.filter (fun x -> x <> "") |> Array.of_list
   in
-  let color_add = (*Color.add_value*) (?? Oe_config.global_gutter_diff_color_add) (*(-0.3) *)in
-  let color_del = (*Color.add_value*) (?? Oe_config.global_gutter_diff_color_del) (*(-0.5) *)in
   Spawn.async diff args
     ~process_in
     ~at_exit:begin fun _ ->
-      let tag_del = buffer#create_tag ~name:"tag_diff_del" [] in
-      Gmisclib.Util.set_tag_paragraph_background tag_del color_del;
-      let tag_add = buffer#create_tag ~name:"tag_diff_add" [] in
-      Gmisclib.Util.set_tag_paragraph_background tag_add color_add;
+      let tag_del = Text_tag.main.Text_tag.diff_delete in
+      let tag_add = Text_tag.main.Text_tag.diff_add in
       let open Diff_parse in
       let insert_lines prefix l1 text =
         let lines = Str.split (Str.regexp "\n") text in

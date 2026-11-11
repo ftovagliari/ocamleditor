@@ -40,3 +40,18 @@ let fullname_async ~context ident =
     (try Unix.waitpid [] pid |> ignore with Unix.Unix_error(Unix.ECHILD, _, _) -> ());
     first_line
   end
+
+let locate_async ident =
+  execute_async "print" ~format:"%l" ~full_open:[] ident
+  |> Async.map ~name:__FUNCTION__ begin fun ((ic, _, _) as channels) ->
+    let pid = Unix.process_full_pid channels in
+    let first_line =
+      try Some (String.trim (input_line ic))
+      with End_of_file ->
+        (try Unix.close_process_full channels |> ignore;
+         with Unix.Unix_error(Unix.ECHILD, _ , _) -> ());
+        None
+    in
+    (try Unix.waitpid [] pid |> ignore with Unix.Unix_error(Unix.ECHILD, _, _) -> ());
+    first_line
+  end

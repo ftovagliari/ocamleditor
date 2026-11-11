@@ -4,6 +4,7 @@ open Merlin
 module ColorOps = Color
 open Printf
 open Markup
+open Preferences
 
 module Log = Common.Log.Make(struct let prefix = "COMPLETION" end)
 let _ =
@@ -22,20 +23,26 @@ module String_utils = struct
       with Not_found ->
         locate_intersection left (Str.first_chars right (len_right - 1))
 end
-let m_names = ref []
 
 class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () =
   let ebox = GBin.event_box ?packing () in
   let vbox = GPack.vbox ~spacing:5 ~border_width:0 ~packing:ebox#add () in
   let spinner_box = GPack.hbox ~spacing:5 ~border_width:0 ~packing:(vbox#pack ~expand:false) () in
   let spinner = GMisc.spinner ~active:true ~packing:(spinner_box#pack ~expand:false) () in
+  let label = GMisc.label ~xalign:0. ~markup:"<span size='x-small'>Press Ctrl+Shift+Space for additional fuzzy results.</span>"
+      ~packing:(vbox#pack ~from:`END) ~show:(not use_names) () in
+  let _ = label#set_opacity 0.62 in
   let _ = GMisc.label ~text:"Loading..." ~xalign:0.0 ~packing:spinner_box#add () in
+  let color_emp = (?? Oe_config.diff_color_change) ^ "A0" in
+  let `NAME color_emp = Preferences.editor_tag_color_name "uident" in
+  let markup_segment = sprintf "<span color='%s' weight='bold'>" color_emp in
   let cols = new GTree.column_list in
   let col_is_exp = cols#add Gobject.Data.boolean in
   let col_prio = cols#add Gobject.Data.float in
   let col_source = cols#add Gobject.Data.string in
   let col_kind = cols#add Gobject.Data.string in
   let col_name = cols#add Gobject.Data.string in
+  let col_markup = cols#add Gobject.Data.string in
   let col_desc = cols#add Gobject.Data.string in
   let col_info = cols#add Gobject.Data.string in
   let model = GTree.list_store cols in
@@ -53,17 +60,18 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
     ] in
   let vc_kind = GTree.view_column ~renderer:(renderer_icon, ["markup", col_kind]) () in
   let vc_source = GTree.view_column ~renderer:(renderer_score, ["text", col_source]) () in
-  let vc_name = GTree.view_column ~renderer:(renderer, ["text", col_name]) () in
+  let vc_markup = GTree.view_column ~renderer:(renderer, ["markup", col_markup]) () in
   let sw = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`NEVER ~vpolicy:`AUTOMATIC ~packing:vbox#add () in
   let lview = GTree.view ~model:model_sort ~headers_visible:false ~reorderable:false ~packing:sw#add () in
   let _ = lview#set_enable_search false in
   let _ = lview#set_search_column 1 in
   let _ = lview#append_column vc_source in
   let _ = lview#append_column vc_kind in
-  let _ = lview#append_column vc_name in
+  let _ = lview#append_column vc_markup in
   let _ = lview#selection#set_mode `SINGLE in
   let _ = model_sort#set_sort_column_id col_prio.GTree.index `ASCENDING in
-  (*let _ = vc_source#set_visible false in*)
+  (*let _ = vc_source#set_visible App_config.application_debug in*)
+  let _ = vc_source#set_visible false in
   let _ =
     model_sort#set_sort_func col_prio.GTree.index begin fun model r1 r2 ->
       let s1 = model#get ~row:r1 ~column:col_source in
@@ -281,7 +289,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
       end else sync [] "N";
       merlin@@complete_prefix ~position ~prefix |=> begin function
         | Merlin.Ok complete_prefix ->
-            let entries = complete_prefix.Merlin_j.entries |> List.map (fun x -> 1., x) in
+            let entries = complete_prefix.Merlin_j.entries |> List.map (fun x -> 1., x, None) in
             sync entries "C";
         | Error _ | Failure _ -> sync [] "C"
         end |=> "complete_prefix";
@@ -293,8 +301,8 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
                 |> List.take 1000
                 |> List.map (fun x ->
                     match Names.FS.compare Greedy prefix x.Merlin_j.name with
-                    | Some res -> res.Names.FS.score, x
-                    | _ -> 1., x)
+                    | Some res -> res.Names.FS.score, x, None
+                    | _ -> 1., x, None)
                 |> List.take 100
               in
               sync entries "E";
@@ -433,15 +441,27 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
           load_start_time <- 0.0;
           load_complete#call count)
       in
-      let add_row (entry : Merlin_j.entry) score is_last =
+      let add_row (entry : Merlin_j.entry) score marked_string is_last =
         let score = score +. add_score in
+        let markup =
+          let open Names.FS in
+          match marked_string with
+          | None -> entry.Merlin_t.name
+          | Some (segments : segment list) ->
+              List.fold_right (fun seg acc ->
+                  match seg with
+                  | U s -> s :: acc
+                  | M s -> markup_segment :: s :: "</span>" :: acc
+                ) segments []
+              |> String.concat ""
+        in
         let row = model#append () in
-        m_names := entry.Merlin_j.name :: !m_names;
         model#set ~row ~column:col_is_exp is_expand;
         model#set ~row ~column:col_source (sprintf "%s %6.2f" source score);
         model#set ~row ~column:col_prio score;
         model#set ~row ~column:col_kind (icon_of_kind entry.Merlin_j.kind);
-        model#set ~row ~column:col_name (List.hd !m_names);
+        model#set ~row ~column:col_name entry.Merlin_j.name;
+        model#set ~row ~column:col_markup markup;
         model#set ~row ~column:col_desc entry.Merlin_j.desc;
         model#set ~row ~column:col_info entry.Merlin_j.info;
         let path = model#get_path row in
@@ -462,7 +482,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
             if is_destroyed then false
             else match !rest with
               | [] -> false
-              | (score, (entry : Merlin_j.entry)) :: xs ->
+              | (score, (entry : Merlin_j.entry), marked_string) :: xs ->
                   rest := xs;
                   let i = !current_i in
                   incr current_i;
@@ -477,7 +497,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
                             let row = !rref#iter in
                             if model#remove row then begin
                               count <- count - 1;
-                              let row = add_row entry score (i = last_index) in
+                              let row = add_row entry score marked_string (i = last_index) in
                               rref := model#get_row_reference (model#get_path row)
                             end else
                               trigger_load_complete (i = last_index)
@@ -485,7 +505,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
                             Log.println `WARN "%s %s %s" (Printexc.to_string ex) entry.Merlin_j.name source
                         end
                     | None ->
-                        add_row entry score (i = last_index) |> ignore;
+                        add_row entry score marked_string (i = last_index) |> ignore;
                     | _ ->
                         trigger_load_complete (i = last_index);
                   end;
@@ -522,7 +542,7 @@ class widget ~project ~(page : Editor_page.page) ?(use_names=false) ?packing () 
     initializer
       label_doc#set_width_chars 40;
       ebox#set_visible_window true;
-      view#misc#connect#after#realize ~callback:(fun _ -> vc_name#set_sizing `GROW_ONLY) |> ignore;
+      view#misc#connect#after#realize ~callback:(fun _ -> vc_markup#set_sizing `GROW_ONLY) |> ignore;
       self#misc#connect#destroy ~callback:begin fun () ->
         window_compl#destroy();
         is_destroyed <- true

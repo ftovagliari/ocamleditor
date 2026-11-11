@@ -46,8 +46,9 @@ class browser window =
   let menubarbox = GPack.hbox ~spacing:0 ~packing:vbox#pack () in
   (* Menubar icon displayed full-screen mode *)
   let window_title_menu_icon = GBin.event_box ~packing:menubarbox#pack ~show:false () in
-  let icon = Gtk_util.label_icon ~width:32 ~height:32 "<span font='18'>\u{e10e}</span>" ~packing:window_title_menu_icon#add in
-  let _ = icon#misc#modify_fg [`NORMAL, `COLOR (icon#misc#style#fg `INSENSITIVE) ] in
+  let icon = Gtk_util.label_icon ~width:35 ~height:32 "<span font='18' color='#909090'>\u{e10e}</span>" ~packing:window_title_menu_icon#add in
+  let _ = icon#set_xalign 0. in
+  let _ = icon#set_xpad 3 in
   let _ = window_title_menu_icon#set_visible_window false in
 
   (* Menubar *)
@@ -1107,24 +1108,56 @@ let create window =
 let splashscreen () =
   let pref = Preferences.preferences#get in
   if pref.splashscreen_enabled then begin
-    let decorated = false in
-    let pixbuf = ??? Icons.logo in
-    let image = GMisc.image ~pixbuf () in
+    let file = Filename.temp_file "splash" ".png" in
+    let image =
+      let png = !Splashscreen.data |> String.to_bytes in
+      Out_channel.with_open_bin file (fun oc -> Out_channel.output_bytes oc png);
+      GMisc.image ~file ()
+    in
+    let width = GdkPixbuf.get_width image#pixbuf in
+    let height = GdkPixbuf.get_height image#pixbuf in
+    let version, _ =
+      match About.version |> Str.split (Str.regexp "[~-]") with
+      | version :: comments :: _ -> version, comments
+      | _ -> "", ""
+    in
     let window = GWindow.window
+        ~width ~height
         ~title:About.program_name
         ~type_hint:`SPLASHSCREEN
-        ~position:`CENTER_ALWAYS
-        ~border_width:(if decorated then 0 else 1)
+        ~position:`CENTER_ON_PARENT
+        ~modal:false
+        ~border_width:1
         ~focus_on_map:true
-        ~decorated
+        ~decorated:false
         ~resizable:false
         ~urgency_hint:false
         ~show:false ()
     in
-    window#misc#modify_bg [`NORMAL, `NAME (if decorated then "#ffffff" else "#c0c0c0")];
-    window#add image#coerce;
+    let overlay = GBin.overlay ~packing:window#add () in
+    let info = GMisc.label ~xalign:0.5 ~markup:"" () in
+    overlay#add_overlay image#coerce;
+    overlay#add_overlay info#coerce;
+
+    info#set_margin_top 190;
+    info#set_margin_left 120;
+    info#set_angle 24.5;
+    info#set_label
+      (sprintf "<span font='Futurismo 10' color='#ca4425'>%s</span>\n<span font='OCamlEditor 6' color='#f5ddb7'>version %s</span>"
+         About.program_name version);
+
+    (*info#set_margin_top 350;
+      info#set_margin_left 300;
+      info#set_label (* f5ddb7 *)
+      (sprintf "<span font='OCamlEditor 8' color='#000000'>%s</span> <span font='OCamlEditor 6' color='#000000'>version %s</span>"
+         About.program_name version);*)
+
+    window#misc#modify_bg [`NORMAL, `NAME "#c0c0c0"];
     window#set_skip_pager_hint true;
     window#set_skip_taskbar_hint true;
+    window#misc#connect#destroy ~callback:begin fun () ->
+      if Sys.file_exists file then Sys.remove file
+    end |> ignore;
     Some window
   end else None
 

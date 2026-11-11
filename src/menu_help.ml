@@ -55,6 +55,7 @@ let about () =
     | version :: comments :: _ -> version, comments
     | _ -> "", ""
   in
+  (*let logo = GdkPixbuf.create ~width:1 ~height:1 () in*)
   let dialog = GWindow.about_dialog
       ~modal:true
       ~width:310
@@ -66,21 +67,23 @@ let about () =
       ~logo:(??? Icons.logo)
       (*~comments*)
       ~license:{|OCamlEditor is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-OCamlEditor is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+  OCamlEditor is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.|}
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.|}
       ~show:false
       ()
   in
   let vbox = dialog#vbox in
+  (*let image = GMisc.image ~file:"/home/frank/ocaml/ocamleditor/src/icons/dark/logo.gif" ~packing:vbox#add () in
+    vbox#reorder_child image#coerce ~pos:1;*)
   let modify_label ?(color="#808080") label =
     label#misc#modify_fg [`NORMAL, `NAME color];
     label#misc#modify_font_by_name "Sans 7";

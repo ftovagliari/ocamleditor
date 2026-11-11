@@ -7,7 +7,7 @@ let draw view (drawable : Gdk.cairo) metrics approx_char_width hadjust y0 bounds
     match bounds with
     | `Ref x -> x, ?? Oe_config.ref_border_color, 1
     | `Word x -> x, ?? Oe_config.word_border_color, 0
-    | `Delim x -> x, Preferences.editor_tag_color_name Text_tag.Name.matching_delim , 2
+    | `Delim x -> x, Preferences.editor_tag_color_name Text_tag.Name.matching_delim, 2
   in
   match buffer#get_iter_at_mark_opt (`MARK start) with
   | Some start_iter ->
@@ -17,10 +17,10 @@ let draw view (drawable : Gdk.cairo) metrics approx_char_width hadjust y0 bounds
             let rect_start = view#get_iter_location start_iter in
             let rect_stop = view#get_iter_location stop_iter in
 
-            let x = Gdk.Rectangle.x rect_start (*- hadjust - 1 *) in
-            let y = Gdk.Rectangle.y rect_start - y0 + view#pixels_above_lines in
-            let width = (Gdk.Rectangle.x rect_stop) - (Gdk.Rectangle.x rect_start) in
-            let height = (metrics#ascent + metrics#descent) / Pango.scale - 1 in
+            let x = Gdk.Rectangle.x rect_start - 1(*- hadjust *) in (* +/-1 is to avoid hiding the cursor *)
+            let y = Gdk.Rectangle.y rect_start - y0 - line_width in
+            let width = (Gdk.Rectangle.x rect_stop) - (Gdk.Rectangle.x rect_start) + 1 + line_width in
+            let height = (metrics#ascent + metrics#descent) / Pango.scale + line_width in
 
             if width > 0 then begin
               set_foreground drawable color;

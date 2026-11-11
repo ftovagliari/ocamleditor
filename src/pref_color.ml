@@ -266,7 +266,6 @@ class pref_color title ?packing () =
           check_tag_bg#misc#set_sensitive false;
         end;
         button_tag_bg#misc#set_sensitive (not check_tag_bg#active);
-        (*self#update_preview();*)
         List.iter (fun (w, s) -> w#misc#handler_unblock s) signals;
       end
 

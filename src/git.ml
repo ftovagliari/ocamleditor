@@ -163,8 +163,8 @@ let toplevel callback =
 (** diff_stat *)
 let diff_stat f =
   let fact = -0.0 in
-  let color_add = ColorOps.add_value (?? Oe_config.global_gutter_diff_color_add) fact in
-  let color_del = ColorOps.add_value (?? Oe_config.global_gutter_diff_color_del) fact in
+  let color_add = ColorOps.add_value (?? Oe_config.diff_color_add) fact in
+  let color_del = ColorOps.add_value (?? Oe_config.diff_color_delete) fact in
   match Oe_config.git_version with
   | None -> ()
   | _ ->

@@ -62,7 +62,6 @@ let apply () =
           border: 1px solid @borders;
           background-color: @theme_base_color;
         }
-        popover.quick-info > * { background-color: @theme_base_color; }
         window.quick-info-window, window.completion { border: 1px solid @insensitive_fg_color; border-radius: 8px; }
         window.quick-info-window box, window.completion box { margin: 3px; }
         window.quick-info-window separator, window.completion separator { background-color: @insensitive_fg_color; }

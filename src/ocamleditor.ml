@@ -66,24 +66,28 @@ let main () = begin
         ~resizable:true
         ~type_hint:`NORMAL
         ~kind:`TOPLEVEL
-        ~show:false ()
+        ~show:true ()
     in
     Gtk_theme.set_theme ~context:window#misc#pango_context ();
-    window#iconify(); (* doesn't work on WSL *)
     let _ = new Theme.monitor window in
     let browser = Browser.create window in
     (* Before browser initialization *)
     browser#connect#startup ~callback:begin fun () ->
-      Gaux.may splashscreen ~f:(fun w -> w#set_transient_for window#as_window);
+      Gaux.may splashscreen ~f:(fun w ->
+          w#event#connect#button_press ~callback:(fun _ -> w#destroy(); false) |> ignore;
+          w#set_transient_for window#as_window);
       Sys.chdir (Filename.dirname Sys.executable_name);
-      Printf.printf "%s\n%!" (System_properties.to_string());
       Project_json.init();
     end |> ignore;
     browser#connect#after#startup ~callback:begin fun () ->
-      window#deiconify();
-      window#show();
-      Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
-      Gaux.may splashscreen ~f:(fun w -> w#destroy());
+      window#present();
+      Gaux.may splashscreen ~f:(fun w ->
+          Gmisclib.Timeout.add "splashscreen" ~ms:2000 ~callback:(fun () ->
+              w#destroy();
+              Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
+              false
+            )  |> ignore;
+        );
     end |> ignore;
     (*  *)
     browser#startup();
@@ -108,7 +112,6 @@ let main () = begin
             end;
             false
           end |> ignore;
-          (*Gmisclib.Idle.add ~prio:300 (fun () -> start (Some splashscreen));*)
         end |> ignore;
         splashscreen#present();
   end;

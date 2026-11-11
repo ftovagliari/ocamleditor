@@ -1,7 +1,7 @@
 {
   "encoding": [ "Some", "UTF-8" ],
   "name": "ocamleditor",
-  "version": "2.0.0-ocaml530",
+  "version": "3.0.1-ocaml551",
   "autocomp": { "delay": 0.764 },
   "targets": [
     {

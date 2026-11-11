@@ -9,6 +9,7 @@ sig
   val separator : string
   val of_string : string -> t
   val deserialize : string -> t array
+  val to_array : string -> t array
 end
 
 (*module Word = struct
@@ -24,6 +25,7 @@ module Letter = struct
   let to_string c = if c = ' ' then "\u{2423}" else Stdlib.String.make 1 c
   let of_string s = s.[0]
   let deserialize s = s |> String.lowercase_ascii |> String.to_seq |> Array.of_seq
+  let to_array s = s |> String.to_seq |> Array.of_seq
   let separator = ""
 end
 
@@ -145,7 +147,7 @@ struct
     let paths = ref [] in
     let iterations = ref 0 in
     let end_path () =
-      let path_added = Deque.size !path > min_path_len in
+      let path_added = Deque.size !path >= min_path_len in
       paths := if path_added then !path :: !paths else !paths;
       path := Deque.create length_a;
       path_added
@@ -241,7 +243,7 @@ struct
     let path = ref (Deque.create length_a)  in
     let paths = ref [] in
     let end_path () =
-      let path_added = Deque.size !path > min_path_len in
+      let path_added = Deque.size !path >= min_path_len in
       paths := if path_added then !path :: !paths else !paths;
       path := Deque.create length_a;
       path_added
@@ -389,11 +391,11 @@ struct
     let score'' = (sorensen_dice *. 0.8) +. (compactness *. 0.2) in
     let jaccard = safe_match_length /. (lp +. ls -. safe_match_length) in
 
-    let top = lp +. (*lp +.*) 1. +. 2. +. 1. in
+    let top = lp +. (*lp +.*) 2. +. 1. +. 1. in
     let score = total_paths_length +. 2.*.compactness +. s_relevance +. p_relevance in
     let score = score /. top in
     if score >= min_score then
-      let marked_string = mark_string reference paths_raw in
+      let marked_string = mark_string (Elt.to_array str) paths_raw in
       Some {
         number_of_paths;
         total_paths_length;

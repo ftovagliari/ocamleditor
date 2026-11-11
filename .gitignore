@@ -20,7 +20,6 @@ err_parser.ml
 err_parser.mli
 Thumbs.db
 *.xcf
-splash*.*
 *.xcf
 *.local.xml
 *.project.local

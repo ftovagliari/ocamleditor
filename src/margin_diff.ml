@@ -13,13 +13,13 @@ let size = 4
 class local (view : Text.view) =
   let color_add =
     let sat, value = if Preferences.preferences#get.theme_is_dark then 0.2, 0.4 else 0.4, 0.2 in
-    `NAME (ColorOps.modify (?? Oe_config.global_gutter_diff_color_add) ~sat ~value)
+    `NAME (ColorOps.modify (?? Oe_config.diff_color_add) ~sat ~value)
   in
   let color_del =
     let sat, value = if Preferences.preferences#get.theme_is_dark then 0.2, 0.4 else 0.4, 0.2 in
-    `NAME (ColorOps.modify (?? Oe_config.global_gutter_diff_color_del) ~sat ~value)
+    `NAME (ColorOps.modify (?? Oe_config.diff_color_delete) ~sat ~value)
   in
-  let color_change = `NAME (?? Oe_config.global_gutter_diff_color_change) in
+  let color_change = `NAME (?? Oe_config.diff_color_change) in
   let bar_width = size - 1 in
   let tri_half_height = bar_width * 8 / 5 in
   let tri_height = tri_half_height * 2 in

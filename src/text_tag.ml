@@ -78,7 +78,7 @@ let update_properties (g : group) pref =
 
   g.mark_occurrences#set_properties [
     `BACKGROUND (?? (pref.editor_mark_occurrences_bg_color));
-    `BACKGROUND_FULL_HEIGHT_SET true];
+    `BACKGROUND_FULL_HEIGHT true];
 
   let bg_color = ?? (pref.Settings_t.editor_bg_color_popup) in
   g.quick_info#set_properties [ `BACKGROUND bg_color ];
@@ -88,10 +88,10 @@ let update_properties (g : group) pref =
 
   g.fold_invisible#set_properties [ `INVISIBLE true ];
 
-  let color_add = (?? Oe_config.global_gutter_diff_color_add) in
+  let color_add = (?? Oe_config.diff_color_add) in
   g.diff_add#set_properties [ `PARAGRAPH_BACKGROUND color_add ];
 
-  let color_del = (?? Oe_config.global_gutter_diff_color_del) in
+  let color_del = (?? Oe_config.diff_color_delete) in
   g.diff_delete#set_properties [ `PARAGRAPH_BACKGROUND color_del ];
 
   g.find_text_result_linenum#set_properties

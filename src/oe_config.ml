@@ -68,9 +68,9 @@ let code_folding_expander_color          = `NAME "#ff0000"
 
 let overview_ruler_size                  = 30
 let gutter_diff_bar_instead_of_triangle  = false
-let global_gutter_diff_color_add         = { light = "#60b060"; dark = "#13401e" }
-let global_gutter_diff_color_del         = { light = "#ff6060"; dark = "#ff0000" }
-let global_gutter_diff_color_change      = { light = "#0079FF"; dark = "#0079FF" }
+let diff_color_add                       = { light = "#60b060"; dark = "#134013" }
+let diff_color_delete                    = { light = "#ff6060"; dark = "#401313" }
+let diff_color_change                    = { light = "#0079FF"; dark = "#0079FF" }
 let global_gutter_diff_style             = (`COLOR false : [`BW | `COLOR of bool])
 let find_replace_history_max_length      = 75
 let find_text_output_linenumber_fgcolor  = { light = "#000000"; dark = "#e1e1e1" }

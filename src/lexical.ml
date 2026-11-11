@@ -20,23 +20,27 @@ let line_starts s =
   in
   next_line ~accu:[0] 0
 
-let rec line_offset ~lines pos =
-  match lines with [] -> invalid_arg "Lexical.line_offset"
-                 | last :: prev ->
-                     if pos >= last then (List.length prev, pos - last)
-                     else line_offset ~lines:prev pos
+(** [pos_to_line_col ~lines pos] computes the tuple [(line_index, column_offset)] for the
+    given character position [pos], based on the list of line-start character
+    positions [lines], sorted in descending order.
+    Raises [Invalid_argument] if [lines] is empty. *)
+let rec pos_to_line_col ~lines pos =
+  match lines with
+  | [] -> invalid_arg __FUNCTION__
+  | last :: prev ->
+      if pos >= last then (List.length prev, pos - last)
+      else pos_to_line_col ~lines:prev pos
 
-let tpos ~(start : GText.iter) ~lines pos =
-  let l, c = line_offset ~lines pos in
-  let result =
-    if l = 0 then begin
-      let li = start#line_index in
-      let result = start#set_line_index (c + li) in
-      result
-    end else
-      (start#forward_lines l)#set_line_index c
-  in
-  result
+(** [move_iter_to_pos ~start ~lines pos] moves the text iterator [start] to the target character
+    position [pos] based on the line offsets [lines], which is a list of line-start
+    character positions, sorted in descending order. *)
+let move_iter_to_pos ~(start : GText.iter) ~lines pos =
+  let l, c = pos_to_line_col ~lines pos in
+  if l = 0 then begin
+    let li = start#line_index in
+    start#set_line_index (c + li)
+  end else
+    (start#forward_lines l)#set_line_index c
 
 let tag_lident = function
   | _, METHOD, _, _ | _, PRIVATE, _, _ -> "method_name_def"
@@ -62,7 +66,7 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
   (*  *)
   let text = buffer#get_text ~start ~stop () in
   let lines = line_starts text in
-  let tpos = tpos ~start ~lines in
+  let move_start_to_pos = move_iter_to_pos ~start ~lines in
   let lexbuf = Lexing.from_string text in
   let comments = Comments.scan_utf8 text in
   let succ_comments = ref comments in
@@ -180,7 +184,7 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
               begin match [@warning "-4"] !last with
                 _, LIDENT _, lstart, lstop ->
                   if lstop = start then
-                    buffer#apply_tag_by_name "label" ~start:(tpos lstart) ~stop:(tpos lstop);
+                    buffer#apply_tag_by_name "label" ~start:(move_start_to_pos lstart) ~stop:(move_start_to_pos lstop);
                   ""
               | _ -> ""
               end
@@ -208,7 +212,7 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
           | EOF -> raise End_of_file
         in
         if tag <> "" then
-          buffer#apply_tag_by_name tag ~start:(tpos start) ~stop:(tpos lstop);
+          buffer#apply_tag_by_name tag ~start:(move_start_to_pos start) ~stop:(move_start_to_pos lstop);
         last_but_one := !last;
         last := (tag, token, start, lstop)
       with Lexer.Error _ -> ()
@@ -222,9 +226,9 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
               Utils.Search.Append (pos, pos + String.length mat, mat)
             end (String.sub text b (e - b)) in
           let (*b = b and*) e = e - 2 in
-          buffer#apply_tag_by_name Text_tag.Name.comment ~start:(tpos b) ~stop:(tpos e);
+          buffer#apply_tag_by_name Text_tag.Name.comment ~start:(move_start_to_pos b) ~stop:(move_start_to_pos e);
           List.iter begin fun (b1, e1, _) ->
-            buffer#apply_tag_by_name Text_tag.Name.comment ~start:(tpos (b + b1)) ~stop:(tpos (b + e1))
+            buffer#apply_tag_by_name Text_tag.Name.comment ~start:(move_start_to_pos (b + b1)) ~stop:(move_start_to_pos (b + e1))
           end ms
         end
       end (match comments with Comments.Utf8 x -> x | _ -> failwith "Lexical: Comments.Locale");

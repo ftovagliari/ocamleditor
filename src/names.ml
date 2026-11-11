@@ -40,17 +40,17 @@ let get_project_source_filenames project =
 module FS = Fuzzy_search.Make(Fuzzy_search.Letter)
 
 let filter pattern db =
-  let compare (a, b) = FS.compare ~min_score:0.80 Greedy a b in
+  let compare (a, b) = FS.compare ~min_score:0.60 ~min_path_len:3 Greedy a b in
   Mutex.protect mx_name_db begin fun () ->
     db.table
     |> List.map (fun entry ->
         entry.values
         |> List.filter_map begin fun val_entry ->
           let result = compare (pattern, val_entry.name) in
-          result |> Option.map (fun r -> r.FS.score, val_entry)
+          result |> Option.map (fun r -> r.FS.score, val_entry, Some r.FS.marked_string)
         end)
     |> List.concat
-    |> List.sort (fun (a, _) (b, _) -> Stdlib.compare b a)
+    |> List.sort (fun (a, _, _) (b, _, _) -> Stdlib.compare b a)
   end
 
 let normalize_stdlib_name modname =
