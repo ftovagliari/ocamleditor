@@ -103,7 +103,7 @@ class ocaml_shell ?project () =
       sh#quit ()
     initializer
       let path = match project with None -> assert false
-                                  | Some p -> (p.Prj.root // Prj.default_dir_src) in
+                                  | Some p -> (p.Prj.local.Prj.root // Prj.default_dir_src) in
       let filechooser ~title ~filters phrase () =
         let dialog = GWindow.file_chooser_dialog ~action:`OPEN ~width:600 ~height:600
             ~title:"Select project..." ~position:`CENTER ~show:false () in

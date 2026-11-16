@@ -50,13 +50,11 @@ let install_fonts () =
 (** main *)
 let main () = begin
   Unix.putenv "LC_MESSAGES" "C";
-  install_fonts();
   let open Preferences in
-  (* let _ = About.build_id := Build_id.timestamp in
-     let _ = About.git_hash := Build_id.git_hash in *)
   let _locale = GtkMain.Main.init ~setlocale:false () in
-
   let start splashscreen =
+    Messages.vpaned := Some (GPack.paned `VERTICAL ());
+    Messages.hpaned := Some (GPack.paned `HORIZONTAL ());
     let window = GWindow.window
         ~title:About.program_name
         ~icon:(??? Icons.oe)
@@ -68,32 +66,31 @@ let main () = begin
         ~kind:`TOPLEVEL
         ~show:true ()
     in
+    Gaux.may splashscreen ~f:(fun w ->
+        w#event#connect#button_press ~callback:(fun _ -> w#destroy(); false) |> ignore;
+        w#set_transient_for window#as_window);
     Gtk_theme.set_theme ~context:window#misc#pango_context ();
     let _ = new Theme.monitor window in
     let browser = Browser.create window in
     (* Before browser initialization *)
     browser#connect#startup ~callback:begin fun () ->
-      Gaux.may splashscreen ~f:(fun w ->
-          w#event#connect#button_press ~callback:(fun _ -> w#destroy(); false) |> ignore;
-          w#set_transient_for window#as_window);
+      install_fonts();
+      Custom_css.apply();
       Sys.chdir (Filename.dirname Sys.executable_name);
       Project_json.init();
     end |> ignore;
     browser#connect#after#startup ~callback:begin fun () ->
-      window#present();
-      Gaux.may splashscreen ~f:(fun w ->
-          Gmisclib.Timeout.add "splashscreen" ~ms:2000 ~callback:(fun () ->
-              w#destroy();
-              Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
-              false
-            )  |> ignore;
-        );
+      Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
+      Gaux.may splashscreen ~f:begin fun w ->
+        Gmisclib.Timeout.add "splashscreen" ~ms:2000 ~callback:begin fun () ->
+          w#destroy();
+          false
+        end |> ignore;
+      end;
     end |> ignore;
     (*  *)
     browser#startup();
   in
-  Messages.vpaned := Some (GPack.paned `VERTICAL ());
-  Messages.hpaned := Some (GPack.paned `HORIZONTAL ());
   begin
     match Browser.splashscreen() with
     | None -> start None
@@ -113,9 +110,8 @@ let main () = begin
             false
           end |> ignore;
         end |> ignore;
-        splashscreen#present();
+        splashscreen#show();
   end;
-  Custom_css.apply();
   GtkThread.main ();
 end
 

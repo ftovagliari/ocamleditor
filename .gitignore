@@ -55,3 +55,4 @@ src/icons/icons.ml
 src/project_j.*
 src/project_t.*
 ocamleditor.local.json
+AppImage/

@@ -138,8 +138,7 @@ let read filename =
   let task_map = ref [] in
   Xml.iter begin fun node ->
     match Xml.tag node with
-    | "ocaml_home" -> proj.ocaml_home <- value node
-    | "ocamllib" -> proj.ocamllib <- value node
+    | "ocamllib" -> proj.local.ocamllib <- value node
     | "encoding" -> proj.encoding <- (match value node with "" -> None | x -> Some x)
     | "name" -> proj.name <- value node
     | "author" -> proj.author <- value node
@@ -151,7 +150,7 @@ let read filename =
         proj.autocomp_cflags <- (Xml.attrib node "cflags");
     | "editor_view_state" | "load_files" -> (* backward compatibility with 1.7.2 *)
         let files = Xml.fold (fun acc x -> ((value x), 0, (get_offset x), (get_active x)) :: acc) [] node in
-        proj.editor_view_state <- List.rev files;
+        proj.local.editor_view_state <- List.rev files;
     | "executables" | "runtime" (* Backward compatibility with 1.7.5 *) ->
         let runtime = Xml.fold begin fun acc tnode ->
             let config  = {
@@ -333,7 +332,7 @@ let read filename =
     | _ -> ()
   end;
   (* Translate ocamllib: "" -> 'ocamlc -where' *)
-  set_ocaml_home ~ocamllib:proj.ocamllib proj;
+  set_ocaml_home proj;
   (*  *)
   proj;;
 
@@ -356,7 +355,7 @@ let from_local_xml proj =
       match Xml.tag node with
       | "editor_view_state" ->
           let files = Xml.fold (fun acc x -> ((value x), (get_int "scroll" x), (get_cursor x), (get_active x)) :: acc) [] node in
-          proj.editor_view_state <- List.rev files;
+          proj.local.editor_view_state <- List.rev files;
       | "bookmarks" ->
           Xml.iter begin fun xml ->
             let bm = {

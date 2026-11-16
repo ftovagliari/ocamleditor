@@ -57,7 +57,7 @@ let load_custom kind =
   in
   match kind with
   | `project project ->
-      let filename = project.Prj.root // Oe_config.template_project_filename in
+      let filename = project.Prj.local.Prj.root // Oe_config.template_project_filename in
       load filename Project;
   | `user ->
       let filename = Preferences.preferences#get.editor_custom_templ_filename in

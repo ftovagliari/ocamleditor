@@ -22,13 +22,12 @@
 
 
 let program_name = "OCamlEditor"
-let version = "3.0.1-ocaml550"
+let version = "3.0.1"
+let version_suffix = "ocaml550"
 let copyright = "Copyright © 2010 - 2026 OCamlEditor Team"
-let website_url = "github.com/ocamleditor/ocamleditor"
-let website = "https://" ^ website_url ^ "/"
-let project_url = "https://github.com/ocamleditor/ocamleditor"
-let issues = "https://github.com/ocamleditor/ocamleditor/issues"
-let releases = "https://github.com/ocamleditor/ocamleditor/releases"
+let website = "https://github.com/ftovagliari/ocamleditor"
+let issues = website ^ "/issues"
+let releases = website ^ "/releases"
 let build_id = ref ""
 let git_hash = ref ""
 

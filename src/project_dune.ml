@@ -274,7 +274,7 @@ let render proj =
   (* A stanza may only be published if the project declares a package. *)
   let packages =
     try
-      Sys.readdir proj.Prj.root
+      Sys.readdir proj.Prj.local.Prj.root
       |> Array.to_list
       |> List.filter (fun name -> Filename.check_suffix name ".opam")
       |> List.map Filename.remove_extension
@@ -822,7 +822,7 @@ let write proj =
   let generated = ref [] and changed = ref [] and removed = ref [] in
   files |> List.iter begin fun (relative, content) ->
     let relative = if !dry_run then relative ^ ".generated" else relative in
-    let filename = proj.Prj.root // relative in
+    let filename = proj.Prj.local.Prj.root // relative in
     generated := filename :: !generated;
     let existing = if Sys.file_exists filename then read_file filename else None in
     match existing with
@@ -852,11 +852,11 @@ let write proj =
      breaks the whole build. Only marker-bearing files under the source
      directory are considered, so dune-project and hand-written files are safe. *)
   if not !dry_run then begin
-    let src = proj.Prj.root // Prj.default_dir_src in
+    let src = proj.Prj.local.Prj.root // Prj.default_dir_src in
     File_util.readdirs (Some (fun name -> Filename.basename name = "dune")) src
     |> List.iter begin fun filename ->
       if not (List.mem filename !generated) && is_generated filename then begin
-        let relative = Utils.filename_relative proj.Prj.root filename in
+        let relative = Utils.filename_relative proj.Prj.local.Prj.root filename in
         let relative = Option.value relative ~default:filename in
         try
           Sys.remove filename;

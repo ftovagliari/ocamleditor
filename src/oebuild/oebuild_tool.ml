@@ -71,6 +71,7 @@ let main () =
   let jobs = ref 0 in
   let serial = ref false in
   let verbose = ref 2 in
+  let opam_switch = ref "" in
   let add_target x = toplevel_modules := x :: !toplevel_modules in
   let add_compilation x () = compilation := x :: !compilation in
   let set_run_args x = run_args := x :: !run_args in
@@ -94,6 +95,7 @@ let main () =
     enabled := check_restrictions restr
   in
   let speclist = Arg.align [
+      ("-switch",      Set_string opam_switch,          " Choose opam switch.");
       ("-byt",         Unit (add_compilation Bytecode), " Bytecode compilation (default).");
       ("-opt",         Unit (add_compilation Native),   " Native-code compilation.");
       ("-c",           Set compile_only,                " Compile only.");
@@ -241,10 +243,24 @@ let main () =
                  with None -> () | Some outname -> run_output ~outname ~args:!run_args)
             | None -> ()
           end
-        with Not_found -> (invalid_arg "-run-opt or -run-byt")
+        with Not_found -> invalid_arg "-run-opt or -run-byt"
       end;
     end
   in
+  let apply_opam_switch sw =
+    ksprintf Shell.get_command_output "opam env --switch=%s --set-switch --shell=sh" sw
+    |> List.iter begin fun line ->
+      Printf.printf "%s\n%!" line;
+      String.split_all ~sep:";" ~drop:(fun x -> String.trim x = "") line
+      |> List.iter begin fun nv ->
+        match String.split_first ~sep:"=" nv with
+        | Some (name, value) -> Unix.putenv name (String.sub value 1 (String.length value - 2))
+        | _ -> ()
+      end
+    end;
+    Oebuild_util.command "ocaml --version" |> ignore;
+  in
+  if String.trim !opam_switch <> "" then apply_opam_switch !opam_switch;
   if !verbose >= 3 then Oebuild_util.crono ~label:"Build time" main' () else main' ()
 
 let _ = main ()

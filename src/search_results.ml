@@ -295,7 +295,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
                     let lnum = iter#line + 1 in
                     if List.mem_assoc lnum acc then acc else
                       let start = iter#set_line_index 0 in
-                      let stop = iter#forward_to_line_end in
+                      let stop = iter#forward_to_line_end in (* TODO crashed here (forward_to_line_end) *)
                       let text = buffer#get_text ~start ~stop () in
                       (lnum, text) :: acc
                   end [] locs)

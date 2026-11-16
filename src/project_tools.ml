@@ -239,7 +239,7 @@ let rm_tools tg tools =
 (** write_findlib_tools *)
 let write_findlib_tools proj =
   let has_fl_packages = List.exists (fun tg -> tg.Target.is_fl_package) proj.targets in
-  let dirname = proj.root // Prj.default_dir_tools in
+  let dirname = proj.local.root // Prj.default_dir_tools in
   let filename = dirname // default_fl_installer_basename in
   let tools = List.find_opt (fun tg -> tg.Target.name = findlib_target_name && tg.target_type = Target.External) proj.targets in
   let scriptname = Prj.default_dir_tools ^ "/" ^ default_fl_installer_basename in

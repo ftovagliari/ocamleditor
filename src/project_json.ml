@@ -17,7 +17,7 @@ let from_local_json proj =
       close_in_noerr ic;
       let content = Bytes.to_string content in
       let project_local = Project_j.project_local_of_string content in
-      proj.editor_view_state <- project_local.Project_t.editor_view_state;
+      proj.local.editor_view_state <- project_local.Project_t.editor_view_state;
       let bms =
         project_local.Project_t.bookmarks
         |> List.map begin fun (bm_filename, bm_num, offset) ->
@@ -29,7 +29,7 @@ let from_local_json proj =
           }
         end
       in
-      proj.bookmarks <- bms;
+      proj.local.bookmarks <- bms;
     with _ ->
       (* Fallback to XML parsing if JSON parsing fails *)
       Project_xml_backcompat.from_local_xml proj
@@ -149,8 +149,7 @@ and atd_of_build_script (bs : Build_script.t) =
 
 let atd_of_project (p : Prj.t) =
   Project_t.{
-    ocaml_home = p.ocaml_home;
-    ocamllib = (if p.ocamllib_from_env then p.ocamllib else "");
+    ocamllib = "";
     encoding = p.encoding;
     name = p.name;
     author = p.author;
@@ -310,8 +309,7 @@ let read_json filename =
     let atd = Project_j.project_of_string content in
     (* convert atd -> Prj.t *)
     let proj = Project.create ~filename () in
-    proj.ocaml_home <- atd.Project_t.ocaml_home;
-    proj.ocamllib <- atd.Project_t.ocamllib;
+    proj.local.ocamllib <- atd.Project_t.ocamllib;
     proj.encoding <- atd.Project_t.encoding;
     proj.name <- atd.Project_t.name;
     proj.author <- atd.Project_t.author;
@@ -340,8 +338,7 @@ let read_json filename =
           args = r_atd.Project_t.args;
         } end;
     proj.build_script <- build_script_of_atd atd proj;
-    (* Translate ocamllib: "" -> 'ocamlc -where' *)
-    set_ocaml_home ~ocamllib:proj.ocamllib proj;
+    set_ocaml_home proj;
     proj
   with _ -> Project_xml_backcompat.read filename
 

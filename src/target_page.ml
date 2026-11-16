@@ -125,7 +125,7 @@ class view ~project ~target_list ?packing () =
     end in
   (** Install path for library *)
   let box = GPack.vbox ~packing:lbox#pack () in
-  let ocamllib = project.Prj.ocamllib in
+  let ocamllib = project.Prj.local.Prj.ocamllib in
   let markup = sprintf "Installation path, relative to the standard library directory (<small><tt>%s</tt></small>) " ocamllib in
   let _ = GMisc.label ~markup ~xalign:0.0 ~packing:box#pack () in
   let hbox = GPack.hbox ~spacing:3 ~packing:box#pack () in

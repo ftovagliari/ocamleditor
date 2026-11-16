@@ -50,11 +50,6 @@ let system_properties () =
 
 (** about *)
 let about () =
-  let version, _ =
-    match About.version |> Str.split (Str.regexp "[~-]") with
-    | version :: comments :: _ -> version, comments
-    | _ -> "", ""
-  in
   (*let logo = GdkPixbuf.create ~width:1 ~height:1 () in*)
   let dialog = GWindow.about_dialog
       ~modal:true
@@ -62,10 +57,9 @@ let about () =
       ~position:`CENTER
       ~icon:(??? Icons.oe)
       ~name:About.program_name
-      ~version
+      ~version:About.version
       ~copyright:About.copyright
       ~logo:(??? Icons.logo)
-      (*~comments*)
       ~license:{|OCamlEditor is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
@@ -81,29 +75,9 @@ let about () =
       ~show:false
       ()
   in
-  let vbox = dialog#vbox in
-  (*let image = GMisc.image ~file:"/home/frank/ocaml/ocamleditor/src/icons/dark/logo.gif" ~packing:vbox#add () in
+  (*let vbox = dialog#vbox in
+    let image = GMisc.image ~file:"/home/frank/ocaml/ocamleditor/src/icons/dark/logo.gif" ~packing:vbox#add () in
     vbox#reorder_child image#coerce ~pos:1;*)
-  let modify_label ?(color="#808080") label =
-    label#misc#modify_fg [`NORMAL, `NAME color];
-    label#misc#modify_font_by_name "Sans 7";
-  in
-  let hbox = GPack.hbox ~packing:vbox#pack ~show:false () in
-  (* Link website *)
-  let link_button = GButton.button ~relief:`NONE ~packing:hbox#add () in
-  let label = GMisc.label ~text:(sprintf "Visit the %s website" About.program_name) ~packing:link_button#add () in
-  modify_label ~color:"#0000ff" label;
-  link_button#set_focus_on_click false;
-  ignore (link_button#connect#clicked ~callback:(fun () ->
-      ksprintf open_url "%s?%s-%s-%s"
-        About.website Sys.os_type About.version !About.build_id));
-
-  (* Report a bug *)
-  let link_button = GButton.button ~relief:`NONE ~packing:hbox#add () in
-  let label = GMisc.label ~text:"Report an issue" ~packing:link_button#add () in
-  modify_label ~color:"#0000ff" label;
-  link_button#set_focus_on_click false;
-  ignore (link_button#connect#clicked ~callback:(fun () -> open_url About.issues));
   match dialog#run() with _ -> dialog#destroy()
 
 

@@ -101,7 +101,6 @@ type autocomp = {
 }
 
 type project = {
-  ~ocaml_home <ocaml default="\"\"" > : string;
   ~ocamllib   <ocaml default="\"\"" > : string;
   ~encoding   <ocaml default="None"> : string option;
   ~name       <ocaml default="\"\"" > : string;

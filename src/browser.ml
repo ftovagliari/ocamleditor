@@ -71,6 +71,8 @@ class browser window =
   (* Status bar *)
   let statusbar = new Statusbar.widget ~packing:vbox#pack () in
   let gitbar = new Statusbar.gitbar ~packing:(statusbar#pack ~from:`END) () in
+  let _ = GMisc.separator `HORIZONTAL ~packing:(statusbar#pack ~from:`END) () in
+  let opambar = new Statusbar.opambar ~packing:(statusbar#pack ~from:`END) () in
   let _ =
     if Oe_config.unify_statusbars then
       editor#connect#switch_page ~callback:(fun page -> statusbar#pack_editorbar page#statusbar) |> ignore;
@@ -81,11 +83,11 @@ class browser window =
   let activate_spinner (active : Activity.t list) =
     match active with
     | [] ->
-        statusbar#spinner#set_pixbuf (??? Icons.empty_16);
+        statusbar#spinner#stop ();
         statusbar#spinner#misc#set_tooltip_text "";
     | msgs ->
         let msgs = snd (List.split msgs) in
-        statusbar#spinner#set_file (Icon.get_themed_filename "spinner_16.gif");
+        statusbar#spinner#start ();
         statusbar#spinner#misc#set_tooltip_text (String.concat "\n" (List.rev msgs));
   in
   let _ =
@@ -207,10 +209,9 @@ class browser window =
       self#project_close();
       let proj = Project.load filename in
       current_project#set (Some proj);
-      Project.load_path proj;
       editor#set_history_switch_page_locked true;
       editor#set_project proj;
-      Sys.chdir (proj.root // Prj.default_dir_src);
+      Sys.chdir (proj.local.root // Prj.default_dir_src);
       Gmisclib.Idle.add ~prio:300 self#set_title;
       (File_history.add project_history) filename;
       Names.Cache.load ~project:proj;
@@ -227,18 +228,18 @@ class browser window =
       let is_active_set = ref false in
       List.iteri begin fun i (filename, scroll_offset, offset, active) ->
         let filename = List.fold_left (//) "" (filename_split filename) in
-        let active = active || (not !is_active_set && List.length proj.editor_view_state = (i + 1)) in
+        let active = active || (not !is_active_set && List.length proj.local.editor_view_state = (i + 1)) in
         editor#open_file ~active ~offset ?remote:None filename |> ignore;
         is_active_set := active || !is_active_set;
-      end proj.editor_view_state;
+      end proj.local.editor_view_state;
       editor#set_history_switch_page_locked false;
-      proj.editor_view_state <- [];
+      proj.local.editor_view_state <- [];
       proj.modified <- false;
       proj
 
     method dialog_project_open () =
       let project_home =
-        match self#current_project#get with Some p -> p.Prj.root | _ -> App_config.user_home
+        match self#current_project#get with Some p -> p.Prj.local.Prj.root | _ -> App_config.user_home
       in
       let pat1 = "*"^Prj.default_extension in
       let pat2 = "*"^Prj.old_extension in
@@ -357,7 +358,7 @@ class browser window =
 
     method dialog_find_file ?all () =
       self#with_current_project begin fun project ->
-        let current = project.Prj.root in
+        let current = project.Prj.local.Prj.root in
         let roots = project_history.File_history.content in (* project filenames .xml *)
         let roots = List.filter ((<>) current) (List.map Filename.dirname roots) in
         let roots = current :: roots in
@@ -1116,11 +1117,6 @@ let splashscreen () =
     in
     let width = GdkPixbuf.get_width image#pixbuf in
     let height = GdkPixbuf.get_height image#pixbuf in
-    let version, _ =
-      match About.version |> Str.split (Str.regexp "[~-]") with
-      | version :: comments :: _ -> version, comments
-      | _ -> "", ""
-    in
     let window = GWindow.window
         ~width ~height
         ~title:About.program_name
@@ -1144,7 +1140,7 @@ let splashscreen () =
     info#set_angle 24.5;
     info#set_label
       (sprintf "<span font='Futurismo 10' color='#ca4425'>%s</span>\n<span font='OCamlEditor 6' color='#f5ddb7'>version %s</span>"
-         About.program_name version);
+         About.program_name About.version);
 
     (*info#set_margin_top 350;
       info#set_margin_left 300;

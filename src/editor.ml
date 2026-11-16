@@ -228,7 +228,7 @@ class editor () =
 
     method bookmark_remove ~num =
       self#with_current_page begin fun page ->
-        let bm = Bookmark.find project.Prj.bookmarks num in
+        let bm = Bookmark.find Prj.(project.local.bookmarks) num in
         bm |> Option.iter (fun old -> old.Oe.bm_marker |> Option.iter (fun m -> page#margin_markers#remove [m]));
         Project.Bookmark.remove project num;
         page#margin_manager#build()
@@ -239,7 +239,7 @@ class editor () =
         let filename = page#get_filename in
         let where = match where with Some x -> x | _ -> page#buffer#get_iter `INSERT in
         let mark = page#buffer#create_mark where in
-        let old_bm = Bookmark.find project.Prj.bookmarks num in
+        let old_bm = Bookmark.find Prj.(project.local.bookmarks) num in
         old_bm |> Option.iter (fun old ->
             old.Oe.bm_marker |> Option.iter (fun old_marker ->
                 GtkText.Mark.get_buffer old_marker.Gutter.mark |> Option.iter (fun buf ->
@@ -259,7 +259,7 @@ class editor () =
 
     method bookmark_goto ~num =
       try
-        let bm = List.find (fun bm -> bm.Oe.bm_num = num) project.Prj.bookmarks in
+        let bm = List.find (fun bm -> bm.Oe.bm_num = num) Prj.(project.local.bookmarks) in
         match self#get_page (`FILENAME bm.Oe.bm_filename) with
         | None when Sys.file_exists bm.Oe.bm_filename ->
             let _ = self#open_file ~active:true ~offset:0 bm.Oe.bm_filename in
@@ -268,7 +268,7 @@ class editor () =
             Dialog.info ~title:"File does not exist" ~message_type:`INFO
               ~message:(sprintf "File \xC2\xAB%s\xC2\xBB does not exist." bm.Oe.bm_filename) self;
             Project.Bookmark.remove project num;
-            Bookmark.find project.Prj.bookmarks num
+            Bookmark.find Prj.(project.local.bookmarks) num
             |> Option.iter (fun bm -> bm.Oe.bm_marker |> Option.iter (fun m -> Gutter.destroy_markers [m]));
             self#bookmark_remove ~num
         | Some page ->

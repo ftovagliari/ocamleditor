@@ -38,7 +38,7 @@ class widget ~project ?packing () =
   let _               = GMisc.label ~text:text_filename ~xalign:0.0 ~packing:fbox#pack () in
   let box             = GPack.hbox ~spacing:5 ~packing:fbox#pack () in
   let entry_filename  = GEdit.entry
-      ~text:(project.Prj.root // build_script.bs_filename)
+      ~text:(project.Prj.local.Prj.root // build_script.bs_filename)
       ~packing:box#add () in
   let button_filename = GButton.button ~label:"  ...  " ~packing:box#pack () in
   let notebook        = GPack.notebook ~packing:vbox#add () in

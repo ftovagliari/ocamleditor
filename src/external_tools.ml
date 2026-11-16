@@ -64,8 +64,8 @@ let get_macros ~get_editor ~get_current_project () =
     | Some page -> (match page#file with None -> "" | Some file -> file#filename)
   in
   let macros = [
-    "$(project_home)", project.root;
-    "$(project_source)", (project.root // Prj.default_dir_src);
+    "$(project_home)", project.local.root;
+    "$(project_source)", (project.local.root // Prj.default_dir_src);
     "$(project_name)", project.name;
     "$(current_filename)", current_filename;
     "$(current_filename_dir)", (Filename.dirname current_filename);

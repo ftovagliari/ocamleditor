@@ -137,7 +137,23 @@ let remove_file ?(verbose=false) filename =
     if Sys.file_exists filename then (Sys.remove filename; if verbose then print_endline filename)
   with Sys_error ex -> eprintf "%s\n%!" ex
 
-(** command *)
+(*let command ?(echo=true) ?env cmd =
+  (*if echo then (printf "%s\n%!" cmd);*)
+  let env = match env with
+    | Some e -> e
+    | None -> Unix.environment ()
+  in
+  let pid = Unix.create_process_env "/bin/sh" [| "sh"; "-c"; cmd |] env Unix.stdin Unix.stdout Unix.stderr in
+  let exit_code = match snd (Unix.waitpid [] pid) with
+    | Unix.WEXITED code -> code
+    | Unix.WSIGNALED s -> -s
+    | Unix.WSTOPPED s -> -s
+  in
+  Printf.printf "%s --> %d\n%!" cmd exit_code;
+  Stdlib.flush stderr;
+  Stdlib.flush stdout;
+  exit_code*)
+
 let command ?(echo=true) cmd =
   if echo then (printf "%s\n%!" cmd);
   let exit_code = Sys.command cmd in

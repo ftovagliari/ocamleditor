@@ -1,5 +1,8 @@
 opam-version: "2.0"
 
+name: "ocamleditor"
+version: "3.0.1"
+
 synopsis:
   "OCamlEditor is a GTK+ source code editor and build tool for OCaml"
 description:
@@ -27,7 +30,6 @@ depends: [
   "xml-light" {>= "2.5"}
   "yojson" 
   "atdgen" 
-  "ocamldiff" {>= "1.2"}
   "merlin" 
   "inotify"
   "ocurl"

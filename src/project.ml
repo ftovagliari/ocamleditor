@@ -41,11 +41,11 @@ let from_local_json : (t -> unit) ref = ref (fun _ -> failwith "from_local_json"
 
 module Path = struct
 
-  let src p = p.root // default_dir_src
-  let bak p = p.root // default_dir_bak
-  let tmp p = p.root // default_dir_tmp
-  let cache p = p.root // ".cache"
-  let dot_oebuild p = p.root // default_dir_src // ".oebuild"
+  let src p = p.local.root // default_dir_src
+  let bak p = p.local.root // default_dir_bak
+  let tmp p = p.local.root // default_dir_tmp
+  let cache p = p.local.root // ".cache"
+  let dot_oebuild p = p.local.root // default_dir_src // ".oebuild"
 
   let tmp_of_abs proj filename =
     match proj.Prj.in_source_path filename with
@@ -58,12 +58,12 @@ module Path = struct
     | Some relname -> (src proj) // relname
 
   (** Returns the full filename of the project configuration file. *)
-  let fullname proj = Filename.concat proj.root (proj.name ^ Prj.default_extension)
-  let fullname_old proj = Filename.concat proj.root (proj.name ^ Prj.old_extension)
+  let fullname proj = Filename.concat proj.local.root (proj.name ^ Prj.default_extension)
+  let fullname_old proj = Filename.concat proj.local.root (proj.name ^ Prj.old_extension)
 
   (** Returns the full filename of the project local configuration file. *)
-  let fullname_local proj = Filename.concat proj.root (proj.name ^ Prj.default_local_extension)
-  let fullname_local_old proj = Filename.concat proj.root (proj.name ^ Prj.old_local_extension)
+  let fullname_local proj = Filename.concat proj.local.root (proj.name ^ Prj.default_local_extension)
+  let fullname_local_old proj = Filename.concat proj.local.root (proj.name ^ Prj.old_local_extension)
 
   let name fullname =
     let name = Filename.basename fullname in
@@ -74,42 +74,28 @@ module Path = struct
 end
 
 (** set_ocaml_home *)
-let set_ocaml_home ~ocamllib project =
-  let ocamllib, from_env =
-    match ocamllib with
-    | "" -> Ocaml_config.ocamllib (), false
-    | path when Sys.file_exists path -> path, true
-    | _ -> Ocaml_config.ocamllib (), false
-  in
-  project.ocaml_home <- "";
-  project.ocamllib <- ocamllib;
-  project.ocamllib_from_env <- from_env;
-  Unix.putenv "OCAML_HOME" project.ocaml_home;
-  Ocaml_config.putenv_ocamllib ();
+let set_ocaml_home project =
+  project.local.ocamllib <- Ocaml_config.ocamllib ();
+  Ocaml_config.unset_ocamllib ();
   project.autocomp_compiler <- Ocaml_config.ocamlc();
-  ignore (Thread.create begin fun () ->
-      project.can_compile_native <- (Ocaml_config.can_compile_native ~ocaml_home:project.ocaml_home ()) <> None;
-    end ())
-
-(** can_compile_native *)
-let can_compile_native proj = (Ocaml_config.can_compile_native ~ocaml_home:proj.ocaml_home ()) <> None
+  Thread.create (fun () ->
+      project.can_compile_native <-
+        (Ocaml_config.can_compile_native ~ocaml_home:"" ()) <> None) () |> ignore;(* TODO ~ocaml_home:"" ? *)
+  Printf.printf "project.autocomp_compiler = %s\n%!" project.autocomp_compiler;
+  Printf.printf "project.ocamllib          = %s\n%!" project.local.ocamllib;
+;;
 
 (** create *)
 let create ~filename () =
   let root = Filename.dirname filename in
-  let ocamllib, from_env = match Oe_config.getenv_ocamllib with None -> "", false | Some x -> x, true in
   let proj = {
-    root               = root;
-    ocaml_home         = "";
-    ocamllib           = ocamllib;
-    ocamllib_from_env  = from_env;
+    local = { root; ocamllib = ""; editor_view_state  = []; bookmarks = [] };
     encoding           = Some "UTF-8";
     name               = Path.name filename;
     modified           = true;
     author             = "";
     description        = "";
     version            = "1.0.0";
-    editor_view_state  = [];
     targets            = [];
     executables        = [];
     autocomp_enabled   = true;
@@ -127,7 +113,6 @@ let create ~filename () =
       bs_args                  = [];
       bs_commands              = [];
     };
-    bookmarks          = [];
     file_watcher = None;
   } in
   proj;;
@@ -159,29 +144,23 @@ let get_search_path_i_format proj =
 (** get_search_path_local *)
 let get_search_path_local proj =
   let paths = proj.search_path in
-  (proj.root // default_dir_src) ::
+  (proj.local.root // default_dir_src) ::
   List.filter_map begin fun path ->
     if path.[0] = '+' then None
     else if not (Filename.is_relative path) then None
-    else Some (proj.root // default_dir_src // path)
+    else Some (proj.local.root // default_dir_src // path)
   end paths;;
 
 (** Returns the {i load path} of the project: includes and [src]. *)
 let get_load_path proj =
   let includes = proj.search_path in
   let includes = "+threads" :: includes in
-  let ocamllib = proj.ocamllib in
+  let ocamllib = proj.local.ocamllib in
   let paths = List.map begin fun inc ->
       if inc.[0] = '+' then (Filename.concat ocamllib (String.sub inc 1 (String.length inc - 1)))
       else inc
     end includes in
-  ocamllib :: (List.filter ((<>) ocamllib) ((proj.root // default_dir_src) :: paths))
-
-(** [load_path proj] adds to module [Load_path] the {i load path} of [proj].*)
-let load_path proj = List.iter (Load_path.add_dir ~hidden:false) (get_load_path proj)
-
-(** [unload_path proj] removes from [Load_path] the {i load path} of [proj].*)
-let unload_path proj = List.iter Load_path.remove_dir (get_load_path proj)
+  ocamllib :: (List.filter ((<>) ocamllib) ((proj.local.root // default_dir_src) :: paths))
 
 let write_json_file filename json_str =
   let json_str =  Yojson.Safe.prettify json_str in
@@ -255,7 +234,7 @@ module Index = struct
 end
 
 let save_dot_merlin proj =
-  let filename = proj.root // ".merlin" in
+  let filename = proj.local.root // ".merlin" in
   let ochan = open_out_bin filename in
   let finally () = close_out_noerr ochan in
   try
@@ -293,26 +272,25 @@ let load filename =
     (try !from_local_xml proj with _ -> ())
   end;
   (*  *)
-  proj.root <- Filename.dirname filename;
+  proj.local.root <- Filename.dirname filename;
   (*  *)
-  if not (Sys.file_exists (proj.root // default_dir_tmp)) then (Unix.mkdir (proj.root // default_dir_tmp) 0o777);
+  if not (Sys.file_exists (proj.local.root // default_dir_tmp)) then (Unix.mkdir (proj.local.root // default_dir_tmp) 0o777);
   (*  *)
-  proj.editor_view_state <-
+  proj.local.editor_view_state <-
     List.map begin fun (filename, scroll_offset, offset, active) ->
-      (if Filename.is_implicit filename then proj.root // default_dir_src // filename else filename),
+      (if Filename.is_implicit filename then proj.local.root // default_dir_src // filename else filename),
       scroll_offset, offset, active
-    end proj.editor_view_state;
+    end proj.local.editor_view_state;
   (*  *)
   proj.search_path <- get_search_path proj;
   (* Delete obsolete bookmarks *)
-  proj.bookmarks <- proj.bookmarks |> List.filter (fun bm -> bm.Oe.bm_num <= Oe_config.bookmark_limit);
+  proj.local.bookmarks <- proj.local.bookmarks |> List.filter (fun bm -> bm.Oe.bm_num <= Oe_config.bookmark_limit);
   save_dot_merlin proj;
   Index.start_watcher proj;
   proj;;
 
 let unload proj =
-  Index.stop_watcher proj;
-  unload_path proj
+  Index.stop_watcher proj
 
 (* Convert current project state to ATD project_local value *)
 let project_local_of_proj proj =
@@ -324,9 +302,9 @@ let project_local_of_proj proj =
           | `OFFSET offset -> offset
         end in
       (bm.Oe.bm_filename, bm.Oe.bm_num, offset)
-    end proj.bookmarks
+    end proj.local.bookmarks
   in
-  { Project_t.editor_view_state = proj.editor_view_state; bookmarks }
+  { Project_t.editor_view_state = proj.local.editor_view_state; bookmarks }
 
 let save_local_status ~editor proj =
   let editor_view_state =
@@ -353,12 +331,12 @@ let save_local_status ~editor proj =
         match proj.in_source_path file#filename with
         | None when Filename.is_implicit file#filename -> filename_unix_implicit file#filename
         | None -> file#filename
-        | Some rel when Filename.is_implicit rel -> proj.root // default_dir_src // rel
+        | Some rel when Filename.is_implicit rel -> proj.local.root // default_dir_src // rel
         | Some rel -> rel
       end, scroll_offset, offset, is_active
     end;
   in
-  proj.editor_view_state <- editor_view_state;
+  proj.local.editor_view_state <- editor_view_state;
   let filename = Path.fullname_local proj in
   let old_filename = Path.fullname_local_old proj in
   if Sys.file_exists old_filename then Sys.remove old_filename;
@@ -368,16 +346,14 @@ let save_local_status ~editor proj =
 (** save. Creates [home], [home/src], [home/bak], [home/tmp] if not existing. *)
 let save ?editor proj =
   try
-    if not (Sys.file_exists proj.root) then (Unix.mkdir proj.root 0o777);
-    if not (Sys.file_exists (proj.root // default_dir_src)) then (Unix.mkdir (proj.root // default_dir_src) 0o777);
-    if not (Sys.file_exists (proj.root // default_dir_bak)) then (Unix.mkdir (proj.root // default_dir_bak) 0o777);
-    if not (Sys.file_exists (proj.root // default_dir_tmp)) then (Unix.mkdir (proj.root // default_dir_tmp) 0o777);
+    if not (Sys.file_exists proj.local.root) then (Unix.mkdir proj.local.root 0o777);
+    if not (Sys.file_exists (proj.local.root // default_dir_src)) then (Unix.mkdir (proj.local.root // default_dir_src) 0o777);
+    if not (Sys.file_exists (proj.local.root // default_dir_bak)) then (Unix.mkdir (proj.local.root // default_dir_bak) 0o777);
+    if not (Sys.file_exists (proj.local.root // default_dir_tmp)) then (Unix.mkdir (proj.local.root // default_dir_tmp) 0o777);
     proj.modified <- false;
-    unload_path proj;
     (* output tools *)
     Project_tools.write proj;
     save_dot_merlin proj;
-    load_path proj;
     (* Save project file and local status *)
     let filename = Path.fullname proj in
     let old_filename = Path.fullname_old proj in
@@ -390,11 +366,11 @@ module File = struct
 
   (** backup_file *)
   let backup project (file : Editor_file.file) =
-    let src = (project.root // default_dir_src) in
+    let src = (project.local.root // default_dir_src) in
     if starts_with src file#filename then begin
       let rel = match Utils.filename_relative src file#filename with
         | None -> assert false | Some x -> Filename.dirname x in
-      let move_to = project.root // default_dir_bak // rel in
+      let move_to = project.local.root // default_dir_bak // rel in
       ignore (file#backup ~move_to ())
     end else print_endline ("Cannot create backup copy of \""^(Filename.quote file#filename)^"\".")
 
@@ -412,17 +388,17 @@ end
 module Bookmark = struct
 
   let remove proj num =
-    proj.bookmarks <- List.filter (fun x -> x.Oe.bm_num <> num) proj.bookmarks;;
+    proj.local.bookmarks <- List.filter (fun x -> x.Oe.bm_num <> num) proj.local.bookmarks;;
 
   let set proj bookmark =
     begin
-      match Bookmark.find proj.bookmarks bookmark.Oe.bm_num with
+      match Bookmark.find proj.local.bookmarks bookmark.Oe.bm_num with
       | Some bookmark ->
           Bookmark.remove bookmark;
           remove proj bookmark.Oe.bm_num;
       | _ -> ()
     end;
-    proj.bookmarks <- bookmark :: proj.bookmarks
+    proj.local.bookmarks <- bookmark :: proj.local.bookmarks
 
   let find proj filename buffer iter =
     List.find_opt begin fun bm ->
@@ -430,7 +406,7 @@ module Bookmark = struct
         let mark = Bookmark.offset_to_mark buffer bm in
         iter#line = (buffer#get_iter (`MARK mark))#line
       end else false
-    end proj.bookmarks;;
+    end proj.local.bookmarks;;
 
   let get_actual_maximum project =
     List.fold_left (fun acc bm -> max acc bm.Oe.bm_num) 0 project.bookmarks;;
@@ -452,13 +428,13 @@ let refresh proj =
     try !read_json filename
     with _ -> !read_xml filename
   in
-  proj.root <- np.root;
+  proj.local.root <- np.local.root;
   proj.encoding <- np.encoding;
   proj.author <- np.author;
   proj.description <- np.description;
   proj.version <- np.version;
-  proj.in_source_path <- Utils.filename_relative (np.root // default_dir_src);
-  proj.source_paths <- (try File_util.readtree (np.root // default_dir_src) with Sys_error _ -> [])
+  proj.in_source_path <- Utils.filename_relative (np.local.root // default_dir_src);
+  proj.source_paths <- (try File_util.readtree (np.local.root // default_dir_src) with Sys_error _ -> [])
 
 (** clear_cache *)
 let clear_cache proj =

@@ -37,7 +37,7 @@ let get name = List.assoc name cache
 
 let is_mingw = try get "system" = "mingw" with Not_found -> false
 
-let putenv_ocamllib () = Sys.command "unset OCAMLLIB" |> ignore
+let unset_ocamllib () = Sys.command "unset OCAMLLIB" |> ignore
 
 let find_best_compiler compilers =
   try

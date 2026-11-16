@@ -37,6 +37,12 @@ let create_small_toggle_button ?tooltip ?icon ?text ?callback ?packing ?show () 
   let _ = create_small_button ~button:(button :> GButton.button) ?tooltip ?icon ?text ?callback ?packing () in
   button;;
 
+let create_button ?packing icon =
+  let button = new Gtk_util.button_icon (*~icon_width:18*) ~icon_spacing:0 ~icon ?packing ~relief:`NONE () in
+  button#button#set_focus_on_click false;
+  button#button#misc#style_context#add_class "statusbar-button";
+  button;;
+
 class editorbar ~view ?packing () =
   let icon_font_name = sprintf "OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
   let box = GPack.hbox ~spacing:1 ~border_width:0 ?packing () in
@@ -177,18 +183,85 @@ class editorbar ~view ?packing () =
     method button_toggle_whitespace = button_toggle_whitespace
   end
 
+class opambar ?packing () =
+  let box = GPack.hbox ~spacing:8 ?packing () in
+  let button_switch = create_button ~packing:box#add "" in
+  object (self)
+    inherit GObj.widget box#as_widget
+    method private set_current_switch () =
+      let process_in = Spawn.loop begin fun ic ->
+          let current_switch = input_line ic in
+          GtkThread.async (fun () ->
+              button_switch#set_icon "<span size='large'>\u{e67a} </span>";
+              button_switch#set_label current_switch) ()
+        end
+      in
+      Spawn.async "opam" [| "switch"; "show" |] ~process_in  |> ignore;
+    initializer
+      self#set_current_switch();
+      button_switch#button#connect#clicked ~callback:begin fun () ->
+        let popover = GBin.popover ~relative_to:button_switch#coerce () in
+        let vbox = GPack.vbox ~border_width:8 ~packing:popover#add () in
+        let _ = GMisc.label ~markup:"<b>Opam switch</b>" ~packing:vbox#add () in
+        let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add () in
+        let radio_group = ref None in
+        let radios = ref [] in
+        let process_in = Spawn.loop begin fun ic ->
+            let sw = input_line ic in
+            let active = sw = button_switch#label in
+            GtkThread.sync begin fun () ->
+              let radio = GButton.radio_button ~label:sw ~active ?group:!radio_group ~packing:vbox#add () in
+              radios := (sw, radio) :: !radios;
+              match !radio_group with
+              | None -> radio_group := Some radio#group;
+              | _ -> ()
+            end ()
+          end
+        in
+        Spawn.async "opam" [| "switch"; "list"; "--short" |] ~process_in
+          ~continue_with:begin fun _ ->
+            !radios
+            |> List.iter begin fun (sw, radio) ->
+              radio#connect#after#clicked ~callback:begin fun () ->
+                if radio#active then begin
+                  let cmd = sprintf "opam switch %s" sw in
+                  Printf.printf "%s\n%!" cmd;
+                  Sys.command cmd |> ignore;
+                  let cmd = sprintf "eval $(opam env --switch=%s)" sw in
+                  Printf.printf "%s\n%!" cmd;
+                  Sys.command cmd |> ignore;
+                  ksprintf Shell.get_command_output "opam env --switch=%s --set-switch --shell=sh" sw
+                  |> List.iter begin fun line ->
+                    Printf.printf "%s\n%!" line;
+                    String.split_all ~sep:";" ~drop:(fun x -> String.trim x = "") line 
+                    |> List.iter begin fun nv ->
+                      match String.split_first ~sep:"=" nv with
+                      | Some (name, value) -> Unix.putenv name (String.sub value 1 (String.length value - 2))
+                      | _ -> ()
+                    end
+                  end;
+                  Sys.command "ocamlc --version" |> ignore;
+
+                end;
+                Gmisclib.Timeout.add "opam-switch" ~ms:300 ~callback:begin fun () ->
+                  popover#popdown ();
+                  self#set_current_switch();
+                  false
+                end |> ignore;
+              end |> ignore;
+            end;
+            GtkThread.async popover#popup ()
+          end
+        |> ignore;
+      end |> ignore;
+  end
+
 class gitbar ?packing () =
   let box = GPack.hbox ~spacing:8 ?packing () in
-  let create_gitbutton icon =
-    let button = new Gtk_util.button_icon (*~icon_width:18*) ~icon_spacing:0 ~icon ~packing:box#add ~relief:`NONE () in
-    button#button#set_focus_on_click false;
-    button#button#misc#style_context#add_class "statusbar-button";
-    button
-  in
-  let button_gitunpushed = create_gitbutton "\u{eaa1}" in
-  let button_gitpending = create_gitbutton "\u{ea73}" in
-  let button_gitbranch = create_gitbutton "\u{f062c}" in
-  let button_gitpath = create_gitbutton "\u{e65d}" in
+  let button_gitunpushed = create_button ~packing:box#add "\u{eaa1}" in
+  let button_gitpending = create_button ~packing:box#add "\u{ea73}" in
+  let button_gitbranch = create_button ~packing:box#add "\u{f062c}" in
+  let button_gitpath = create_button ~packing:box#add "\u{e65d}" in
   object (self)
     inherit GObj.widget box#as_widget
     initializer
@@ -207,7 +280,7 @@ class widget ?packing () =
   (*let statusbar = GMisc.statusbar (*~spacing:1*) ~border_width:0 ~packing:ebox#add () in*)
   let editorbar_placeholder = GBin.alignment ~packing:(box#pack ~from:`START ~expand:true ~fill:true) () in
   let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
-  let spinner = GMisc.image ~width:20 ~packing:box#pack () in
+  let spinner = GMisc.spinner ~width:20 ~packing:box#pack () in
   let _ = GMisc.separator `VERTICAL ~packing:(box#pack ~expand:false) () in
   (*let context_flash = statusbar#new_context ~name:"flash-messages" in*)
   object (self)

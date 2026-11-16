@@ -25,15 +25,15 @@ module ColorOps = Color
 open Preferences
 
 type status =
-  { mutable branch : string
-  ; mutable ahead : int
-  ; mutable added : int
-  ; mutable modified : int
-  ; mutable deleted : int
-  ; mutable renamed : int
-  ; mutable copied : int
-  ; mutable untracked : int
-  ; mutable ignored : int
+  { mutable branch : string;
+    mutable ahead : int;
+    mutable added : int;
+    mutable modified : int;
+    mutable deleted : int;
+    mutable renamed : int;
+    mutable copied : int;
+    mutable untracked : int;
+    mutable ignored : int;
   }
 
 module Log = Common.Log.Make (struct

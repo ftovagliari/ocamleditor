@@ -69,9 +69,8 @@ INSTALLATION
 
     ocaml build.ml install [-prefix <path>]
 
-  By default, the executable is installed under "/usr/local/bin", icons under
-  "/usr/local/share/ocamleditor/icons", and plugins under
-  "/usr/local/share/ocamleditor/plugins". You can specify an alternative
+  By default, the executable is installed under "/usr/local/bin" and icons under
+  "/usr/local/share/ocamleditor/icons". You can specify an alternative
   installation prefix with the `-prefix` option.
 
   To uninstall:

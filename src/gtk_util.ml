@@ -203,6 +203,7 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
     inherit GObj.widget hbox#as_widget
     method set_icon = icon#set_label
     method set_label = label#set_label
+    method label = label#label
     method button = button
   end
 

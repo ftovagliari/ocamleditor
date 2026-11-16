@@ -21,21 +21,22 @@
 *)
 
 
+type local = {
+  mutable root               : string; (** ROOT directory of the project (non-persistent) *)
+  mutable ocamllib           : string; (** Full path of the std. lib. from 'ocamlc -where';
+                                           when written to the project file it is translated in "". *)
+  mutable editor_view_state  : (string * int * int * bool) list; (** filename, scroll top offset, current offset, active *)
+  mutable bookmarks          : Oe.bookmark list;
+}
+
 type t = {
-  (* ROOT directory of the project (non-persistent) *)
-  mutable root               : string;
-  mutable ocaml_home         : string; (* Unused *)
-  (* Full path of the std. lib., either from the OCAMLLIB e. v. or from 'ocamlc -where';
-     when written to the XML project file, if equals to 'ocamlc -where', it is translated in "". *)
-  mutable ocamllib           : string;
-  mutable ocamllib_from_env  : bool;
+  local : local;
   mutable encoding           : string option;
   mutable name               : string;
   mutable modified           : bool;
   mutable author             : string;
   mutable description        : string;
   mutable version            : string;
-  mutable editor_view_state  : (string * int * int * bool) list; (* filename, scroll top offset, current offset, active *)
   mutable targets            : Target.t list;
   mutable executables        : Rconf.t list;
   mutable autocomp_enabled   : bool;
@@ -48,7 +49,6 @@ type t = {
   mutable source_paths       : string list;
   mutable can_compile_native : bool;
   mutable build_script       : Build_script.t;
-  mutable bookmarks          : Oe.bookmark list;
   mutable file_watcher       : Inotify.watch option;
 }
 

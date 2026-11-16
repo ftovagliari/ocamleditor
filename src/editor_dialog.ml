@@ -161,7 +161,7 @@ let save_modified ~editor ~close ~callback pages =
 
 (** file_open *)
 let file_open ~editor () =
-  let path = editor#project.Prj.root // Prj.default_dir_src in
+  let path = editor#project.Prj.local.Prj.root // Prj.default_dir_src in
   let filters = [
     ("Source files", ["*.ml*"; "README*"; "INSTALL*"; "META";
                       "ChangeLog"; "CHANGES"; "NEWS*"; "TODO*"; "BUGS*"; "CONTRIB*";

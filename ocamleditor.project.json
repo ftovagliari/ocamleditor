@@ -15,7 +15,7 @@
       "package": "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson",
       "includes": "gmisclib common icons otherwidgets oebuild",
       "thread": true,
-      "inline": [ "Some", 50 ],
+      "inline": [ "Some", 5 ],
       "nodep": true,
       "cflags": "-w -s-y-x-m -g",
       "lflags": "-g",
@@ -132,7 +132,7 @@
       "package": "atdgen-runtime,cairo2,compiler-libs,curl,dynlink,inotify,lablgtk3,ocp-indent.lib,odoc-parser,ppx_deriving.show,str,unix,xml-light,yojson",
       "includes": "gmisclib common icons otherwidgets oebuild ",
       "thread": true,
-      "inline": [ "Some", 50 ],
+      "inline": [ "Some", 5 ],
       "cflags": "-w -s-y-x-m -g",
       "lflags": "-g",
       "target_type": "Library",
@@ -318,7 +318,8 @@
           "phase": [ "Some", "Compile" ]
         }
       ],
-      "subsystem": [ "Some", "Console" ]
+      "subsystem": [ "Some", "Console" ],
+      "node_collapsed": true
     },
     {
       "id": 13,

@@ -26,7 +26,7 @@ let ( // ) = Filename.concat
 let file_exists = List.find_opt Sys.file_exists
 
 let find_ocp_indent_config' project =
-  let root = Prj.(project.root) in
+  let root = Prj.(project.local.root) in
   let+ config_file = file_exists [ root // "src" // ".ocp-indent"; root // ".ocp-indent" ] in
   try
     Some (Printexc.print File_util.read config_file |> Buffer.contents)

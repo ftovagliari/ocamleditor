@@ -396,7 +396,7 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
                 try int_of_string (Str.matched_group (group + 3) !line)
                 with Invalid_argument _ -> start
               in
-              let parent = project.Prj.root // Prj.default_dir_src in
+              let parent = project.Prj.local.Prj.root // Prj.default_dir_src in
               let filename = List.fold_left (fun acc x -> acc // x) parent (Utils.filename_split basename) in
               ignore (editor#open_file ~active:true ~offset:0 ?remote:None filename);
               match editor#get_page (`FILENAME filename) with

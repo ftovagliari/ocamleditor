@@ -101,7 +101,6 @@ let _ = Printexc.record_backtrace true
 
 let _ = App_config.ensure_ocamleditor_user_home ()
 let _ = Unix.putenv "TERM" ""
-let getenv_ocamllib = try Some (Sys.getenv "OCAMLLIB") with Not_found -> None
 
 let bookmark_limit = 10
 
@@ -151,7 +150,7 @@ let current_line_border_adjust, dash_style, dash_style_offset =
   | _     -> 1, `DOUBLE_DASH, None
 
 (** Clear OCAMLLIB environment variable *)
-let _ = Ocaml_config.putenv_ocamllib ()
+let _ = Ocaml_config.unset_ocamllib ()
 
 (** geometry_memo_filename *)
 let geometry_memo_filename = Filename.concat App_config.ocamleditor_user_home "geometry_memo.ocaml"

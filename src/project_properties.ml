@@ -226,12 +226,11 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
       desc_entry#set_text project.description;
       author_entry#set_text project.author;
       version_entry#set_text project.version;
-      home_entry#set_text project.root;
-      ignore (chooser#set_current_folder (Filename.dirname project.root));
-      src_entry#set_text (project.root // Prj.default_dir_src);
-      bak_entry#set_text (project.root // Prj.default_dir_bak);
+      home_entry#set_text project.local.root;
+      ignore (chooser#set_current_folder (Filename.dirname project.local.root));
+      src_entry#set_text (project.local.root // Prj.default_dir_src);
+      bak_entry#set_text (project.local.root // Prj.default_dir_bak);
       doc_entry#set_text "";
-      GtkThread.async ocaml_home#reset ();
       check_autocomp_enabled#set_active project.autocomp_enabled;
       range_box#misc#set_sensitive (check_autocomp_enabled#active);
       entry_autocomp_cflags#misc#set_sensitive (check_autocomp_enabled#active);
@@ -242,13 +241,13 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
 
     method save () =
       try
-        Project.set_ocaml_home ~ocamllib:ocaml_home#ocamllib project;
+        Project.set_ocaml_home project;
         project.encoding         <- (match entry_encoding#entry#text with "Default" -> None | enc -> Some enc);
         project.name             <- name_entry#text;
         project.description      <- desc_entry#text;
         project.author           <- author_entry#text;
         project.version          <- version_entry#text;
-        project.root             <- home_entry#text;
+        project.local.root             <- home_entry#text;
         project.autocomp_enabled <- check_autocomp_enabled#active;
         project.autocomp_delay   <- range_autocomp_delay#adjustment#value /. 1000.;
         project.autocomp_cflags  <- entry_autocomp_cflags#text;
@@ -292,7 +291,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
 
     initializer
       self#reset();
-      if Sys.file_exists project.root then begin
+      if Sys.file_exists project.local.root then begin
         name_entry#set_editable false;
         home_choose#misc#set_sensitive false;
       end else begin

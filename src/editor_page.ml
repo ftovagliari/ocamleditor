@@ -259,7 +259,7 @@ class page ?file ~project ~offset ~editor () =
         Project.save_local_status ~editor project;
         let old_markers =
           try
-            let bms = List.filter (fun bm -> bm.Oe.bm_filename = file#filename) project.Prj.bookmarks in
+            let bms = List.filter (fun bm -> bm.Oe.bm_filename = file#filename) Prj.(project.local.bookmarks) in
             List.iter Bookmark.mark_to_offset bms;
             List.filter_map (fun bm -> bm.Oe.bm_marker) bms
           with Not_found -> []
@@ -312,7 +312,7 @@ class page ?file ~project ~offset ~editor () =
             Gmisclib.Idle.add ~prio:300 (fun () -> self#compile_buffer ?join:None ());
             (* Bookmarks: offsets to marks *)
             let redraw = ref false in
-            project.Prj.bookmarks |> List.iter begin fun prj_bm ->
+            Prj.(project.local.bookmarks) |> List.iter begin fun prj_bm ->
               if prj_bm.Oe.bm_filename = file#filename then
                 let mark = Bookmark.offset_to_mark (self#buffer :> GText.buffer) prj_bm in
                 let icon =

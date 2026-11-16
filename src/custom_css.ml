@@ -39,7 +39,7 @@ let apply () =
           min-height: 0px;
         }
         .statusbar-button {
-          padding: 1px 2px 1px 2px;
+          padding: 1px 5px 1px 5px;
           margin: 0px;
           min-width: 0px;
           min-height: 0px;

@@ -189,7 +189,7 @@
   yojson)
  (preprocess (pps ppx_deriving.show))
  (flags (:standard -warn-error -A -w -s-y-x-m -g))
- (ocamlopt_flags (:standard -inline 50))
+ (ocamlopt_flags (:standard -inline 5))
  (link_flags (:standard -g)))
 
 (library
@@ -219,5 +219,5 @@
   yojson)
  (preprocess (pps ppx_deriving.show))
  (flags (:standard -warn-error -A -w -s-y-x-m -g))
- (ocamlopt_flags (:standard -inline 50))
+ (ocamlopt_flags (:standard -inline 5))
  (library_flags (:standard -g)))
