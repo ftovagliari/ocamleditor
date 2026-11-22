@@ -66,7 +66,9 @@ class view ~target_list ?packing () =
   let _ = combo_task#add_attribute rend_pb "pixbuf" col_task_pb in
   let _ = combo_task#add_attribute rend "markup" col_task_descr in
   (* Command Line Arguments and Environment Variables *)
-  let entry_args, entry_env = Args_env_widget.create vbox in
+  let notebook = GPack.notebook ~packing:vbox#add () in
+  let entry_env = Entry_list_env.create () in
+  let entry_args = Entry_list_args.create () in
   object (self)
     inherit GObj.widget vbox#as_widget
     val mutable rconfig = None
@@ -92,6 +94,8 @@ class view ~target_list ?packing () =
           Gaux.may rconfig ~f:(fun rc -> rc.Rconf.target_id <- bc.Target.id);
 
     initializer
+      notebook#append_page ~tab_label:(GMisc.label ~text:"Command Line Arguments" ())#coerce entry_args#coerce |> ignore;
+      notebook#append_page ~tab_label:(GMisc.label ~markup:("Environment <small>(<tt>NAME=VALUE</tt>)</small>") ())#coerce entry_env#coerce |> ignore;
       self#set_targets();
       ignore (combo_bc#connect#changed ~callback:self#set_tasks);
       ignore (combo_task#connect#changed ~callback:begin fun () ->
@@ -101,10 +105,16 @@ class view ~target_list ?packing () =
           end;
         end);
       ignore (entry_args#connect#changed ~callback:begin fun () ->
-          Gaux.may rconfig ~f:(fun rc -> rc.Rconf.args <- entry_args#entries);
+          Gaux.may rconfig ~f:(fun rc ->
+              rc.Rconf.args <-
+                entry_args#entries
+                |> List.filter_map (fun (a, activatable, v) -> if activatable then Some (a, v) else None));
         end);
       ignore (entry_env#connect#changed ~callback:begin fun () ->
-          Gaux.may rconfig ~f:(fun rc -> rc.Rconf.env <- entry_env#entries);
+          Gaux.may rconfig ~f:(fun rc ->
+              rc.Rconf.env <-
+                entry_env#entries
+                |> List.filter_map (fun (a, activatable, v) -> if activatable then Some (a, v) else None));
         end);
       ignore (entry_env#connect#replace_changed ~callback:begin fun is_replace ->
           Gaux.may rconfig ~f:(fun rc -> rc.Rconf.env_replace <- is_replace);
@@ -139,9 +149,13 @@ class view ~target_list ?packing () =
             true
         | _ -> false
       end;
-      entry_args#set_entries rc.Rconf.args;
-      entry_env#set_entries rc.Rconf.env;
+      let activatable = List.map (fun (e, v) -> e, true, v) in
+      entry_args#set_entries (rc.Rconf.args |> activatable);
       entry_env#set_replace rc.Rconf.env_replace;
+      Opam.env ~switch:target_list#project.Prj.local.Prj.opam_switch
+      |> List.map (fun e -> true, false, e)
+      |> ((@) (rc.Rconf.env |> activatable))
+      |> entry_env#set_entries;
 
     method entry_name = entry_name
     method combo_bc = combo_bc

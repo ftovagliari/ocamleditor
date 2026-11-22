@@ -13,13 +13,22 @@ let execute_async filename source_code command =
   let cmd_line = "ocamlmerlin" :: "server" :: command @ [ "-thread"; "-filename"; filename ] in
   Log.println `INFO "%s" (cmd_line |> String.concat " ");
   let (ic, oc, _) as channels = Unix.open_process_full (cmd_line |> String.concat " ") (Unix.environment ()) in
-  output_string oc source_code;
-  close_out_noerr oc;
-  Async.create ~name:(List.hd command) begin fun () ->
-    let json = In_channel.input_all ic in
+  try
+    output_string oc source_code;
+    close_out_noerr oc;
+    Async.create ~name:(List.hd command) begin fun () ->
+      try
+        let json = In_channel.input_all ic in
+        Unix.close_process_full channels |> ignore;
+        (json : json_string)
+      with ex ->
+        Unix.close_process_full channels |> ignore;
+        raise ex
+    end
+  with ex ->
+    close_out_noerr oc;
     Unix.close_process_full channels |> ignore;
-    (json : json_string)
-  end
+    raise ex
 
 let as_cps merlin_func ?name ~filename ~buffer cont =
   merlin_func ~filename ~buffer |> Async.start_with_continuation ?name cont

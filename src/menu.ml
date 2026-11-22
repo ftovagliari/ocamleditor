@@ -456,12 +456,6 @@ let view ~browser ~group ~flags
   rev_history#connect#activate ~callback:begin fun () ->
     editor#with_current_page (fun page -> page#show_revision_history ())
   end |> ignore;
-  let git_diff = Image_menu.item
-      ~label:"Show statistics (Git)" ~packing:menu#add ()
-  in
-  git_diff#connect#activate ~callback:begin fun () ->
-    Git.diff_stat (Git.show_diff_stat None)
-  end |> ignore;
   (** Callback *)
   ignore (view#misc#connect#state_changed ~callback:begin fun _ ->
       Menu_view.update_labels

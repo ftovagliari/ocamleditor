@@ -25,9 +25,10 @@ class widget ?packing () =
   let changed = new changed () in
   let replace_changed = new replace_changed () in
   let vbox = GPack.vbox ~spacing:3 ?packing () in
+  let hbox = GPack.hbox ~border_width:8 ~spacing:3 ~packing:vbox#pack () in
+  let _ = GMisc.separator `VERTICAL ~packing:vbox#pack () in
   let entry_list = Entry_list.create (*~height:100*) ~packing:vbox#add () in
-  let hbox = GPack.hbox ~spacing:3 ~packing:vbox#pack () in
-  let radio_prepend = GButton.radio_button ~label:"Append to system environment (override)" ~packing:hbox#pack ~active:true () in
+  let radio_prepend = GButton.radio_button ~label:"Append/override to system environment" ~packing:hbox#pack ~active:true () in
   let radio_replace = GButton.radio_button ~label:"Replace system environment" ~packing:hbox#add ~group:radio_prepend#group () in
   let button_select = GButton.button ~label:"Select..." ~packing:hbox#pack () in
   let button_add = GButton.button (*~label:"Add"*) ~packing:hbox#pack () in
@@ -39,6 +40,7 @@ class widget ?packing () =
   object (self)
     inherit GObj.widget vbox#as_widget
     method entries = entry_list#entries
+    method entries_activatable = entry_list#entries_activatable
     method set_entries = entry_list#set_entries
     method is_replace = radio_replace#active
     method set_replace = function true -> radio_replace#set_active true | false -> radio_prepend#set_active true
@@ -71,7 +73,7 @@ class widget ?packing () =
           ignore (button_ok#connect#clicked ~callback:begin fun () ->
               let entries = ref [] in
               checklist#iter begin fun checked entry ->
-                if checked then (entries := (true, entry) :: !entries)
+                if checked then (entries := (true, true, entry) :: !entries)
               end;
               self#set_entries (self#entries @ (List.rev !entries));
               window#destroy()

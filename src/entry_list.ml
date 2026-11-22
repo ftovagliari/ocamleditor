@@ -25,15 +25,16 @@ open GdkKeysyms
 
 class widget ?height ?packing () =
   let changed          = new changed () in
-  let sw               = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
+  let sw               = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
   let cols             = new GTree.column_list in
   let col_checked      = cols#add Gobject.Data.boolean in
+  let col_activatable  = cols#add Gobject.Data.boolean in
   let col_value        = cols#add Gobject.Data.string in
   let model            = GTree.list_store cols in
   let renderer         = GTree.cell_renderer_text [`EDITABLE true] in
-  let renderer_checked = GTree.cell_renderer_toggle [`ACTIVATABLE true] in
+  let renderer_checked = GTree.cell_renderer_toggle [] in
   let vc_value         = GTree.view_column ~renderer:(renderer, ["text", col_value]) ~title:"" () in
-  let vc_checked       = GTree.view_column ~renderer:(renderer_checked, ["active", col_checked]) ~title:"" () in
+  let vc_checked       = GTree.view_column ~renderer:(renderer_checked, ["active", col_checked; "activatable", col_activatable]) ~title:"" () in
   let view             = GTree.view ~model ~headers_visible:false ~reorderable:true ~enable_search:false ?height ~packing:sw#add () in
   let _                = view#selection#set_mode `MULTIPLE in
   let _                = view#append_column vc_checked in
@@ -51,19 +52,23 @@ class widget ?height ?packing () =
       let res = ref [] in
       model#foreach begin fun _ row ->
         let checked = model#get ~row ~column:col_checked in
+        let activatable = model#get ~row ~column:col_activatable in
         let value = model#get ~row ~column:col_value in
-        if value <> "" then (res := (checked, value) :: !res);
+        if value <> "" then (res := (checked, activatable, value) :: !res);
         false
       end;
       List.rev !res
+
+    method entries_activatable = self#entries |> List.map (fun (e, _, v) -> e, v)
 
     method set_entries entries =
       Gaux.may ~f:model#misc#handler_block signal_row_inserted;
       Gaux.may ~f:(GtkSignal.handler_block renderer#as_renderer) signal_edited;
       model#clear();
-      List.iter begin fun (enabled, value) ->
+      List.iter begin fun (checked, activatable, value) ->
         let row = model#append () in
-        model#set ~row ~column:col_checked enabled;
+        model#set ~row ~column:col_checked checked;
+        model#set ~row ~column:col_activatable activatable;
         model#set ~row ~column:col_value value
       end entries;
       ignore (self#append_empty());
@@ -147,6 +152,7 @@ class widget ?height ?packing () =
           let row = model#get_iter path in
           model#set ~row ~column:col_value txt;
           model#set ~row ~column:col_checked true;
+          model#set ~row ~column:col_activatable true;
           ignore (self#append_empty());
           let row = model#get_iter path in
           view#set_cursor (model#get_path row) vc_value;

@@ -28,6 +28,7 @@ class widget ?packing () =
   object (self)
     inherit GObj.widget vbox#as_widget
     method entries = entry_list#entries
+    method entries_activatable = entry_list#entries_activatable
     method set_entries = entry_list#set_entries
     initializer
       ignore (entry_list#append_empty());

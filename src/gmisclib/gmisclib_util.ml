@@ -131,6 +131,8 @@ module Timeout = struct
     table := info :: !table;
     tid
 
+  let add_once ~ms ~callback:f = add ~ms ~callback:(fun () -> f(); false)
+
   let remove tid =
     GMain.Timeout.remove tid;
     match List.find_opt (fun x -> x.tid = tid) !table with

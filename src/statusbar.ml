@@ -183,77 +183,56 @@ class editorbar ~view ?packing () =
     method button_toggle_whitespace = button_toggle_whitespace
   end
 
-class opambar ?packing () =
+class opambar ?switch ?packing () =
   let box = GPack.hbox ~spacing:8 ?packing () in
   let button_switch = create_button ~packing:box#add "" in
+  let switch_changed = new switch_changed () in
   object (self)
     inherit GObj.widget box#as_widget
-    method private set_current_switch () =
-      let process_in = Spawn.loop begin fun ic ->
-          let current_switch = input_line ic in
-          GtkThread.async (fun () ->
-              button_switch#set_icon "<span size='large'>\u{e67a} </span>";
-              button_switch#set_label current_switch) ()
-        end
-      in
-      Spawn.async "opam" [| "switch"; "show" |] ~process_in  |> ignore;
+    method set_switch switch =
+      let sw = switch |> Option.value ~default:(Opam.switch_show()) in
+      switch_changed#call sw;
+      button_switch#set_icon "<span size='large'>\u{e67a} </span>";
+      button_switch#set_label sw
     initializer
-      self#set_current_switch();
+      self#set_switch switch;
       button_switch#button#connect#clicked ~callback:begin fun () ->
         let popover = GBin.popover ~relative_to:button_switch#coerce () in
         let vbox = GPack.vbox ~border_width:8 ~packing:popover#add () in
         let _ = GMisc.label ~markup:"<b>Opam switch</b>" ~packing:vbox#add () in
         let _ = GMisc.separator `HORIZONTAL ~packing:vbox#add () in
         let radio_group = ref None in
-        let radios = ref [] in
-        let process_in = Spawn.loop begin fun ic ->
-            let sw = input_line ic in
-            let active = sw = button_switch#label in
-            GtkThread.sync begin fun () ->
-              let radio = GButton.radio_button ~label:sw ~active ?group:!radio_group ~packing:vbox#add () in
-              radios := (sw, radio) :: !radios;
+        let radios =
+          Opam.switch_list()
+          |> List.map begin fun switch ->
+            let active = switch = button_switch#label in
+            let radio = GButton.radio_button ~label:switch ~active ?group:!radio_group ~packing:vbox#add () in
+            begin
               match !radio_group with
               | None -> radio_group := Some radio#group;
               | _ -> ()
-            end ()
+            end;
+            switch, radio
           end
         in
-        Spawn.async "opam" [| "switch"; "list"; "--short" |] ~process_in
-          ~continue_with:begin fun _ ->
-            !radios
-            |> List.iter begin fun (sw, radio) ->
-              radio#connect#after#clicked ~callback:begin fun () ->
-                if radio#active then begin
-                  let cmd = sprintf "opam switch %s" sw in
-                  Printf.printf "%s\n%!" cmd;
-                  Sys.command cmd |> ignore;
-                  let cmd = sprintf "eval $(opam env --switch=%s)" sw in
-                  Printf.printf "%s\n%!" cmd;
-                  Sys.command cmd |> ignore;
-                  ksprintf Shell.get_command_output "opam env --switch=%s --set-switch --shell=sh" sw
-                  |> List.iter begin fun line ->
-                    Printf.printf "%s\n%!" line;
-                    String.split_all ~sep:";" ~drop:(fun x -> String.trim x = "") line 
-                    |> List.iter begin fun nv ->
-                      match String.split_first ~sep:"=" nv with
-                      | Some (name, value) -> Unix.putenv name (String.sub value 1 (String.length value - 2))
-                      | _ -> ()
-                    end
-                  end;
-                  Sys.command "ocamlc --version" |> ignore;
-
-                end;
-                Gmisclib.Timeout.add "opam-switch" ~ms:300 ~callback:begin fun () ->
-                  popover#popdown ();
-                  self#set_current_switch();
-                  false
-                end |> ignore;
-              end |> ignore;
-            end;
-            GtkThread.async popover#popup ()
-          end
-        |> ignore;
+        radios |> List.iter begin fun (sw, radio) ->
+          radio#connect#after#clicked ~callback:begin fun () ->
+            if radio#active then begin
+              self#set_switch (Some sw);
+              popover#popdown ();
+            end
+          end |> ignore;
+        end;
+        popover#popup ();
       end |> ignore;
+    method connect = new opambar_signals ~switch_changed
+  end
+
+and switch_changed () = object inherit [string] GUtil.signal () end
+and opambar_signals ~switch_changed =
+  object
+    inherit GUtil.ml_signals [switch_changed#disconnect]
+    method switch_changed = switch_changed#connect ~after
   end
 
 class gitbar ?packing () =
@@ -261,12 +240,16 @@ class gitbar ?packing () =
   let button_gitunpushed = create_button ~packing:box#add "\u{eaa1}" in
   let button_gitpending = create_button ~packing:box#add "\u{ea73}" in
   let button_gitbranch = create_button ~packing:box#add "\u{f062c}" in
-  let button_gitpath = create_button ~packing:box#add "\u{e65d}" in
+  let button_gitpath = create_button ~packing:box#add "\u{e65d} " in
   object (self)
     inherit GObj.widget box#as_widget
     initializer
       button_gitpending#button#connect#clicked ~callback:begin fun () ->
-        Git.diff_stat (Git.show_diff_stat None);
+        Git.diff_stat begin fun widget ->
+          let popover = GBin.popover ~relative_to:button_gitpending#coerce () in
+          popover#add widget;
+          popover#popup()
+        end;
       end |> ignore;
     method button_gitunpushed = button_gitunpushed
     method button_gitpending = button_gitpending

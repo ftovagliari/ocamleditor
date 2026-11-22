@@ -176,6 +176,8 @@ class view ~editor ~project ?packing () =
     method column_name = col_name
     method has_errors target = target.files = "";
 
+    method project = project
+
     method get path =
       let row = model#get_iter path in
       model#get ~row ~column:col_data
@@ -290,7 +292,8 @@ class view ~editor ~project ?packing () =
     method add_target () =
       let id = self#create_id () in
       let name = sprintf "New Target %d" id in
-      let rows = self#append [Target.create ~name ~id] in
+      let tg = Target.create ~name ~id in
+      let rows = self#append [tg] in
       begin
         match rows with
         | [row] ->

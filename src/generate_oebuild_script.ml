@@ -30,7 +30,7 @@
    runs it. Passing utils.cmo/file_util.cmo instead would require knowing where
    that build system puts its artifacts. *)
 #mod_use "common/utils.ml"
-#mod_use "common/file_util.ml"
+         #mod_use "common/file_util.ml"
 
 open Utils
 open Printf
@@ -70,6 +70,7 @@ let create_script () =
       "common/ocaml_config";
       "common/app_config";
       "common/spawn";
+      "common/opam";
       "task";
       "build_script_command";
       "oebuild/oebuild_util";

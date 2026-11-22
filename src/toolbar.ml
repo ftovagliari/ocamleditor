@@ -296,7 +296,7 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
           end
         end);
       (** Targets *)
-      ignore (tool_targets#connect#clicked ~callback:(fun () -> browser#dialog_project_properties ?page_num:(Some 1) ?show:(Some true) ()));
+      ignore (tool_targets#connect#clicked ~callback:(fun () -> browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) ()));
       (* clean *)
       ignore (tool_clean#connect#clicked ~callback:(fun () -> self#clean_current browser));
       ignore (tool_clean#connect#show_menu ~callback:(self#clean_menu browser));

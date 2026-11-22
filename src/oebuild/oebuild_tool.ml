@@ -247,18 +247,11 @@ let main () =
       end;
     end
   in
-  let apply_opam_switch sw =
-    ksprintf Shell.get_command_output "opam env --switch=%s --set-switch --shell=sh" sw
-    |> List.iter begin fun line ->
-      Printf.printf "%s\n%!" line;
-      String.split_all ~sep:";" ~drop:(fun x -> String.trim x = "") line
-      |> List.iter begin fun nv ->
-        match String.split_first ~sep:"=" nv with
-        | Some (name, value) -> Unix.putenv name (String.sub value 1 (String.length value - 2))
-        | _ -> ()
-      end
-    end;
-    Oebuild_util.command "ocaml --version" |> ignore;
+  let apply_opam_switch switch =
+    Opam.env ~switch
+    |> List.iter (fun nv ->
+        String.split_first ~sep:"=" nv
+        |> Option.iter (fun (name, value) -> Unix.putenv name value))
   in
   if String.trim !opam_switch <> "" then apply_opam_switch !opam_switch;
   if !verbose >= 3 then Oebuild_util.crono ~label:"Build time" main' () else main' ()

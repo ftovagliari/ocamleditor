@@ -81,15 +81,20 @@ let set_ocaml_home project =
   Thread.create (fun () ->
       project.can_compile_native <-
         (Ocaml_config.can_compile_native ~ocaml_home:"" ()) <> None) () |> ignore;(* TODO ~ocaml_home:"" ? *)
-  Printf.printf "project.autocomp_compiler = %s\n%!" project.autocomp_compiler;
-  Printf.printf "project.ocamllib          = %s\n%!" project.local.ocamllib;
 ;;
 
 (** create *)
 let create ~filename () =
   let root = Filename.dirname filename in
+  let switch = Opam.switch_show () in
+  let major, minor, _ = Opam.show_ocaml_version ~switch () |> Opam.parse_version in
+  let autocomp_dflags =
+    "-c" :: "-w" :: "+a-48-70" :: "-thread" :: "-bin-annot" ::
+    (if major >= 5 && minor >= 2 then ["-bin-annot-occurrences"] else [])
+    |> Array.of_list
+  in
   let proj = {
-    local = { root; ocamllib = ""; editor_view_state  = []; bookmarks = [] };
+    local = { root; ocamllib = ""; editor_view_state  = []; bookmarks = []; opam_switch = switch };
     encoding           = Some "UTF-8";
     name               = Path.name filename;
     modified           = true;
@@ -101,7 +106,7 @@ let create ~filename () =
     autocomp_enabled   = true;
     autocomp_delay     = 1.0;
     autocomp_cflags    = "";
-    autocomp_dflags    = [|"-c"; "-w"; "+a-48-70"; "-thread"; "-bin-annot"; "-bin-annot-occurrences" |];
+    autocomp_dflags;
     autocomp_compiler  = "";
     search_path        = [];
     in_source_path     = Utils.filename_relative (root // default_dir_src);
@@ -277,10 +282,11 @@ let load filename =
   if not (Sys.file_exists (proj.local.root // default_dir_tmp)) then (Unix.mkdir (proj.local.root // default_dir_tmp) 0o777);
   (*  *)
   proj.local.editor_view_state <-
-    List.map begin fun (filename, scroll_offset, offset, active) ->
+    proj.local.editor_view_state
+    |> List.map begin fun (filename, scroll_offset, offset, active) ->
       (if Filename.is_implicit filename then proj.local.root // default_dir_src // filename else filename),
       scroll_offset, offset, active
-    end proj.local.editor_view_state;
+    end;
   (*  *)
   proj.search_path <- get_search_path proj;
   (* Delete obsolete bookmarks *)
@@ -304,7 +310,7 @@ let project_local_of_proj proj =
       (bm.Oe.bm_filename, bm.Oe.bm_num, offset)
     end proj.local.bookmarks
   in
-  { Project_t.editor_view_state = proj.local.editor_view_state; bookmarks }
+  { Project_t.editor_view_state = proj.local.editor_view_state; bookmarks; opam_switch = proj.local.opam_switch }
 
 let save_local_status ~editor proj =
   let editor_view_state =

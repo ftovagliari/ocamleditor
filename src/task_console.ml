@@ -574,6 +574,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
     )
   then (editor#save_all());
   let project = editor#project in
+  let opam_switch = project.Prj.local.Prj.opam_switch in
   let can_compile_native = project.Prj.can_compile_native in
   let filter_tasks = Target.filter_external_tasks target in
   let tasks_clean () =
@@ -582,7 +583,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
       let et_before_clean = filter_tasks Task.Before_clean in
       let et_clean = filter_tasks Task.Clean in
       let et_clean = if et_clean = [] then [`CLEAN, begin
-          let cmd, args = Target.create_cmd_line target in
+          let cmd, args = Target.create_cmd_line ~switch:opam_switch target in
           let name = sprintf "Clean \xC2\xAB%s\xC2\xBB" (Filename.basename target.Target.name) in
           Task.create ~name ~env:[] ~dir:"" ~cmd ~args:(args @ [true, "-clean"]) ()
         end] else et_clean in
@@ -595,7 +596,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   let tasks_annot () =
     if Oebuild.check_restrictions target.restrictions then
       [`ANNOT, begin
-          let cmd, args = Target.create_cmd_line target in
+          let cmd, args = Target.create_cmd_line ~switch:opam_switch target in
           let args = (true, "-c") (*:: (true, "-annot")*) :: args in
           let name = sprintf "Compile \xC2\xAB%s\xC2\xBB" (Filename.basename target.Target.name) in
           Task.create ~name ~env:[] ~dir:"" ~cmd ~args ()
@@ -611,7 +612,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   in
   match task_kind with
   | `CLEANALL ->
-      let cmd, args = Target.create_cmd_line target in
+      let cmd, args = Target.create_cmd_line ~switch:opam_switch target in
       let args = args @ [true, "-distclean"] in
       let task = Task.create ~name:"Clean Project" ~env:[] ~dir:"" ~cmd ~args () in
       exec_sync ~editor [[`CLEANALL, task]];
@@ -641,10 +642,19 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
   | `CLEAN -> exec_sync ~editor [tasks_clean ()];
   | `ANNOT -> exec_sync ~editor [tasks_annot ()];
   | `COMPILE ->
-      let rec f () = exec_sync ~run_cb:f ~editor ~at_exit:compile_buffer (tasks_compile ~name:build_name ~build_deps ~can_compile_native target) in
+      let rec f () =
+        exec_sync ~run_cb:f ~editor ~at_exit:compile_buffer
+          (tasks_compile ~name:build_name ~build_deps ~can_compile_native ~switch:opam_switch target)
+      in
       f()
   | `COMPILE_ONLY ->
-      exec_sync ~editor ~at_exit:compile_buffer (tasks_compile ~flags:["-c"] ~name:compile_name ~build_deps ~can_compile_native target);
+      exec_sync ~editor ~at_exit:compile_buffer
+        (tasks_compile
+           ~flags:["-c"]
+           ~name:compile_name
+           ~build_deps
+           ~can_compile_native
+           ~switch:project.Prj.local.Prj.opam_switch target);
   | `RCONF rc ->
       if Oebuild.check_restrictions target.restrictions then
         let compilation = if target.Target.opt then Oebuild.Native else Oebuild.Bytecode in
@@ -661,16 +671,24 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
           match rc.Rconf.build_task with
           | `NONE -> []
           | `CLEAN -> [tasks_clean ()]
-          | `COMPILE -> tasks_compile ~name:build_name ~build_deps ~can_compile_native target
-          | `REBUILD -> [(tasks_clean ()); List.flatten (tasks_compile ~name:build_name ~build_deps ~can_compile_native target)]
+          | `COMPILE ->
+              tasks_compile ~name:build_name ~build_deps ~can_compile_native ~switch:opam_switch target
+          | `REBUILD ->
+              [
+                (tasks_clean ());
+                List.flatten
+                  (tasks_compile
+                     ~name:build_name ~build_deps ~can_compile_native ~switch:opam_switch target)
+              ]
           | `ETASK name ->
               let etask = List.find ((=) name) target.Target.external_tasks in
               [[`OTHER, etask]]
         in
+        let opam_env = Opam.env ~switch:opam_switch |> List.map (fun e -> true, e) in
         let tasks = prior_tasks @ [[
             `RUN, Task.create
               ~name
-              ~env:rc.Rconf.env
+              ~env:(rc.Rconf.env @ opam_env)
               ~env_replace:rc.Rconf.env_replace
               ~dir:""
               ~cmd:(Filename.current_dir_name // outname)
@@ -680,7 +698,7 @@ let exec ~editor ?use_thread ?(with_deps=false) task_kind target =
         f();
       else ()
   | `INSTALL_LIBRARY ->
-      let oebuild, args = Target.create_cmd_line target in
+      let oebuild, args = Target.create_cmd_line ~switch:opam_switch target in
       let name = Filename.basename target.Target.name in
       let tasks = (*prior_tasks @*) [
         `RUN, Task.create

@@ -30,10 +30,11 @@ open Preferences
 class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
   let width = 165 in
   let box = GPack.vbox ?packing ~spacing:5 () in
-  let notebook = GPack.notebook ~packing:(box#pack ~fill:true ~expand:true) () in
+  let stack = GPack.stack ~transition_type:`CROSSFADE ~packing:(box#pack ~fill:true ~expand:true) () in
+  let switcher = GPack.stack_switcher ~stack:stack#as_stack() in
   (* General tab *)
   let gbox = GPack.vbox ~border_width:8 ~spacing:8 () in
-  let _ = notebook#append_page ~tab_label:(GMisc.label ~text:"General" ())#coerce gbox#coerce in
+  let _ = stack#add_titled gbox#coerce "general" "General" in
   let entry_box = GPack.vbox ~border_width:0 ~spacing:3 ~packing:(gbox#pack ~expand:false ~fill:false) () in
   let mk_entry (ebox : GPack.box) label entry =
     let box = GPack.hbox ~spacing:3 ~packing:(ebox#pack ~expand:false) () in
@@ -107,8 +108,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
   in
   (** Targets Tab *)
   let target_box = GPack.vbox ~spacing:8 ~border_width:8 () in
-  let _ = notebook#append_page
-      ~tab_label:(GMisc.label ~text:"Targets" ())#coerce target_box#coerce in
+  let _ = stack#add_titled target_box#coerce "targets" "Targets" in
   let hbox = GPack.hbox ~spacing:8 ~packing:target_box#add () in
   let target_list = new Target_list.view ~editor ~project ~packing:hbox#pack () in
   let _ =
@@ -176,8 +176,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
   (** Runtime Configurations Tab *)
   let runtime_box = GPack.vbox ~spacing:8 ~border_width:8 () in
   let runtime_tab_label = GMisc.label ~text:"Executables" () in
-  let _ = notebook#append_page
-      ~tab_label:runtime_tab_label#coerce runtime_box#coerce in
+  let _ = stack#add_titled runtime_box#coerce "executables" "Executables" in
   let hbox = GPack.hbox ~spacing:8 ~packing:runtime_box#add () in
   let rconf_page = new Rconf_page.view ~target_list ~packing:(hbox#pack ~from:`END ~expand:true ~fill:true) () in
   let rconf_list = new Rconf_list.view ~target_list ~editor ~project ~page:rconf_page ~packing:hbox#pack () in
@@ -285,7 +284,7 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
                                 "\" already exists.\nPlease choose another name for your project.") self
       | ex -> Dialog.display_exn ~parent:self ex
 
-    method goto_page = notebook#goto_page
+    method goto_page = stack#set_visible_child_name
 
     method connect = new signals ~project_changed ~project_name_changed ~show
 
@@ -295,8 +294,8 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
         name_entry#set_editable false;
         home_choose#misc#set_sensitive false;
       end else begin
-        notebook#remove target_box#coerce;
-        notebook#remove runtime_box#coerce;
+        stack#remove target_box#coerce;
+        stack#remove runtime_box#coerce;
       end;
       (* Entries *)
       let signal_name_entry_changed = ref None in
@@ -320,14 +319,17 @@ class widget ~editor ?(callback=ignore) ~project ?page_num ?packing ?show () =
       ignore (button_apply#connect#clicked ~callback:(fun () -> Gmisclib.Idle.add self#save));
       ignore (button_ok#connect#clicked ~callback:(fun () -> button_close#clicked(); self#save()));
       (* *)
-      notebook#goto_page 0;
+      stack#set_visible_child gbox#coerce;
       (*    notebook#connect#switch_page ~callback:begin fun num ->
             if num = 2 && target_page#changed then (GtkSignal.stop_emit(); notebook#goto_page 1)
             end;*)
       ignore (target_page#connect#changed ~callback:begin fun () ->
           Gmisclib.Idle.add (fun () -> GtkBase.Widget.queue_draw target_list#view#as_widget);
         end);
-      Gaux.may page_num ~f:notebook#goto_page;
+      Gaux.may page_num ~f:stack#set_visible_child_name;
+
+    method stack = stack
+    method switcher = switcher
 
   end
 
@@ -349,9 +351,16 @@ and signals ~project_changed ~project_name_changed ~show =
 (** create *)
 let create ~editor ?callback ?new_project ?page_num ?show () =
   let project = match new_project with None -> editor#project | Some p -> p in
-  let window = GWindow.window ~modal:false ~title:("Project \""^project.name^"\"")
+  let window = GWindow.window ~modal:false ~title:(sprintf "Project %s" project.name)
       ~icon:(??? Icons.oe) ~border_width:5 ~position:`CENTER ~show:false () in
   let widget = new widget ~editor ~packing:window#add ~project ?callback ?page_num ?show () in
+  let headerbar = GPack.header_bar
+      ~title:window#title
+      ~custom_title:widget#switcher#coerce
+      ~decoration_layout:":close"
+      ~show_close_button:true ()
+  in
+  window#set_titlebar headerbar#coerce;
   ignore (widget#button_close#connect#clicked ~callback:window#misc#hide);
   ignore (widget#connect#project_name_changed ~callback:begin fun name ->
       window#set_title (replace_all ["\".*\"", "\"" ^ name ^ "\""] window#title)

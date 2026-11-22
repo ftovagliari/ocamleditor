@@ -229,13 +229,13 @@ let project ~browser ~group ~flags items =
   (* Project Properties *)
   let dialog_project_properties = Image_menu.item ~label:"Project Properties" ~image:(Icons.create (??? Icons.project_16))#coerce ~packing:menu#add () in
   ignore (dialog_project_properties#connect#activate ~callback:(fun () ->
-      browser#dialog_project_properties ?page_num:(Some 0) ?show:(Some true) (())));
+      browser#dialog_project_properties ?page_num:(Some "general") ?show:(Some true) (())));
   dialog_project_properties#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._p ~flags;
 
   (* Targets *)
   let project_targets = Image_menu.item ~image:(Icons.create (??? Icons.target_16))#coerce ~label:"Targets" ~packing:menu#add () in
   ignore (project_targets#connect#activate ~callback:(fun () ->
-      browser#dialog_project_properties ?page_num:(Some 1) ?show:(Some true) (())));
+      browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) (())));
   project_targets#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._Return ~flags;
 
   (* Generate build script *)

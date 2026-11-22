@@ -101,22 +101,57 @@ module Log = LogBuilder.Make(struct
     let prefix = "Task"
   end)
 
-(** handle *)
-let handle f task =
-  let tenv = Array.of_list task.et_env in
-  let env =
-    if task.et_env_replace then Array.concat [(*Unix.environment();*) tenv]
-    else (Array.concat [tenv (* takes precedence *);
-                        (Array.map (fun e -> true, e) (Unix.environment()))])
+module StringSet = Set.Make (String)
+
+let name_of_entry entry =
+  match String.split_first ~sep:"=" entry with
+  | Some (name, _value) -> name
+  | None -> entry
+
+let keep_first_by_name entries =
+  let step (seen, kept) entry =
+    let name = name_of_entry entry in
+    if StringSet.mem name seen then (seen, kept)
+    else (StringSet.add name seen, entry :: kept)
   in
-  let env = List.filter (fun (e, _) -> e) (Array.to_list env) in
-  let env = Array.of_list (List.map (fun (_, v) -> v) env) in
+  List.fold_left step (StringSet.empty, []) entries |> snd |> List.rev
+
+let merge_env overrides =
+  let overrides = Array.to_list overrides in
+  let env = Array.to_list (Unix.environment ()) in
+  let latest_first = List.rev overrides in
+  let apply_override entry =
+    let name = name_of_entry entry in
+    latest_first
+    |> List.find_opt (fun o -> name_of_entry o = name)
+    |> Option.value ~default:entry
+  in
+  env @ overrides
+  |> List.map apply_override
+  |> keep_first_by_name
+  |> Array.of_list
+
+let handle f task =
+  let tenv = task.et_env |> List.filter_map (fun (e, v) -> if e then Some v else None) |> Array.of_list  in
+  let env =
+    if task.et_env_replace then Array.concat [tenv]
+    else merge_env tenv
+  in
   let prog = task.et_cmd in
   let dir = if task.et_dir <> "" then task.et_dir else (Sys.getcwd ()) in
-  let args = 
+  let args =
     task.et_args
     |> List.filter (fun (e, _) -> e)
     |> List.map (fun (_, x) -> x)
   in
-  args |> String.concat ";" |> Log.println `DEBUG "%s %s\n%!" prog;
+  begin
+    match !Log.verbosity with
+    | `DEBUG ->
+        args |> String.concat ";" |> Log.println !Log.verbosity "%s %s\n%!" prog;
+        env
+        |> Array.to_list
+        |> List.filter (fun e -> name_of_entry e = "PATH")
+        |> List.iter (fun e -> Log.println !Log.verbosity "%s\n%!" e);
+    | _ -> ()
+  end;
   f ~env ~dir ~prog ~args;;

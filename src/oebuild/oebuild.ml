@@ -283,7 +283,8 @@ let parallel_compile ~compilation ?times ?pp ~compiler ~cflags ~includes ~toplev
 
 (** Build *)
 let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_only
-    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt     ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
+    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt
+    ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
 
   let crono = if verbose >= 3 then crono else fun ?label f x -> f x in
   let crono4 = if verbose >= 4 then crono else fun ?label f x -> f x in
@@ -319,7 +320,7 @@ let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_on
     printf "%!";
   end;
   (* includes *)
-  let includes = ref includes in
+  let  includes = ref includes in
   includes := Ocaml_config.expand_includes !includes;
   (* libs *)
   let libs = split_args libs in
@@ -330,7 +331,11 @@ let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_on
   if thread then (cflags := !cflags ^ " -thread"; lflags := !lflags ^ " -thread");
   if vmthread then (cflags := !cflags ^ " -vmthread"; lflags := !lflags ^ " -vmthread");
   if annot then (cflags := !cflags ^ " -annot");
-  if bin_annot then (cflags := !cflags ^ " -bin-annot -bin-annot-occurrences");
+  if bin_annot then begin
+    cflags := !cflags ^ " -bin-annot";
+    let major, minor, _ = Opam.show_ocaml_version () |> Opam.parse_version in
+    if major >= 5 && minor >= 2 then cflags := !cflags ^ " -bin-annot-occurrences"
+  end;
   if pp <> "" then (cflags := !cflags ^ " -pp " ^ pp);
   let pp = if pp <> "" then Some pp else None in
   (* inline *)

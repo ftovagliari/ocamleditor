@@ -36,6 +36,7 @@ end
 module Timeout =
 struct
   let add = Gmisclib_util.Timeout.add
+  let add_once = Gmisclib_util.Timeout.add_once
   let remove = Gmisclib_util.Timeout.remove
   let print = Gmisclib_util.Timeout.print
 end

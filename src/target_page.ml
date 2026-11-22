@@ -663,7 +663,7 @@ class view ~project ~target_list ?packing () =
       check_is_fl_package#set_label (sprintf "Add package \xC2\xAB%s\xC2\xBB to %s" tg.name Project_tools.findlib_target_name )
 
     method private update_cmd_line target =
-      let cmd, args = create_cmd_line target in
+      let cmd, args = create_cmd_line ~switch:project.Prj.local.Prj.opam_switch target in
       let args = List.filter_map (fun (e, a) -> if e then Some a else None) args in
       let cmd = sprintf "%s %s" cmd (String.concat " " args) in
       cmd_line#set_text cmd

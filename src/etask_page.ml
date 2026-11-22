@@ -70,12 +70,21 @@ class view ?packing () =
       | _ -> dialog#destroy()
     end in
   (* Command line arguments, rule outputs/dependencies and Environment Variables *)
-  let entry_args, entry_env, entry_outputs, entry_deps = Args_env_widget.create_task vbox in
+  (*let entry_args, entry_env, entry_outputs, entry_deps = Args_env_widget.create_task vbox in*)
+  let notebook = GPack.notebook ~packing:vbox#add () in
+  let entry_env = Entry_list_env.create () in
+  let entry_args = Entry_list_args.create () in
+  let entry_outputs = Entry_list_args.create () in
+  let entry_deps = Entry_list_args.create () in
   object (self)
     inherit GObj.widget vbox#as_widget
     val mutable etask = None
 
     initializer
+      notebook#append_page ~tab_label:(GMisc.label ~markup:"Command Line Arguments" ())#coerce entry_args#coerce |> ignore;
+      notebook#append_page ~tab_label:(GMisc.label ~markup:"Environment" ())#coerce entry_env#coerce |> ignore;
+      notebook#append_page ~tab_label:(GMisc.label ~markup:"Rule Outputs" ())#coerce entry_outputs#coerce |> ignore;
+      notebook#append_page ~tab_label:(GMisc.label ~markup:"Rule Dependencies" ())#coerce entry_deps#coerce |> ignore;
       ignore (entry_name#connect#changed
                 ~callback:(self#update (fun etask -> etask.Task.et_name <- entry_name#text)));
       ignore (check_always_project#connect#toggled
@@ -85,13 +94,13 @@ class view ?packing () =
       ignore (entry_cmd#connect#changed
                 ~callback:(self#update (fun etask -> etask.Task.et_cmd <- entry_cmd#text)));
       ignore (entry_args#connect#changed
-                ~callback:(self#update (fun etask -> etask.Task.et_args <- entry_args#entries)));
+                ~callback:(self#update (fun etask -> etask.Task.et_args <- entry_args#entries_activatable)));
       ignore (entry_outputs#connect#changed
-                ~callback:(self#update (fun etask -> etask.Task.et_outputs <- entry_outputs#entries)));
+                ~callback:(self#update (fun etask -> etask.Task.et_outputs <- entry_outputs#entries_activatable)));
       ignore (entry_deps#connect#changed
-                ~callback:(self#update (fun etask -> etask.Task.et_deps <- entry_deps#entries)));
+                ~callback:(self#update (fun etask -> etask.Task.et_deps <- entry_deps#entries_activatable)));
       ignore (entry_env#connect#changed
-                ~callback:(self#update (fun etask -> etask.Task.et_env <- entry_env#entries)));
+                ~callback:(self#update (fun etask -> etask.Task.et_env <- entry_env#entries_activatable)));
       ignore (entry_env#connect#replace_changed
                 ~callback:(fun is_replace -> self#update (fun etask -> etask.Task.et_env_replace <- is_replace) ()));
       ignore (combo_phase#connect#changed
@@ -102,14 +111,15 @@ class view ?packing () =
 
     method set_task et =
       etask <- Some et;
+      let activatable = List.map (fun (e, v) -> e, true, v) in
       entry_name#set_text et.Task.et_name;
       check_always_project#set_active et.Task.et_always_run_in_project;
       check_always_script#set_active et.Task.et_always_run_in_script;
       entry_cmd#set_text et.Task.et_cmd;
-      entry_args#set_entries et.Task.et_args;
-      entry_outputs#set_entries et.Task.et_outputs;
-      entry_deps#set_entries et.Task.et_deps;
-      entry_env#set_entries et.Task.et_env;
+      entry_args#set_entries (et.Task.et_args |> activatable);
+      entry_outputs#set_entries (et.Task.et_outputs |> activatable);
+      entry_deps#set_entries (et.Task.et_deps |> activatable);
+      entry_env#set_entries (et.Task.et_env |> activatable);
       entry_env#set_replace et.Task.et_env_replace;
       button_dir#set_text et.Task.et_dir;
       self#misc#set_sensitive (not et.Task.et_readonly);

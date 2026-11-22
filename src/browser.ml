@@ -70,9 +70,9 @@ class browser window =
   let label_project_name = GMisc.label ~markup:"" ~xpad:5 ~packing:ebox_project_name#add () in
   (* Status bar *)
   let statusbar = new Statusbar.widget ~packing:vbox#pack () in
-  let gitbar = new Statusbar.gitbar ~packing:(statusbar#pack ~from:`END) () in
-  let _ = GMisc.separator `HORIZONTAL ~packing:(statusbar#pack ~from:`END) () in
   let opambar = new Statusbar.opambar ~packing:(statusbar#pack ~from:`END) () in
+  let _ = GMisc.separator `HORIZONTAL ~packing:(statusbar#pack ~from:`END) () in
+  let gitbar = new Statusbar.gitbar ~packing:(statusbar#pack ~from:`END) () in
   let _ =
     if Oe_config.unify_statusbars then
       editor#connect#switch_page ~callback:(fun page -> statusbar#pack_editorbar page#statusbar) |> ignore;
@@ -608,13 +608,15 @@ class browser window =
       self#set_menu_item_nav_history_sensitive();
 
     method build_all configs =
-      let tasks = List.map begin fun target ->
-          let cmd, args = Target.create_cmd_line target in
-          let name = sprintf "Build \xC2\xAB%s\xC2\xBB" (Filename.basename target.Target.name) in
-          let task = Task.create ~name ~env:[] ~dir:"" ~cmd ~args () in
-          `COMPILE, task
-        end configs in
-      self#with_current_project (fun _ -> ignore (Task_console.exec_sync ~editor [tasks]))
+      self#with_current_project begin fun proj ->
+        let tasks = List.map begin fun target ->
+            let cmd, args = Target.create_cmd_line ~switch:proj.local.opam_switch target in
+            let name = sprintf "Build \xC2\xAB%s\xC2\xBB" (Filename.basename target.Target.name) in
+            let task = Task.create ~name ~env:[] ~dir:"" ~cmd ~args () in
+            `COMPILE, task
+          end configs in
+        ignore (Task_console.exec_sync ~editor [tasks])
+      end
 
     method quick_info_at_cursor () =
       editor#with_current_page begin fun page ->
@@ -656,7 +658,7 @@ class browser window =
       self#with_current_project begin fun project ->
         match List.find_opt (fun x -> x.Rconf.default) project.Prj.executables with
         | Some rconf -> f rconf
-        | None when open_dialog -> self#dialog_project_properties ~page_num:2 ()
+        | None when open_dialog -> self#dialog_project_properties ~page_num:"executables" ()
         | _ -> ()
       end
 
@@ -705,6 +707,13 @@ class browser window =
       | _ -> assert false
 
     method private init () =
+      opambar#connect#switch_changed ~callback:begin fun switch ->
+        self#with_current_project begin fun proj ->
+          cache_dialog_project_properties <- List.filter (fun (x, _) ->
+              x <> Project.Path.fullname proj) cache_dialog_project_properties;
+          proj.local.opam_switch <- switch;
+        end
+      end |> ignore;
       window#event#connect#window_state ~callback:begin fun ev ->
         match GdkEvent.WindowState.new_window_state ev with
         | [`MAXIMIZED] when maximized_view_action <> `NONE && not window#decorated ->
@@ -1063,6 +1072,8 @@ class browser window =
     method private connect_project_opened () =
       self#connect#project_opened ~callback:begin fun () ->
         self#update_git_status();
+        self#with_current_project (fun proj ->
+            opambar#set_switch (if proj.local.opam_switch = "" then None else Some proj.local.opam_switch));
         !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive true);
       end |> ignore;
 
@@ -1072,6 +1083,7 @@ class browser window =
         editor#close_all ();
         editor#set_history_switch_page_locked false;
         self#update_git_status();
+        opambar#set_switch None;
         !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive false);
       end |> ignore;
 

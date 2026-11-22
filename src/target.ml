@@ -178,7 +178,7 @@ let filter_external_tasks target phase =
 let get_full_libs target = target.libs
 
 (** create_cmd_line *)
-let create_cmd_line ?(flags=[]) ?(can_compile_native=true) target =
+let create_cmd_line ?(flags=[]) ?(can_compile_native=true) ~switch target =
   let pref = Preferences.preferences#get in
   let quote = Filename.quote in
   let files = Shell.parse_args target.files in
@@ -190,6 +190,7 @@ let create_cmd_line ?(flags=[]) ?(can_compile_native=true) target =
   let args =
     files
     @ serial_jobs
+    @ (if switch <> "" then ["-switch"; quote switch] else [])
     @ ["-bin-annot"]
     @ ["-verbose"; (string_of_int pref.build_verbosity)]
     @ (if target.pp <> "" then ["-pp"; quote target.pp] else [])
@@ -222,15 +223,17 @@ let create_cmd_line ?(flags=[]) ?(can_compile_native=true) target =
   Oe_config.oebuild_command, args
 
 (** tasks_compile *)
-let rec tasks_compile ?(name="tasks_compile") ?(flags=[]) ?(build_deps=[]) ?can_compile_native target =
+let rec tasks_compile ?(name="tasks_compile") ?(flags=[]) ?(build_deps=[]) ?can_compile_native ~switch target =
   if Oebuild.check_restrictions target.restrictions then begin
-    let build_deps = List.map (fun bc -> List.flatten (tasks_compile ~name:(sprintf "Build \xC2\xAB%s\xC2\xBB" bc.name) ~flags ?can_compile_native bc)) build_deps in
+    let build_deps = List.map (fun bc ->
+        List.flatten
+          (tasks_compile ~name:(sprintf "Build \xC2\xAB%s\xC2\xBB" bc.name) ~flags ?can_compile_native ~switch bc)) build_deps in
     let build_deps = List.flatten build_deps in
     let filter_tasks = filter_external_tasks target in
     let et_before_compile = filter_tasks Task.Before_compile in
     let et_compile = filter_tasks Task.Compile in
     let et_compile = if et_compile = [] then [`COMPILE, begin
-        let cmd, args = create_cmd_line ~flags ?can_compile_native target in
+        let cmd, args = create_cmd_line ~flags ?can_compile_native ~switch target in
         Task.create ~name ~env:[] ~dir:"" ~cmd ~args ()
       end] else et_compile in
     let et_after_compile = filter_tasks Task.After_compile in

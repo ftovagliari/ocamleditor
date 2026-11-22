@@ -123,7 +123,7 @@ let specs ~browser =
     end, None;
 
     1600, `SHOW_TARGETS,   B, L ("<span size='x-large'>\u{eab3}</span>", None), "Targets", begin fun _ ->
-      browser#dialog_project_properties ?page_num:(Some 1) ?show:(Some true) ()
+      browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) ()
     end, None;
 
     1700, `SEP,            I, N, "", ignore, None;

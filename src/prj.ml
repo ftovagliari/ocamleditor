@@ -27,6 +27,7 @@ type local = {
                                            when written to the project file it is translated in "". *)
   mutable editor_view_state  : (string * int * int * bool) list; (** filename, scroll top offset, current offset, active *)
   mutable bookmarks          : Oe.bookmark list;
+  mutable opam_switch        : string;
 }
 
 type t = {

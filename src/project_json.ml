@@ -18,6 +18,7 @@ let from_local_json proj =
       let content = Bytes.to_string content in
       let project_local = Project_j.project_local_of_string content in
       proj.local.editor_view_state <- project_local.Project_t.editor_view_state;
+      proj.local.opam_switch <- project_local.Project_t.opam_switch;
       let bms =
         project_local.Project_t.bookmarks
         |> List.map begin fun (bm_filename, bm_num, offset) ->
