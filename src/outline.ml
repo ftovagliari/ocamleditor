@@ -160,8 +160,8 @@ class model ~(buffer : Ocaml_text.buffer) () : Oe.outline =
             (* Extract comments from source and convert to outline entries *)
             let comments =
               let open Location in
-              Lex.comments source_code
-              |> List.map begin fun (c, loc) ->
+              Comment.scan source_code
+              |> List.map begin fun (_, loc) ->
                 let _, start_ln, start_cn = Location.get_pos_info loc.loc_start in
                 let _, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in
                 let ol_start = { line = start_ln; col = start_cn } in

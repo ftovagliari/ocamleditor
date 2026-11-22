@@ -29,20 +29,6 @@ type result = {
   length: int
 }
 
-let comments text =
-  Lexer.init();
-  let lexbuf = Lexing.from_string text in
-  begin
-    try
-      while true do
-        if Lexer.token lexbuf = EOF then raise End_of_file
-      done
-    with
-    | End_of_file -> ()
-    | Lexer.Error (err, loc) -> ()
-  end;
-  Lexer.comments ()
-
 (** Funzione generale di analisi lessicale.*)
 let analyse ?pend ?(error=ignore) text f =
   let pend = ref pend in

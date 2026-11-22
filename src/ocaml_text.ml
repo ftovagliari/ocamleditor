@@ -392,11 +392,11 @@ and view ?project ?buffer () =
           if comp <> 0 then begin
             self#comment_selection ();
           end else if select_nearest then begin
-            match Comments.nearest (Comments.scan (tb#get_text ())) pos with
+            match Comment.nearest (Comment.scan_positions (buffer#get_text())) (stop#line + 1) stop#line_index with
             | None -> ()
-            | Some (b, e) ->
-                let i, s = if abs(pos - b) <= abs(pos - e) then b, e else e, b in
-                tb#select_range (tb#get_iter_at_char s) (tb#get_iter_at_char i);
+            | Some c ->
+                let open Comment in
+                tb#select_range (tb#get_iter (`LINECHAR (c.start_line - 1, c.start_col))) (tb#get_iter (`LINECHAR (c.stop_line - 1, c.stop_col)));
                 self#scroll_to_iter (tb#get_iter `INSERT) |> ignore;
           end else begin
             buffer#move_mark `SEL_BOUND ~where:((tb#get_iter `INSERT)#set_line_offset 0);

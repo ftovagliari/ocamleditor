@@ -449,12 +449,14 @@ let collect_info qi (iter : GText.iter) ~continue_with =
   end
 
 let is_iter_in_comment (buffer : Ocaml_text.buffer) iter =
-  Comments.enclosing (Comments.scan (buffer#get_text ())) iter#offset
+  let ln = iter#line + 1 in
+  let cn = iter#line_index in
+  Comment.in_comment_from_text (buffer#get_text ()) ln cn
 
 let get_typeable_iter_at_coords qi iter =
   if iter#ends_line
+  || is_iter_in_comment qi.view#obuffer iter
   || Glib.Unichar.isspace iter#char
-  || (match is_iter_in_comment qi.view#obuffer iter with None -> false | _ -> true)
   then None else Some iter
 
 let in_range buffer iter ~start ~stop =

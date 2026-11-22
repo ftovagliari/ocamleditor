@@ -62,7 +62,7 @@ let print ~editor () =
         let print_comments = false in
         if print_comments then
           let open Location in
-          Lex.comments ((current_page#buffer :> Text.buffer)#as_gtext_buffer#get_text())
+          Comment.scan ((current_page#buffer :> Text.buffer)#as_gtext_buffer#get_text())
           |> List.iter begin fun (c, loc) ->
             let t1, start_ln, start_cn = Location.get_pos_info loc.loc_start in
             let t2, stop_ln, stop_cn = Location.get_pos_info loc.loc_end in

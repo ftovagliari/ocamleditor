@@ -56,20 +56,26 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
   and stop = Gaux.default buffer#end_iter ~opt:stop in
   (* Se start e stop sono all'interno di commenti allora prendo come start e stop
      l'inizio del primo commento e la fine del secondo. *)
-  let global_comments = Comments.scan (buffer#get_text ()) in
-  let start = match Comments.enclosing global_comments start#offset with
-    | None -> start
-    | Some (x, _) -> buffer#get_iter_at_char x in
-  let stop = match Comments.enclosing global_comments stop#offset with
-    | None -> stop
-    | Some (_, y) -> buffer#get_iter_at_char y in
+  let global_comments = Comment.scan_positions (buffer#get_text ()) in
+  let start =
+    let ln = start#line + 1 in
+    let cn = start#line_index in
+    match Comment.find_at global_comments ln cn with
+    | Some c -> buffer#get_iter (`LINECHAR (c.start_line - 1, c.start_col))
+    | _ -> start
+  in
+  let stop =
+    let ln = stop#line + 1 in
+    let cn = stop#line_index in
+    match Comment.find_at global_comments ln cn with
+    | Some c -> buffer#get_iter (`LINECHAR (c.stop_line - 1, c.stop_col))
+    | _ -> stop
+  in
   (*  *)
   let text = buffer#get_text ~start ~stop () in
   let lines = line_starts text in
   let move_start_to_pos = move_iter_to_pos ~start ~lines in
   let lexbuf = Lexing.from_string text in
-  let comments = Comments.scan_utf8 text in
-  let succ_comments = ref comments in
   let last = ref ("", EOF, 0, 0) in
   let last_but_one = ref ("", EOF, 0, 0) in
   let in_record = ref false in
@@ -82,8 +88,7 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
         let token = Lexer.token lexbuf in
         let lstart = Lexing.lexeme_start lexbuf in
         let lstop = Lexing.lexeme_end lexbuf in
-        let _, succ, start = Comments.partition !succ_comments lstart  in
-        succ_comments := succ;
+        let start = lstart in
         let tag =
           match token with
           | AMPERAMPER
@@ -220,23 +225,11 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
   with
   | End_of_file ->
       (* comments *)
-      List.iter begin fun (b, e, _, ocamldoc) ->
-        if not ocamldoc then begin
-          let ms = Utils.Search.all multi_space begin fun ~pos ~matched_string:mat ->
-              Utils.Search.Append (pos, pos + String.length mat, mat)
-            end (String.sub text b (e - b)) in
-          let (*b = b and*) e = e - 2 in
-          buffer#apply_tag_by_name Text_tag.Name.comment ~start:(move_start_to_pos b) ~stop:(move_start_to_pos e);
-          List.iter begin fun (b1, e1, _) ->
-            buffer#apply_tag_by_name Text_tag.Name.comment ~start:(move_start_to_pos (b + b1)) ~stop:(move_start_to_pos (b + e1))
-          end ms
-        end
-      end (match comments with Comments.Utf8 x -> x | _ -> failwith "Lexical: Comments.Locale");
-      (* ocamldoc and ocamldoc-paragraph *)
-      List.iter begin fun (b, e, ocamldoc) ->
-        if ocamldoc then begin
-          let start = buffer#get_iter (`OFFSET b) in
-          let stop = buffer#get_iter (`OFFSET e) in
+      let open Comment in
+      global_comments |> List.iter begin fun c ->
+        let start = buffer#get_iter (`LINECHAR (c.start_line - 1, c.start_col)) in
+        let stop = buffer#get_iter (`LINECHAR (c.stop_line - 1, c.stop_col)) in
+        if c.is_odoc then begin
           let tag, start =
             let iter = start#backward_line in
             if iter#ends_line
@@ -244,8 +237,9 @@ let tag ?start ?stop ?(tags=Text_tag.main) (buffer : GText.buffer) =
             else (tags.Text_tag.ocamldoc, start#set_line_index 0) (* start *)
           in
           buffer#apply_tag tag ~start ~stop;
-        end
-      end (match global_comments with Comments.Locale x -> x | _ -> failwith "Lexical: Comments.Utf8")
+        end else
+          buffer#apply_tag_by_name Text_tag.Name.comment ~start ~stop;
+      end
   | (Lexer.Error (error, _)) as ex -> ()
   | ex -> (printf "Lexical: %s\n%!" (Printexc.to_string ex))
 

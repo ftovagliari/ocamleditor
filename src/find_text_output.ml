@@ -718,10 +718,7 @@ class widget
       let get_comments filename =
         if List.exists ((^^^) filename) [".ml"; ".mli"; ".mll"; ".mly"] then
           let text = get_text filename in
-          let comments = match Comments.scan_utf8 text with Comments.Utf8 x -> x | _ -> assert false in
-          let comments = List.map (fun (a, b, _, odoc) ->
-              (Convert.offset_from_pos text ~pos:a, Convert.offset_from_pos text ~pos:b, odoc)) comments
-          in
+          let comments = Comment.scan_offsets text in
           let strings = Lex.strings text in
           comments, strings
         else [], []
@@ -762,24 +759,26 @@ class widget
                         let is_line_not_colorized = ref true in
                         begin
                           try
-                            List.iter begin fun (bc, ec, odoc) ->
-                              let comment = if odoc then "ocamldoc" else "comment" in
+                            let open Text_tag in
+                            comments
+                            |> List.iter begin fun (bc, ec, odoc) ->
+                              let tag = if odoc then Text_tag.Name.ocamldoc else Text_tag.Name.comment in
                               if bc <= bol && eol <= ec then begin
-                                tbuf#apply_tag_by_name comment ~start ~stop;
+                                tbuf#apply_tag_by_name tag ~start ~stop;
                                 raise Exit
                               end else if bol <= bc && bc <= eol && eol <= ec then begin (* |----|=====| *)
                                 let len = bc - bol in
                                 let i = start#forward_chars len in
                                 Lexical.tag (tbuf :> GText.buffer) ~start ~stop:i;
-                                tbuf#apply_tag_by_name comment ~start:i ~stop:stop#forward_line;
+                                tbuf#apply_tag_by_name tag ~start:i ~stop:stop#forward_line;
                                 raise Exit
                               end else if bc < bol && bol < ec && ec < eol then begin (* |=====|----| *)
                                 let i = start#forward_chars (ec - bol) in
-                                tbuf#apply_tag_by_name comment ~start ~stop:i;
+                                tbuf#apply_tag_by_name tag ~start ~stop:i;
                                 Lexical.tag (tbuf :> GText.buffer) ~start:i ~stop:i#forward_to_line_end;
                                 raise Exit;
                               end
-                            end comments;
+                            end
                           with Exit -> is_line_not_colorized := false;
                         end;
                         if !is_line_not_colorized then begin
