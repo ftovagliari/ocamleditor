@@ -350,8 +350,7 @@ let get_iter_at_line (buffer : GText.buffer) pos =
 
 let get_iter_at_linechar buffer pos =
   let it = get_iter_at_line buffer pos in
-  if pos.col >= it#chars_in_line then raise (Invalid_linechar pos);
-  it#set_line_offset pos.col (*buffer#get_iter (`LINECHAR (pos.line - 1, pos.col))*)
+  Gtk_util.iter_of_byte_col_safe buffer it pos.col
 
 let get_type_info qi (entry : type_enclosing_value) (entry2 : type_enclosing_value option) =
   (*Printf.printf "merlin(1): %s\n%!" entry.Merlin_t.te_type;
@@ -455,8 +454,8 @@ let is_iter_in_comment (buffer : Ocaml_text.buffer) iter =
 
 let get_typeable_iter_at_coords qi iter =
   if iter#ends_line
-  || is_iter_in_comment qi.view#obuffer iter
   || Glib.Unichar.isspace iter#char
+  || is_iter_in_comment qi.view#obuffer iter
   then None else Some iter
 
 let in_range buffer iter ~start ~stop =

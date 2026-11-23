@@ -31,13 +31,13 @@ let icon_of_kind kind =
   | "Label" -> sprintf "<span color='%s'>󰌕</span>" color
   | "Class" -> sprintf "<span size='larger' color='%s'></span>" color
   | "ClassType" -> sprintf "<span size='larger' style='italic' color='%s'></span>" color
-  | "Inherit" -> sprintf "<span size='larger' color='%s'>\u{f0043}</span>" color
-  | "Initializer" -> sprintf "<span color='%s'>\u{f0c04}</span>  initializer" color
-  | "Method" -> sprintf "<span color='%s'>\u{ea8c}</span>" color
+  | "Inherit" -> sprintf "<span size='larger' color='%s'>󰁃</span>" color
+  | "Initializer" -> sprintf "<span color='%s'>󰰄</span>  initializer" color
+  | "Method" -> sprintf "<span color='%s'></span>" color
   | "Signature" -> sprintf "<span size='larger' color='%s'> </span>" color
   | "Exn" -> sprintf "<span style='italic' color='%s'>󱈸</span>" color
   | "#" -> sprintf "<span color='%s'></span>" color
-  | "ClassLets" -> sprintf "<span color='%s'>\u{f4d3}</span> <i>let bindings</i>" color
+  | "ClassLets" -> sprintf "<span color='%s'></span> <i>let bindings</i>" color
   | x -> sprintf "<span color='%s'>%s</span>" color x
 
 let type_info ?(color=Oe_config.colored_types) text =

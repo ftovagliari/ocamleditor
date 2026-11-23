@@ -51,7 +51,7 @@ let analyse ?pend ?(error=ignore) text f =
     end
 
 (** scan *)
-let scan ?(utf8=true) ?(ignore_lexer_error=true) text f =
+let scan ?(ignore_lexer_error=true) text f =
   let lexbuf = Lexing.from_string text in
   try
     while true do

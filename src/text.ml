@@ -194,30 +194,31 @@ and view ?buffer () =
 
     method goto () = Dialog_goto.show ~view:self ()
 
-    method private matching_delim_apply_tag (text : string) (offset : int) = (*(None : (int * int * int * int) option)*)
-      match Delimiters.find_match ~utf8:false text offset with
+    method private matching_delim_apply_tag ~text ~byte_offset =
+      let (!!) = Gtk_util.offset_of_byte_offset text in
+      match Delimiters.find_match text byte_offset with
       | None -> None
       | Some (lstart, lstop, rstart, rstop) as delim when lstop <> rstart ->
-          let lstart = self#buffer#get_iter (`OFFSET lstart) in
-          let lstop = self#buffer#get_iter (`OFFSET lstop) in
-          let rstart = self#buffer#get_iter (`OFFSET rstart) in
-          let rstop = self#buffer#get_iter (`OFFSET rstop) in
+          let lstart = self#buffer#get_iter (`OFFSET !!lstart) in
+          let lstop = self#buffer#get_iter (`OFFSET !!lstop) in
+          let rstart = self#buffer#get_iter (`OFFSET !!rstart) in
+          let rstop = self#buffer#get_iter (`OFFSET !!rstop) in
           let rtext = rstart#get_visible_text ~stop:rstop in
           if String.length rtext > 0 then begin
-            current_matching_tag_bounds <-
-              ((self#buffer#create_mark ~name:"delim_left_start" lstart),
-               (self#buffer#create_mark ~name:"delim_left_stop" lstop)) :: [];
             self#buffer#apply_tag Text_tag.main.matching_delim ~start:lstart ~stop:lstop;
-            current_matching_tag_bounds <-
-              ((self#buffer#create_mark ~name:"delim_right_start" rstart),
-               (self#buffer#create_mark ~name:"delim_right_stop" rstop)) :: current_matching_tag_bounds;
             self#buffer#apply_tag Text_tag.main.matching_delim ~start:rstart ~stop:rstop;
+            current_matching_tag_bounds <- [
+              self#buffer#create_mark ~name:"delim_left_start" lstart,
+              self#buffer#create_mark ~name:"delim_left_stop" lstop;
+              self#buffer#create_mark ~name:"delim_right_start" rstart,
+              self#buffer#create_mark ~name:"delim_right_stop" rstop
+            ];
             self#add_outline_text (current_matching_tag_bounds |> List.map (fun x -> `Delim x));
             GtkBase.Widget.queue_draw self#as_widget;
             delim
           end else None
       | Some (_, lstop, rstart, _) (*as delim*) when lstop = rstart ->
-          ignore (self#innermost_enclosing_delim text lstop);
+          ignore (self#innermost_enclosing_delim ~text ~byte_offset:lstop);
           None
       | _ -> None
 
@@ -243,11 +244,11 @@ and view ?buffer () =
       let text55 = self#buffer#get_text ~start ~stop () in
       let text = self#buffer#get_text () in
       (* Is cursor on a delimiter? *)
-      if Delimiters.is_delimiter ~utf8:false text55 (pos#offset - start#offset) then begin
-        ignore (self#matching_delim_apply_tag text pos#offset)
+      let byte_offset = Gtk_util.byte_offset_of_iter self#buffer pos in
+      if Delimiters.is_delimiter text55 byte_offset then begin
+        self#matching_delim_apply_tag ~text ~byte_offset |> ignore;
       end else begin
-        try
-          ignore (self#innermost_enclosing_delim text pos#offset);
+        try self#innermost_enclosing_delim ~text ~byte_offset |> ignore;
         with ex -> eprintf "%s\n%!" (Printexc.to_string ex);
       end
 
@@ -269,8 +270,8 @@ and view ?buffer () =
               let left_stop = self#buffer#get_iter_at_mark (`MARK lstop) in
               if select then begin
                 let start =
-                  if strict then begin
-                    let start = left_stop#forward_find_char not_blank in
+                  if strict then begin (* strict = include delim. *)
+                    let start = if left_stop#ends_line then left_stop else left_stop#forward_find_char not_blank in
                     let start = start#set_line_index 0 in
                     if start#compare left_stop <= 0 then left_stop else start
                   end else (self#buffer#get_iter_at_mark (`MARK lstart))
@@ -298,13 +299,13 @@ and view ?buffer () =
           | _ -> ()
         end
 
-    method private innermost_enclosing_delim (text : string) (offset : int) = (*(None : (int * int * int * int) option)*)
+    method private innermost_enclosing_delim ~text ~byte_offset = (*(None : (int * int * int * int) option)*)
       (*Prf.crono Prf.innermost_enclosing_delim (fun () ->*)
-      match Delimiters.find_innermost_enclosing_delim ~utf8:false text offset with
+      match Delimiters.find_innermost_enclosing_delim text byte_offset with
       | ((start, stop) :: _) (*as stack*)  ->
-          if stop = offset
-          then (self#innermost_enclosing_delim text start)
-          else (self#matching_delim_apply_tag text start);
+          if stop = byte_offset
+          then self#innermost_enclosing_delim ~text ~byte_offset:start
+          else self#matching_delim_apply_tag ~text ~byte_offset:start;
       | _ -> None (* ) () *)
 
     method current_matching_tag_bounds = current_matching_tag_bounds

@@ -293,3 +293,36 @@ let is_iter_visible (view : GText.view) (iter : GText.iter) =
   let end_iter = view#get_iter_at_location ~x:(x + w) ~y:(y + h) in
   (iter#compare start_iter >= 0) && (iter#compare end_iter <= 0)
 
+let byte_offset_of_iter ?visible (buffer : GText.buffer) iter =
+  String.length (buffer#get_text ~start:buffer#start_iter ~stop:iter ?visible ())
+
+let offset_of_byte_offset text byte_offset =
+  let prefix = String.sub text 0 (min byte_offset (String.length text)) in
+  Gutf8.length prefix
+
+let iter_of_byte_col (buffer : GText.buffer) (line_iter : GText.iter) byte_col =
+  if byte_col <= 0 || line_iter#ends_line then
+    line_iter
+  else
+    let line_text = buffer#get_text ~start:line_iter ~stop:line_iter#forward_to_line_end () in
+    let safe_bytes = min byte_col (String.length line_text) in
+    let char_col = Gutf8.length (String.sub line_text 0 safe_bytes) in
+    line_iter#forward_chars char_col
+
+let iter_of_byte_col_safe (buffer : GText.buffer) (line_iter : GText.iter) byte_col =
+  if byte_col <= 0 || line_iter#ends_line then
+    line_iter
+  else
+    let line_end = line_iter#forward_to_line_end in
+    let line_text = buffer#get_text ~start:line_iter ~stop:line_end () in
+    let len = String.length line_text in
+    let target = min byte_col len in
+    let rec count_chars pos chars =
+      if pos >= target then chars
+      else
+        let next = Gutf8.next line_text ~pos in
+        if next > len then chars
+        else count_chars next (chars + 1)
+    in
+    line_iter#forward_chars (count_chars 0 0)
+

@@ -29,11 +29,11 @@ exception Exit_forward of int * int
 exception Exit_backward
 
 (** is_delimiter *)
-let rec is_delimiter ?(utf8=true) text pos =
+let rec is_delimiter text pos =
   let result = ref false in
   begin
     try
-      Lex.scan ~utf8 text begin fun ~token ~start ~stop ->
+      Lex.scan text begin fun ~token ~start ~stop ->
         match token with
         | BEGIN | END | LET | IN | LPAREN | RPAREN | LBRACKET
         | RBRACKET | LBRACE | TRY | WITH | RBRACE | DO | DONE
@@ -43,7 +43,7 @@ let rec is_delimiter ?(utf8=true) text pos =
         | _ -> ()
       end;
     with Lexer.Error _ (*as ex*) -> begin
-        result := is_delimiter ~utf8 (String.sub text 1 (String.length text - 1)) (max (pos - 1) 0)
+        result := is_delimiter (String.sub text 1 (String.length text - 1)) (max (pos - 1) 0)
       end | Sys_error _ -> ()
   end;
   !result
@@ -79,7 +79,7 @@ let rec find_backward delimiters delim n =
 ;;
 
 (** find *)
-let find_match ?(utf8=true) text pos =
+let find_match text pos =
   let delimiters = ref [] in
   let fn = ref (-1) in
   let fd = ref `NONE in
@@ -109,8 +109,8 @@ let find_match ?(utf8=true) text pos =
     end
   in
   try
-    Lex.scan ~utf8 text begin fun ~token ~start ~stop ->
-      match token with
+    Lex.scan text begin fun ~token ~start ~stop ->
+      match [@warning "-4"] token with
       | BEGIN -> f start stop `BEGIN
       | END -> f start stop `END
       | LET -> f start stop `LET
@@ -145,11 +145,11 @@ let find_match ?(utf8=true) text pos =
   | ex -> (eprintf "%s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace ())); None;;
 
 (** find_innermost_enclosing_delim *)
-let find_innermost_enclosing_delim ?(utf8=true) text pos =
+let find_innermost_enclosing_delim text pos =
   let stack = ref [] in
   begin
     try
-      Lex.scan ~utf8 text begin fun ~token ~start ~stop ->
+      Lex.scan text begin fun ~token ~start ~stop ->
         if pos < start then raise End_of_file else begin
           match token with
           | BEGIN | LPAREN | LBRACKET | LBRACE | DO (*| TRY | LET*) ->
@@ -165,99 +165,6 @@ let find_innermost_enclosing_delim ?(utf8=true) text pos =
   end;
   !stack;; (* [start, stop] of the left part of the innermost enclosing delimiters *)
 
-(** scan_folding_points
-  * on the assumption that the only construct that may not have the closing
-  * delimiter is the global "let" binding.
-*)
-let rec scan_folding_points =
-  let re_end_comment = Str.regexp "\\*)" in
-  fun text ->
-    let delim = ref [] in
-    let start = ref 0 in
-    let stack = ref [] in
-    let pending_let = ref [] in
-    let rec pop recursive stop =
-      match !stack with
-      | start :: tl when recursive && (match !pending_let with x :: _ -> x | _ -> assert false) ->
-          (* Skip unclosed toplevel "let" bindings *)
-          stack := tl;
-          pending_let := List.tl !pending_let;
-          pop recursive stop
-      | (start) :: tl ->
-          delim := (start, stop) :: !delim;
-          stack := tl;
-          pending_let := List.tl !pending_let
-      | _ -> ()
-    in
-    begin
-      try
-        Lex.scan ~utf8:true ~ignore_lexer_error:false text begin fun ~token ~start ~stop ->
-          match token with
-          | BEGIN    -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | LET      -> pending_let := true  :: !pending_let; stack := stop :: !stack;
-          | DO       -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | LBRACE   -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | LBRACKET -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | OBJECT   -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | STRUCT   -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | SIG      -> pending_let := false :: !pending_let; stack := stop :: !stack;
-          | END      -> pop true start (*`BEGIN*)
-          | IN       -> pop false start (*`LET*)
-          | SEMISEMI -> pop false start (*`LET*)
-          | DONE     -> pop true start (*`DO*)
-          | RBRACE   -> pop true start (*`LBRACE*)
-          | RBRACKET -> pop true start (*`LBRACKET*)
-          | _ -> ()
-        end;
-      with
-      | Lexer.Error (Lexer.Unterminated_string, _) -> ()
-      | Lexer.Error (Lexer.Unterminated_comment _, _) -> ()
-      | Lexer.Error (Lexer.Unterminated_string_in_comment _, _) -> ()
-      | Lexer.Error _ as ex -> ()
-      (*Printf.eprintf "File \"delimiters.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());*)
-      | Sys_error _ -> begin
-          let pos = (Str.search_forward re_end_comment text 0) + 2 in
-          let d, p = scan_folding_points (Str.string_after text pos) in
-          delim := d;
-          start := pos;
-        end
-    end;
-    List.iter (fun a -> delim := (a, -1) :: !delim) !stack;
-    !delim, !start;;
-
-(** find_closing_folding_point *)
-let find_closing_folding_point text =
-  let result = ref None in
-  let stack = ref 0 in
-  try
-    Lex.scan ~utf8:true text begin fun ~token ~start ~stop ->
-      begin
-        match token with
-        | BEGIN    -> incr stack;
-        | LET      -> incr stack;
-        | DO       -> incr stack;
-        | LBRACE   -> incr stack;
-        | LBRACKET -> incr stack;
-        | OBJECT   -> incr stack;
-        | STRUCT   -> incr stack;
-        | SIG      -> incr stack;
-        | END      -> decr stack;
-        | DONE     -> decr stack;
-        | RBRACE   -> decr stack;
-        | RBRACKET -> decr stack;
-        | IN       -> decr stack;
-        | SEMISEMI -> decr stack;
-        | _ -> ()
-      end;
-      if !stack = 0 then begin
-        result := Some start;
-        raise Exit
-      end
-    end;
-    !result
-  with Exit -> !result
-;;
-
 (** scan *)
 let scan text =
   let delim = ref [] in
@@ -265,7 +172,7 @@ let scan text =
   let skip = ref 0 in
   begin
     try
-      Lex.scan ~utf8:true text begin fun ~token ~start ~stop ->
+      Lex.scan text begin fun ~token ~start ~stop ->
         match token with
         | BEGIN | DO | TRY | LET | MATCH | OBJECT | STRUCT | SIG -> stack := start :: !stack;
         | END | DONE | WITH | IN ->
