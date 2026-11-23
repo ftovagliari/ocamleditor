@@ -89,7 +89,7 @@ let edit ~browser ~group ~flags
   let select_par_expr = GMenu.menu_item ~label:"Select to Matching Delimiter" ~packing:menu#add () in
   ignore (select_par_expr#connect#activate ~callback:(fun () ->
       editor#with_current_page (fun page ->
-          ignore (page#view#matching_delim_goto ?select:(Some true) ?strict:None ()))));
+          ignore (page#view#matching_delim_goto ?select:(Some true) ?include_delim:None ()))));
   select_par_expr#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._d ~flags;
   (* Comment/Uncomment *)
   let comment = GMenu.menu_item ~label:"Comment Block" ~packing:menu#add () in

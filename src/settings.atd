@@ -21,6 +21,7 @@ type settings = {
   ~detach_message_panes_separately <ocaml default="false" mutable> : bool;
   ~font                            <ocaml default="\"Sans 9\"" mutable> : string;
   ~geometry_delayed                <ocaml default="false" mutable> : bool;
+  ~memory_graph                    <ocaml default="true" mutable> : bool;
   ~hmessages_width                 <ocaml default="1000" mutable> : int;
 
   ~max_view_1_menubar              <ocaml default="true" mutable> : bool;

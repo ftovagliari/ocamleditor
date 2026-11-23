@@ -73,6 +73,7 @@ class browser window =
   let opambar = new Statusbar.opambar ~packing:(statusbar#pack ~from:`END) () in
   let _ = GMisc.separator `HORIZONTAL ~packing:(statusbar#pack ~from:`END) () in
   let gitbar = new Statusbar.gitbar ~packing:(statusbar#pack ~from:`END) () in
+  let membar = new Graph.uss_histogram ~packing:(statusbar#pack ~from:`END) ~enabled:preferences#get.Settings_t.memory_graph () in
   let _ =
     if Oe_config.unify_statusbars then
       editor#connect#switch_page ~callback:(fun page -> statusbar#pack_editorbar page#statusbar) |> ignore;
@@ -707,6 +708,8 @@ class browser window =
       | _ -> assert false
 
     method private init () =
+      membar#connect#toggle ~callback:(fun enabled ->
+          preferences#get.Settings_t.memory_graph <- enabled) |> ignore;
       opambar#connect#switch_changed ~callback:begin fun switch ->
         self#with_current_project begin fun proj ->
           cache_dialog_project_properties <- List.filter (fun (x, _) ->

@@ -252,11 +252,11 @@ and view ?buffer () =
         with ex -> eprintf "%s\n%!" (Printexc.to_string ex);
       end
 
-    method matching_delim_goto ?(select=false) ?(strict=true) () =
+    method matching_delim_goto ?(select=false) ?(include_delim=true) () =
       match self#buffer#selection_bounds with
       | b1, b2 when (not (b1#equal b2)) ->
           self#buffer#place_cursor ~where:b1;
-          self#matching_delim_goto ~select ~strict:false ()
+          self#matching_delim_goto ~select ~include_delim:false ()
       (*let b1 = if List.mem b1#char blanks then
         b1#forward_find_char not_blank else b1 in
         let b2 = if List.mem b2#char blanks then
@@ -270,14 +270,14 @@ and view ?buffer () =
               let left_stop = self#buffer#get_iter_at_mark (`MARK lstop) in
               if select then begin
                 let start =
-                  if strict then begin (* strict = include delim. *)
+                  if include_delim then begin
                     let start = if left_stop#ends_line then left_stop else left_stop#forward_find_char not_blank in
                     let start = start#set_line_index 0 in
                     if start#compare left_stop <= 0 then left_stop else start
                   end else (self#buffer#get_iter_at_mark (`MARK lstart))
                 in
                 let stop =
-                  if strict then begin
+                  if include_delim then begin
                     let stop = right_start#backward_find_char not_blank in
                     let stop = stop#forward_line in
                     if stop#compare right_start <= 0 then stop else right_start
