@@ -252,50 +252,23 @@ and view ?buffer () =
         with ex -> eprintf "%s\n%!" (Printexc.to_string ex);
       end
 
-    method matching_delim_goto ?(select=false) ?(include_delim=true) () =
+    method select_to_matching_delim ?(include_delim=true) () =
       match self#buffer#selection_bounds with
       | b1, b2 when (not (b1#equal b2)) ->
           self#buffer#place_cursor ~where:b1;
-          self#matching_delim_goto ~select ~include_delim:false ()
-      (*let b1 = if List.mem b1#char blanks then
-        b1#forward_find_char not_blank else b1 in
-        let b2 = if List.mem b2#char blanks then
-        (b2#backward_find_char not_blank)#forward_to_line_end else b2 in
-        self#buffer#select_range b1 b2*)
+          self#select_to_matching_delim ~include_delim:false ()
       | _ -> begin
           match current_matching_tag_bounds with
-          | [(rstart, rstop); (lstart, lstop)] ->
-              let ins = self#buffer#get_iter `INSERT in
-              let right_start = self#buffer#get_iter_at_mark (`MARK rstart) in
-              let left_stop = self#buffer#get_iter_at_mark (`MARK lstop) in
-              if select then begin
-                let start =
-                  if include_delim then begin
-                    let start = if left_stop#ends_line then left_stop else left_stop#forward_find_char not_blank in
-                    let start = start#set_line_index 0 in
-                    if start#compare left_stop <= 0 then left_stop else start
-                  end else (self#buffer#get_iter_at_mark (`MARK lstart))
-                in
-                let stop =
-                  if include_delim then begin
-                    let stop = right_start#backward_find_char not_blank in
-                    let stop = stop#forward_line in
-                    if stop#compare right_start <= 0 then stop else right_start
-                  end else (self#buffer#get_iter_at_mark (`MARK rstop))
-                in
-                self#buffer#select_range start stop;
-              end else begin
-                (*let right_stop = Gtk_util.get_iter_mark self#buffer rstop in
-                  let left_start = Gtk_util.get_iter_mark self#buffer lstart in*)
-                let right_start, left_stop = if right_start#compare left_stop <= 0
-                  then (right_start, left_stop) else (left_stop, right_start) in
-                let left_is_nearest = abs (ins#offset - right_start#offset) > abs (ins#offset - left_stop#offset)
-                in
-                if left_is_nearest
-                then (self#buffer#place_cursor ~where:right_start)
-                else (self#buffer#place_cursor ~where:left_stop);
-                ignore (self#scroll_to_mark `INSERT);
-              end
+          | [lstart, lstop; rstart, rstop] ->
+              let start, stop =
+                if include_delim then
+                  self#buffer#get_iter_at_mark (`MARK lstart),
+                  self#buffer#get_iter_at_mark (`MARK rstop)
+                else
+                  self#buffer#get_iter_at_mark (`MARK lstop),
+                  self#buffer#get_iter_at_mark (`MARK rstart)
+              in
+              self#buffer#select_range start stop
           | _ -> ()
         end
 

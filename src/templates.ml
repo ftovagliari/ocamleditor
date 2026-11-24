@@ -63,11 +63,11 @@ module Action = struct
   let get_text_within_delimiters view =
     let view = (view :> Text.view) in
     let where = view#buffer#get_iter `INSERT in
-    view#matching_delim_goto ~select:true ~include_delim:false ();
+    view#select_to_matching_delim ~include_delim:false ();
     let start, stop = view#buffer#selection_bounds in
     let text_within_delimiters = view#buffer#get_text ~start ~stop () in
     view#buffer#place_cursor ~where;
-    view#matching_delim_goto ~select:true ~include_delim:true ();
+    view#select_to_matching_delim ~include_delim:true ();
     let start, stop = view#buffer#selection_bounds in
     view#matching_delim_remove_tag ();
     view#buffer#place_cursor ~where;
