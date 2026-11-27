@@ -66,8 +66,22 @@ let main () = begin
         ~kind:`TOPLEVEL
         ~show:true ()
     in
+    (* The splash screen owns the focus: when it is destroyed some window managers (e.g. WSLg) give the
+       focus to another application and leave the main window behind, so raise it explicitly. *)
+    let close_splashscreen w =
+      (* Activate the main window while the splash screen still exists, so that destroying the latter
+         does not hand the activation over to another application; then repeat it, because the window
+         manager may ignore the first request. *)
+      window#present();
+      w#destroy();
+      window#present();
+      Gmisclib.Timeout.add "raise-main-window" ~ms:250 ~callback:begin fun () ->
+        window#present();
+        false
+      end |> ignore
+    in
     Gaux.may splashscreen ~f:(fun w ->
-        w#event#connect#button_press ~callback:(fun _ -> w#destroy(); false) |> ignore;
+        w#event#connect#button_press ~callback:(fun _ -> close_splashscreen w; false) |> ignore;
         w#set_transient_for window#as_window);
     Gtk_theme.set_theme ~context:window#misc#pango_context ();
     let _ = new Theme.monitor window in
@@ -83,7 +97,7 @@ let main () = begin
       Gaux.may (browser#editor#get_page `ACTIVE) ~f:(fun page -> page#view#misc#grab_focus());
       Gaux.may splashscreen ~f:begin fun w ->
         Gmisclib.Timeout.add "splashscreen" ~ms:2000 ~callback:begin fun () ->
-          w#destroy();
+          close_splashscreen w;
           false
         end |> ignore;
       end;
