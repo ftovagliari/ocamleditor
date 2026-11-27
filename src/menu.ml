@@ -43,12 +43,12 @@ let edit ~browser ~group ~flags
     false;
   end |> ignore;
   (* Undo *)
-  let undo = Image_menu.item ~image:(Icons.create (??? Icons.undo_16)) ~label:"Undo" ~packing:menu#add () in
+  let undo = Image_menu.item ~label:"Undo" ~packing:menu#add () in
   ignore (undo#connect#activate ~callback:(fun () -> editor#with_current_page (fun page -> page#undo())));
   undo#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._z ~flags;
   get_menu_item_undo := (fun () -> undo);
   (* Redo *)
-  let redo = Image_menu.item ~image:(Icons.create (??? Icons.redo_16)) ~label:"Redo" ~packing:menu#add () in
+  let redo = Image_menu.item ~label:"Redo" ~packing:menu#add () in
   ignore (redo#connect#activate ~callback:(fun () -> editor#with_current_page (fun page -> page#redo())));
   redo#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._y ~flags;
   redo#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._z ~flags;
@@ -169,7 +169,7 @@ let edit ~browser ~group ~flags
       Preferences.save()));
   let _ = GMenu.separator_item ~packing:menu#add () in
   (** Eval in Toplevel *)
-  let to_shell = Image_menu.item ~image:(Icons.create (??? Icons.toplevel)) ~label:"Eval in Toplevel" ~packing:menu#add () in
+  let to_shell = Image_menu.item ~label:"Eval in Toplevel" ~packing:menu#add () in
   ignore (to_shell#connect#activate ~callback:(fun () ->
       editor#with_current_page (fun page -> page#ocaml_view#obuffer#send_to_shell ())));
   to_shell#add_accelerator ~group ~modi:[] GdkKeysyms._F8 ~flags;
@@ -229,7 +229,7 @@ let search ~browser ~group ~flags items =
     false;
   end |> ignore;
   (** Find and Replace *)
-  let find_repl = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.find_replace) ~icon_size:`MENU ())#coerce ~label:"Find and Replace" ~packing:menu#add () in
+  let find_repl = Image_menu.item ~label:"Find and Replace" ~packing:menu#add () in
   ignore (find_repl#connect#activate ~callback:(fun () ->
       Menu_search.find_replace ?find_all:None ?search_word_at_cursor:None editor));
   (** Find Next *)
@@ -241,11 +241,11 @@ let search ~browser ~group ~flags items =
   ignore (find_prev#connect#activate ~callback:(fun () -> Menu_search.find_prev editor));
   find_prev#add_accelerator ~group ~modi:[`SHIFT] GdkKeysyms._F3 ~flags;
   (** Search Again *)
-  let search_again = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.search_again_16) ())#coerce ~label:"Search Again" ~packing:menu#add () in
+  let search_again = Image_menu.item ~label:"Search Again" ~packing:menu#add () in
   ignore (search_again#connect#activate ~callback:(fun () -> Menu_search.search_again editor));
   search_again#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F3 ~flags;
   (** Find All *)
-  let find_all = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.search_results_16) ())#coerce ~label:"Find All" ~packing:menu#add () in
+  let find_all = Image_menu.item ~label:"Find All" ~packing:menu#add () in
   ignore (find_all#connect#activate ~callback:(fun () ->
       Menu_search.find_replace ?find_all:(Some true) ?search_word_at_cursor:(Some true) editor));
   find_all#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._f ~flags;
@@ -286,7 +286,7 @@ let search ~browser ~group ~flags items =
   goto_line#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._g ~flags;
   (* Find definition *)
   let find_definition = Menu_items.create Menu_items.Search.find_definition
-      ~label:"Find Definition" ~icon:"\u{e112}"
+      ~label:"Find Definition" ~icon:Icon_set.find_definition
       ~accel:[[], GdkKeysyms._F12]
       ~packing:menu#add in
   find_definition#connect#activate ~callback:(fun () ->
@@ -294,7 +294,7 @@ let search ~browser ~group ~flags items =
           ignore (editor#scroll_to_definition ~page ~iter:(page#buffer#get_iter `INSERT)))) |> ignore;
   (* Find references *)
   let find_references = Menu_items.create Menu_items.Search.find_references
-      ~label:"Find References" ~icon:"\u{e113}"
+      ~label:"Find References" ~icon:Icon_set.find_references
       ~accel:[[`SHIFT], GdkKeysyms._F12]
       ~packing:menu#add in
   find_references#connect#activate ~callback:(fun () -> Menu_search.find_definition_references editor) |> ignore;
@@ -314,7 +314,7 @@ let search ~browser ~group ~flags items =
   let _ = GMenu.separator_item ~packing:menu#add () in
   (** Bookmarks *)
   let bookmarks = Image_menu.item
-      ~image:(GMisc.image ~pixbuf:(??? Icons.bB) ~icon_size:`MENU ())#coerce
+     
       ~label:"Bookmarks" ~packing:menu#add () in
   let bookmark_menu = GMenu.menu ~packing:bookmarks#set_submenu () in
   (*let _  = GMenu.tearoff_item ~packing:bookmark_menu#add () in*)
@@ -450,7 +450,7 @@ let view ~browser ~group ~flags
       editor#with_current_page (fun page -> page#button_dep_graph#clicked ())
     end);
   let rev_history = Image_menu.item
-      ~image:(GMisc.image ~pixbuf:(??? Icons.history) ())#coerce
+     
       ~label:"Revision History" ~packing:menu#add ()
   in
   rev_history#connect#activate ~callback:begin fun () ->
@@ -531,8 +531,8 @@ let window ~browser ~group ~flags
   ignore (window_switch#connect#activate ~callback:editor#dialog_file_select);
   let _ = GMenu.separator_item ~packing:menu#add () in
   (** Navigation Backward *)
-  let backward = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.go_back) ~icon_size:`MENU ())#coerce ~label:"Back" ~packing:menu#append () in
-  let forward = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.go_forward) ~icon_size:`MENU ())#coerce ~label:"Forward" ~packing:menu#append () in
+  let backward = Image_menu.item ~label:"Back" ~packing:menu#append () in
+  let forward = Image_menu.item ~label:"Forward" ~packing:menu#append () in
   get_menu_item_nav_history_backward := (fun () -> backward);
   get_menu_item_nav_history_forward := (fun () -> forward);
   let backward_menu = GMenu.menu ~packing:backward#set_submenu () in
@@ -564,7 +564,7 @@ let window ~browser ~group ~flags
   let _ = GMenu.separator_item ~packing:forward_menu#add () in
   browser#create_menu_history `FORWARD ~menu:forward_menu;
   (** Last Edit Location *)
-  let last_edit_location = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.goto_last) ~icon_size:`MENU ())#coerce ~label:"Last Edit Location" ~packing:menu#append () in
+  let last_edit_location = Image_menu.item ~label:"Last Edit Location" ~packing:menu#append () in
   last_edit_location#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._End ~flags;
   last_edit_location#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._KP_End ~flags;
   ignore (last_edit_location#connect#activate ~callback:(fun () -> browser#goto_location `LAST));
@@ -639,8 +639,8 @@ let create ~browser ~group
     file_switch                   = GMenu.menu_item ~label:"Switch to Implementation/Interface" ();
     file_close                    = Image_menu.item ~label:"Close" ();
     file_close_all                = GMenu.menu_item ~label:"Close All" ();
-    file_revert                   = Image_menu.item ~label:"Revert" ~image:(GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) ()) ();
-    file_delete                   = Image_menu.item ~label:"Delete" ~image:(Icons.create (??? Icons.delete_16)) ();
+    file_revert                   = Image_menu.item ~label:"Revert" ();
+    file_delete                   = Image_menu.item ~label:"Delete" ();
     window                        = GMenu.menu ();
     window_radio_group            = None;
     window_pages                  = [];

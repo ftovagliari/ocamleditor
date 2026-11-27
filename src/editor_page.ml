@@ -315,11 +315,7 @@ class page ?file ~project ~offset ~editor () =
             Prj.(project.local.bookmarks) |> List.iter begin fun prj_bm ->
               if prj_bm.Oe.bm_filename = file#filename then
                 let mark = Bookmark.offset_to_mark (self#buffer :> GText.buffer) prj_bm in
-                let icon =
-                  match prj_bm.Oe.bm_num with (* TODO refactor *)
-                  | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
-                  | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
-                in
+                let icon = Icon_set.bookmark.(if prj_bm.Oe.bm_num >= 0 && prj_bm.Oe.bm_num <= 9 then prj_bm.Oe.bm_num else 0) in
                 let marker = margin_markers#add ~kind:(`Bookmark prj_bm.Oe.bm_num) ~mark ~icon ~color:"#4da1ff" in
                 prj_bm.Oe.bm_marker <- Some marker;
             end;
@@ -384,7 +380,7 @@ class page ?file ~project ~offset ~editor () =
     method show_revision_history () =
       let rev = Revisions.create ~page:self in
       let hbox = GPack.hbox ~spacing:1 () in
-      let _ = GMisc.image ~pixbuf:(??? Icons.history) ~packing:hbox#pack () in
+      let _ = Gtk_util.label_icon ~packing:hbox#pack Icon_set.history in
       let label = GMisc.label ~text:(sprintf "\xC2\xAB%s\xC2\xBB history" (Filename.basename self#get_filename)) ~packing:hbox#pack () in
       (Messages.vmessages())#append_page ~label_widget:hbox#coerce ~with_spinner:false (rev :> Messages.page);
       rev#set_title label#text;
@@ -484,8 +480,8 @@ class page ?file ~project ~offset ~editor () =
             |> List.map (fun ws -> match ws with hd :: _ :: _ -> [hd] | _ -> ws)
             |> List.flatten
           in
-          create_gutter_markers warnings (fun x -> `Warning x) "\u{f071}" "darkorange";
-          create_gutter_markers errors (fun x -> `Error x) "\u{f0159}" "red";
+          create_gutter_markers warnings (fun x -> `Warning x) Icon_set.warning "darkorange";
+          create_gutter_markers errors (fun x -> `Error x) Icon_set.error "red";
         end;
         margin_errors#build_errors ~warnings ~errors;
         self#margin_manager#build();
@@ -554,7 +550,7 @@ class page ?file ~project ~offset ~editor () =
               end else self#revert();
             self#set_read_only f#is_readonly;
             if read_only then begin
-              editorbar#modified#set_label "\u{ea75}";
+              editorbar#modified#set_label Icon_set.file_status_readonly;
               editorbar#modified#misc#set_tooltip_text "Read-only"
             end;
           end;

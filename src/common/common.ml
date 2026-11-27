@@ -32,6 +32,7 @@ open Manual_reset_event
 open Async
 open Deque
 open Opam
+module Icon_set = Icon_set
 
 module Log = Log.Make(struct
     let channel = stdout

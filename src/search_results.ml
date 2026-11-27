@@ -33,8 +33,8 @@ type t = {
 }
 
 and locations =
-  | Offset of (GdkPixbuf.pixbuf option * Merlin_j.range) list
-  | Mark of (GdkPixbuf.pixbuf option * GText.buffer * Gtk.text_mark * Gtk.text_mark) list
+  | Offset of (string option * Merlin_j.range) list
+  | Mark of (string option * GText.buffer * Gtk.text_mark * Gtk.text_mark) list
 
 let count_locations {locations; _} =
   match locations with
@@ -59,34 +59,34 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
   let toolbar           = GButton.toolbar ~style:`ICONS ~orientation:`HORIZONTAL ~packing:vbox#pack () in
   let _                 = toolbar#set_icon_size `MENU in
   let button_stop       = GButton.tool_button ~packing:toolbar#insert () in
-  let _                 = button_stop#set_label_widget (Gtk_util.label_icon ~color:"red" "\u{f04d}")#coerce in
+  let _                 = button_stop#set_label_widget (Gtk_util.label_icon ~color:"red" Icon_set.search_stop)#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   let button_prev_file  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_prev_file#misc#set_tooltip_text "Previous file" in
-  let _                 = button_prev_file#set_label_widget (Gtk_util.label_icon "\u{ea9b}")#coerce in
+  let _                 = button_prev_file#set_label_widget (Gtk_util.label_icon Icon_set.search_prev_page)#coerce in
   let button_prev_line  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_prev_line#misc#set_tooltip_text "Previous line" in
-  let _                 = button_prev_line#set_label_widget (Gtk_util.label_icon "\u{eab5}")#coerce in
+  let _                 = button_prev_line#set_label_widget (Gtk_util.label_icon Icon_set.search_prev_line)#coerce in
   let button_next_line  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_next_line#misc#set_tooltip_text "Next line" in
-  let _                 = button_next_line#set_label_widget (Gtk_util.label_icon "\u{eab6}")#coerce in
+  let _                 = button_next_line#set_label_widget (Gtk_util.label_icon Icon_set.search_next_line)#coerce in
   let button_next_file  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_next_file#misc#set_tooltip_text "Next file" in
-  let _                 = button_next_file#set_label_widget (Gtk_util.label_icon "\u{ea9c}")#coerce in
+  let _                 = button_next_file#set_label_widget (Gtk_util.label_icon Icon_set.search_next_page)#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   let button_remove     = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_remove#misc#set_tooltip_text "Remove entry" in
-  let _                 = button_remove#set_label_widget (Gtk_util.label_icon "\u{eb3b}")#coerce in
+  let _                 = button_remove#set_label_widget (Gtk_util.label_icon Icon_set.search_remove)#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   let button_restart    = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_restart#misc#set_tooltip_text "Repeat current search" in
-  let _                 = button_restart#set_label_widget (Gtk_util.label_icon "\u{eb37}")#coerce in
+  let _                 = button_restart#set_label_widget (Gtk_util.label_icon Icon_set.search_repeat)#coerce in
   let button_new_search = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_new_search#misc#set_tooltip_text "New search" in
-  let _                 = button_new_search#set_label_widget (Gtk_util.label_icon "\u{f422}")#coerce in
+  let _                 = button_new_search#set_label_widget (Gtk_util.label_icon Icon_set.search_new)#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   let button_detach     = GButton.tool_button ~label:"Detach" ~packing:toolbar#insert () in
-  let _                 = button_detach#set_label_widget (Gtk_util.label_icon "\u{eb23}")#coerce in
+  let _                 = button_detach#set_label_widget (Gtk_util.label_icon Icon_set.detach_window)#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   let item_message      = GButton.tool_item ~packing:toolbar#insert () in
   let label_message     = GMisc.label ~markup:"" ~packing:item_message#add () in
@@ -124,7 +124,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
   let pref              = preferences#get in
   let editor_bg_color_user = ?? (pref.Settings_j.editor_bg_color_user) in
   let cols              = new GTree.column_list in
-  let col_pixbuf        = cols#add ((Gobject.Data.gobject_option : (GdkPixbuf.pixbuf option) Gobject.data_conv)) in
+  let col_icon          = cols#add Gobject.Data.string_option in
   let col_markup        = cols#add Gobject.Data.string in
   let col_line_num      = cols#add Gobject.Data.int in
   let col_matches_num   = cols#add Gobject.Data.string_option in
@@ -135,12 +135,12 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
   let renderer          = GTree.cell_renderer_text [`YPAD 0; `XPAD 0; `XALIGN 1.0; `CELL_BACKGROUND editor_bg_color_user] in
   let renderer_matches_num = GTree.cell_renderer_text [`YPAD 0; `XPAD 0; `XALIGN 0.5; `SCALE `SMALL; `CELL_BACKGROUND editor_bg_color_user] in
   let renderer_markup   = GTree.cell_renderer_text [`YPAD 2; `XPAD 0; `CELL_BACKGROUND editor_bg_color_user ] in
-  let renderer_pixbuf   = GTree.cell_renderer_pixbuf [`YPAD 0; `XPAD 0; `CELL_BACKGROUND editor_bg_color_user] in
+  let renderer_pixbuf   = GTree.cell_renderer_text [`FAMILY "OCamlEditor"; `YPAD 0; `XPAD 0; `CELL_BACKGROUND editor_bg_color_user] in
   let vc_line_num       = GTree.view_column ~title:"" () in
   let _                 = vc_line_num#pack ~expand:false renderer_pixbuf in
   let _                 = vc_line_num#pack ~expand:false renderer_matches_num in
   let _                 = vc_line_num#pack ~expand:true renderer in
-  let _                 = vc_line_num#add_attribute renderer_pixbuf "pixbuf" col_pixbuf in
+  let _                 = vc_line_num#add_attribute renderer_pixbuf "text" col_icon in
   let _                 = vc_line_num#add_attribute renderer_matches_num "markup" col_matches_num in
   let _                 = vc_line_num#add_attribute renderer "markup" col_line_num in
   let vc_markup         = GTree.view_column ~title:"" ~renderer:(renderer_markup, ["markup", col_markup]) () in
@@ -325,7 +325,7 @@ class widget ~editor(* : Editor.editor)*) ?packing () =
         in
         let row = model_lines#append () in
         model_lines#set ~row ~column:col_locations line_locs;
-        model_lines#set ~row ~column:col_pixbuf pixbuf;
+        model_lines#set ~row ~column:col_icon pixbuf;
         model_lines#set ~row ~column:col_line_num lnum;
         model_lines#set ~row ~column:col_markup markup;
         let len = match line_locs with Offset x -> List.length x | Mark x -> List.length x in

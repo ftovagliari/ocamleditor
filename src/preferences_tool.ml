@@ -32,7 +32,7 @@ class preferences ~editor () =
   let initial_compl_decorated = Preferences.preferences#get.editor_completion_decorated in
   let initial_general_font = Preferences.preferences#get.font in
   let window            = GWindow.window ~resizable:true ~width:1200 ~height:900
-      ~type_hint:`DIALOG ~modal:true ~title:"Preferences" ~position:`CENTER ~icon:(??? Icons.oe) ~show:false () in
+      ~type_hint:`DIALOG ~modal:true ~title:"Preferences" ~position:`CENTER ~icon:(??? Logo.oe) ~show:false () in
   let _ = Gmisclib.Window.GeometryMemo.add ~key:"dialog-preferences" ~window Preferences.geometry_memo in
   let _                 = Gaux.may (GWindow.toplevel editor) ~f:(fun w -> window#set_transient_for w#as_window) in
   let vbox              = GPack.vbox ~border_width:8 ~spacing:8 ~packing:window#add () in
@@ -328,7 +328,7 @@ and pref_program_pdf_viewer title ?packing () =
     let bind button entry =
       button#connect#clicked ~callback:begin fun () ->
         let chooser    = GWindow.file_chooser_dialog ~action:`OPEN ~title:label_text
-            ~icon:(??? Icons.oe) ~position:`CENTER ~modal:true () in
+            ~icon:(??? Logo.oe) ~position:`CENTER ~modal:true () in
         ignore (chooser#set_filename entry#text);
         chooser#add_button_stock `OK `OK;
         chooser#add_button_stock `CANCEL `CANCEL;
@@ -417,7 +417,7 @@ and pref_templ title ?packing () =
   let _          =
     ignore (button#connect#clicked ~callback:begin fun () ->
         let chooser    = GWindow.file_chooser_dialog ~action:`OPEN ~title:(label_text ^ " (.cma)")
-            ~icon:(??? Icons.oe) ~position:`CENTER ~modal:true () in
+            ~icon:(??? Logo.oe) ~position:`CENTER ~modal:true () in
         chooser#set_filter (GFile.filter ~patterns:["*.cma"] ());
         ignore (chooser#set_filename entry#text);
         chooser#add_button_stock `OK `OK;

@@ -533,7 +533,7 @@ let dialog_rename ~editor ~page () =
   | None -> ()
   | Some _ ->
       let window = GWindow.dialog
-          ~icon:(??? Icons.oe) ~title:(sprintf "Rename file?")
+          ~icon:(??? Logo.oe) ~title:(sprintf "Rename file?")
           ~position:`CENTER ~modal:true ~show:false ()
       in
       let _ = GMisc.label ~text:(sprintf "Rename remote file\n\n%s" page#get_title) ~xalign:0.0 ~packing:window#vbox#pack () in
@@ -578,7 +578,7 @@ let dialog_save_as ~editor ~page () =
   | None -> ()
   | Some _ ->
       let window = GWindow.dialog
-          ~icon:(??? Icons.oe) ~title:"Save as..."
+          ~icon:(??? Logo.oe) ~title:"Save as..."
           ~position:`CENTER ~modal:true ~show:false ()
       in
       let _ = GMisc.label ~text:(sprintf "Save remote file\n\n%s\n\nas:" page#get_title) ~xalign:0.0 ~packing:window#vbox#pack () in

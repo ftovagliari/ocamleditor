@@ -46,7 +46,7 @@ class browser window =
   let menubarbox = GPack.hbox ~spacing:0 ~packing:vbox#pack () in
   (* Menubar icon displayed full-screen mode *)
   let window_title_menu_icon = GBin.event_box ~packing:menubarbox#pack ~show:false () in
-  let icon = Gtk_util.label_icon ~width:35 ~height:32 "<span font='18' color='#909090'>\u{e10e}</span>" ~packing:window_title_menu_icon#add in
+  let icon = Gtk_util.label_icon ~width:35 ~height:32 Icon_set.title_bar ~packing:window_title_menu_icon#add in
   let _ = icon#set_xalign 0. in
   let _ = icon#set_xpad 3 in
   let _ = window_title_menu_icon#set_visible_window false in
@@ -101,17 +101,17 @@ class browser window =
   let hbox_menu_buttons = GPack.hbox ~border_width:0 ~spacing:0 ~packing:align#add () in
 
   let button_menu_iconify = GButton.button ~relief:`NONE ~packing:hbox_menu_buttons#pack () in
-  let _ = GMisc.image ~pixbuf:(??? Icons.minimize_window) ~packing:button_menu_iconify#add () in
+  let _ = Gtk_util.label_icon ~packing:button_menu_iconify#add Icon_set.window_minimize in
   let _ = button_menu_iconify#misc#set_name "windowbutton" in
   let _ = button_menu_iconify#set_focus_on_click false in
 
   let button_menu_reset = GButton.button ~relief:`NONE ~packing:hbox_menu_buttons#pack () in
-  let _ = GMisc.image ~pixbuf:(??? Icons.restore_window) ~packing:button_menu_reset#add () in
+  let _ = Gtk_util.label_icon ~packing:button_menu_reset#add Icon_set.window_restore in
   let _ = button_menu_reset#misc#set_name "windowbutton" in
   let _ = button_menu_reset#set_focus_on_click false in
 
   let button_menu_exit = GButton.button ~relief:`NONE ~packing:hbox_menu_buttons#pack () in
-  let _ = GMisc.image ~pixbuf:(??? Icons.close_window) ~packing:button_menu_exit#add () in
+  let _ = Gtk_util.label_icon ~packing:button_menu_exit#add Icon_set.window_close in
   let _ = button_menu_exit#misc#set_name "windowbutton" in
   let _ = button_menu_exit#set_focus_on_click false in
 
@@ -245,7 +245,7 @@ class browser window =
       let pat1 = "*"^Prj.default_extension in
       let pat2 = "*"^Prj.old_extension in
       let dialog = GWindow.file_chooser_dialog ~action:`OPEN ~width:600 ~height:600
-          ~title:"Open project..." ~icon:(??? Icons.oe) ~position:`CENTER ~show:false () in
+          ~title:"Open project..." ~icon:(??? Logo.oe) ~position:`CENTER ~show:false () in
       dialog#add_filter (GFile.filter
                            ~name:(sprintf "%s projects (%s)" About.program_name pat1) ~patterns:[pat1] ());
       dialog#add_filter (GFile.filter

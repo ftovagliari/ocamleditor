@@ -819,6 +819,46 @@ let async
 
 
 end
+module Opam = struct open Printf
+
+(** Name of the currently active opam switch, or [""] if it cannot be determined. *)
+let switch_show () =
+  match Shell.get_command_output "opam switch show" with
+  | [] -> ""
+  | hd :: _ -> hd
+
+(** Names of all the opam switches installed on the system. *)
+let switch_list () = Shell.get_command_output "opam switch list --short"
+
+(** Parses a ["major.minor.build"] version string into an integer triple.
+    Raises [Failure] if the string does not have exactly three numeric components. *)
+let parse_version version =
+  match String.split_all ~sep:"." version with
+  | [ major; minor; build ] -> int_of_string major, int_of_string minor, int_of_string build
+  | _ -> failwith __FUNCTION__
+
+(** Version of the [ocaml] package of the given opam switch, or of the current
+    one if [switch] is omitted. Raises [Failure] if opam returns no output. *)
+let show_ocaml_version ?switch () =
+  let switch_arg = switch |> Option.map (sprintf "--switch=%s") |> Option.value ~default:"" in
+  ksprintf Shell.get_command_output "opam show ocaml %s --field=version --color=never" switch_arg
+  |> function [] -> failwith __FUNCTION__ | x :: _ -> x
+
+(** Environment of the given opam switch as a list of ["NAME=value"] entries,
+    obtained from [opam env] with the shell quoting removed. *)
+let env ~switch =
+  ksprintf Shell.get_command_output "opam env --switch=%s --set-switch --shell=sh" switch
+  |> List.map begin fun line ->
+    String.split_all ~sep:";" ~drop:(fun x -> String.trim x = "") line
+    |> List.map begin fun nv ->
+      match String.split_first ~sep:"=" nv with
+      | Some (name, value) -> sprintf "%s=%s" name (String.sub value 1 (String.length value - 2))
+      | _ -> ""
+    end
+  end
+  |> List.concat
+  |> List.filter (fun s -> s <> "")
+end
 module Task = struct (*
 
   OCamlEditor
@@ -922,24 +962,59 @@ module Log = LogBuilder.Make(struct
     let prefix = "Task"
   end)
 
-(** handle *)
-let handle f task =
-  let tenv = Array.of_list task.et_env in
-  let env =
-    if task.et_env_replace then Array.concat [(*Unix.environment();*) tenv]
-    else (Array.concat [tenv (* takes precedence *);
-                        (Array.map (fun e -> true, e) (Unix.environment()))])
+module StringSet = Set.Make (String)
+
+let name_of_entry entry =
+  match String.split_first ~sep:"=" entry with
+  | Some (name, _value) -> name
+  | None -> entry
+
+let keep_first_by_name entries =
+  let step (seen, kept) entry =
+    let name = name_of_entry entry in
+    if StringSet.mem name seen then (seen, kept)
+    else (StringSet.add name seen, entry :: kept)
   in
-  let env = List.filter (fun (e, _) -> e) (Array.to_list env) in
-  let env = Array.of_list (List.map (fun (_, v) -> v) env) in
+  List.fold_left step (StringSet.empty, []) entries |> snd |> List.rev
+
+let merge_env overrides =
+  let overrides = Array.to_list overrides in
+  let env = Array.to_list (Unix.environment ()) in
+  let latest_first = List.rev overrides in
+  let apply_override entry =
+    let name = name_of_entry entry in
+    latest_first
+    |> List.find_opt (fun o -> name_of_entry o = name)
+    |> Option.value ~default:entry
+  in
+  env @ overrides
+  |> List.map apply_override
+  |> keep_first_by_name
+  |> Array.of_list
+
+let handle f task =
+  let tenv = task.et_env |> List.filter_map (fun (e, v) -> if e then Some v else None) |> Array.of_list  in
+  let env =
+    if task.et_env_replace then Array.concat [tenv]
+    else merge_env tenv
+  in
   let prog = task.et_cmd in
   let dir = if task.et_dir <> "" then task.et_dir else (Sys.getcwd ()) in
-  let args = 
+  let args =
     task.et_args
     |> List.filter (fun (e, _) -> e)
     |> List.map (fun (_, x) -> x)
   in
-  args |> String.concat ";" |> Log.println `DEBUG "%s %s\n%!" prog;
+  begin
+    match !Log.verbosity with
+    | `DEBUG ->
+        args |> String.concat ";" |> Log.println !Log.verbosity "%s %s\n%!" prog;
+        env
+        |> Array.to_list
+        |> List.filter (fun e -> name_of_entry e = "PATH")
+        |> List.iter (fun e -> Log.println !Log.verbosity "%s\n%!" e);
+    | _ -> ()
+  end;
   f ~env ~dir ~prog ~args;;
 end
 module Build_script_command = struct (*
@@ -2333,7 +2408,8 @@ let parallel_compile ~compilation ?times ?pp ~compiler ~cflags ~includes ~toplev
 
 (** Build *)
 let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_only
-    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt     ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
+    ~thread ~vmthread ~annot ~bin_annot ~pp ?inline ~cflags ~lflags ~outname ~deps ~dontlinkdep ~dontaddopt
+    ~toplevel_modules ?(jobs=0) ?(serial=false) ?(prof=false) ?(verbose=2) () =
 
   let crono = if verbose >= 3 then crono else fun ?label f x -> f x in
   let crono4 = if verbose >= 4 then crono else fun ?label f x -> f x in
@@ -2369,7 +2445,7 @@ let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_on
     printf "%!";
   end;
   (* includes *)
-  let includes = ref includes in
+  let  includes = ref includes in
   includes := Ocaml_config.expand_includes !includes;
   (* libs *)
   let libs = split_args libs in
@@ -2380,7 +2456,11 @@ let build ~compilation ~package ~includes ~libs ~other_mods ~outkind ~compile_on
   if thread then (cflags := !cflags ^ " -thread"; lflags := !lflags ^ " -thread");
   if vmthread then (cflags := !cflags ^ " -vmthread"; lflags := !lflags ^ " -vmthread");
   if annot then (cflags := !cflags ^ " -annot");
-  if bin_annot then (cflags := !cflags ^ " -bin-annot -bin-annot-occurrences");
+  if bin_annot then begin
+    cflags := !cflags ^ " -bin-annot";
+    let major, minor, _ = Opam.show_ocaml_version () |> Opam.parse_version in
+    if major >= 5 && minor >= 2 then cflags := !cflags ^ " -bin-annot-occurrences"
+  end;
   if pp <> "" then (cflags := !cflags ^ " -pp " ^ pp);
   let pp = if pp <> "" then Some pp else None in
   (* inline *)
@@ -3058,22 +3138,6 @@ let cmd_line_args = [
 let external_tasks = [
   
   0, (fun command -> {
-    et_name                  = "mkicons";
-    et_env                   = [];
-    et_env_replace           = false;
-    et_dir                   = "..";
-    et_cmd                   = "ocaml";
-    et_args                  = [true,"tools/mkicons.ml"];
-    et_outputs               = [true,"icons/icons.ml"];
-    et_deps                  = [true,"../tools/mkicons.ml"; true,"../tools/scripting.ml"; true,"common/shell.ml"; true,"common/utils.ml"; true,"icons/light"; true,"icons/dark"; true,"icons/svg"];
-    et_phase                 = Some Before_compile;
-    et_always_run_in_project = true;
-    et_always_run_in_script  = true;
-    et_readonly              = false;
-    et_visible               = true;
-  });
-  
-  1, (fun command -> {
     et_name                  = "err_lexer.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3089,7 +3153,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  2, (fun command -> {
+  1, (fun command -> {
     et_name                  = "err_parser.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3105,7 +3169,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  3, (fun command -> {
+  2, (fun command -> {
     et_name                  = "settings_t.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3121,7 +3185,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  4, (fun command -> {
+  3, (fun command -> {
     et_name                  = "settings_j.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3137,7 +3201,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  5, (fun command -> {
+  4, (fun command -> {
     et_name                  = "merlin_t.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3153,7 +3217,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  6, (fun command -> {
+  5, (fun command -> {
     et_name                  = "merlin_j.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3169,7 +3233,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  7, (fun command -> {
+  6, (fun command -> {
     et_name                  = "find_text_t.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3185,7 +3249,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  8, (fun command -> {
+  7, (fun command -> {
     et_name                  = "find_text_j.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3201,7 +3265,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  9, (fun command -> {
+  8, (fun command -> {
     et_name                  = "project_t.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3217,7 +3281,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  10, (fun command -> {
+  9, (fun command -> {
     et_name                  = "project_j.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3233,7 +3297,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  11, (fun command -> {
+  10, (fun command -> {
     et_name                  = "oebuild_script.ml";
     et_env                   = [];
     et_env_replace           = false;
@@ -3249,7 +3313,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  12, (fun command -> {
+  11, (fun command -> {
     et_name                  = "mkrelease";
     et_env                   = [];
     et_env_replace           = false;
@@ -3265,7 +3329,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  13, (fun command -> {
+  12, (fun command -> {
     et_name                  = "mkversion";
     et_env                   = [];
     et_env_replace           = false;
@@ -3281,7 +3345,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  14, (fun command -> {
+  13, (fun command -> {
     et_name                  = "generate_oebuild_script";
     et_env                   = [];
     et_env_replace           = false;
@@ -3297,7 +3361,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  15, (fun command -> {
+  14, (fun command -> {
     et_name                  = "Install OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
@@ -3313,7 +3377,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  16, (fun command -> {
+  15, (fun command -> {
     et_name                  = "Uninstall OCamlEditor";
     et_env                   = [];
     et_env_replace           = false;
@@ -3329,7 +3393,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  17, (fun command -> {
+  16, (fun command -> {
     et_name                  = "distclean";
     et_env                   = [];
     et_env_replace           = false;
@@ -3345,7 +3409,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  18, (fun command -> {
+  17, (fun command -> {
     et_name                  = "install";
     et_env                   = [];
     et_env_replace           = false;
@@ -3361,7 +3425,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  19, (fun command -> {
+  18, (fun command -> {
     et_name                  = "uninstall";
     et_env                   = [];
     et_env_replace           = false;
@@ -3377,7 +3441,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  20, (fun command -> {
+  19, (fun command -> {
     et_name                  = "reinstall";
     et_env                   = [];
     et_env_replace           = false;
@@ -3393,7 +3457,7 @@ let external_tasks = [
     et_visible               = true;
   });
   
-  21, (fun command -> {
+  20, (fun command -> {
     et_name                  = "print";
     et_env                   = [];
     et_env_replace           = false;
@@ -3412,9 +3476,9 @@ let external_tasks = [
 
 
 let general_commands = [
-  `Distclean, (17, "distclean");
-  `Install, (15, "Install OCamlEditor");
-  `Uninstall, (16, "Uninstall OCamlEditor");
+  `Distclean, (16, "distclean");
+  `Install, (14, "Install OCamlEditor");
+  `Uninstall, (15, "Uninstall OCamlEditor");
 ]
 
 
@@ -3491,7 +3555,7 @@ let targets = [
     target_type          = Library;
     compilation_bytecode = true;
     compilation_native   = true;
-    toplevel_modules     = "icons/icons.ml";
+    toplevel_modules     = "icons/logo.ml";
     package              = "lablgtk3";
     search_path          = "common icons"; (* -I *)
     required_libraries   = "";
@@ -3506,7 +3570,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [0];
+    external_tasks       = [];
     restrictions         = [];
     dependencies         = [4];
     show                 = false;
@@ -3716,7 +3780,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11];
+    external_tasks       = [0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3746,7 +3810,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [12; 13; 14; 15; 16; 17];
+    external_tasks       = [11; 12; 13; 14; 15; 16];
     restrictions         = [];
     dependencies         = [];
     show                 = false;
@@ -3776,7 +3840,7 @@ let targets = [
     dontaddopt           = false;
     library_install_dir  = ""; (* Relative to the Standard Library Directory *)
     other_objects        = "";
-    external_tasks       = [18; 19; 20; 21];
+    external_tasks       = [17; 18; 19; 20];
     restrictions         = [];
     dependencies         = [];
     show                 = false;

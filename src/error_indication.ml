@@ -134,8 +134,8 @@ class manager (view : Ocaml_text.view) =
         (*if flag_gutter then begin
           let kind, icon, color =
             match kind with
-            | `Warning -> `Warning error.Oe.er_message, "\u{f071}", "darkorange"
-            | `Error -> `Error error.Oe.er_message, "\u{f0159}", "red" (*   ⛔ *)
+            | `Warning -> `Warning error.Oe.er_message, Icon_set.warning, "darkorange"
+            | `Error -> `Error error.Oe.er_message, Icon_set.error, "red" (*   ⛔ *)
             | _ -> assert false
           in
           let marker = Gutter.create_marker ~kind

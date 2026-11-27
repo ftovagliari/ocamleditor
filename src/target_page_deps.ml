@@ -33,7 +33,7 @@ class target_list ?packing () =
   let sw              = GBin.scrolled_window ~shadow_type:`IN ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ?packing () in
   let model           = GTree.list_store cols in
   let renderer        = GTree.cell_renderer_text [] in
-  let renderer_pixbuf = GTree.cell_renderer_pixbuf [] in
+  let renderer_pixbuf = Gtk_util.cell_renderer_icon () in
   let vc_name         = GTree.view_column ~title:"Direct Dependencies" () in
   let _               = vc_name#pack ~expand:false renderer_pixbuf in
   let _               = vc_name#pack ~expand:true renderer in
@@ -46,11 +46,11 @@ class target_list ?packing () =
     initializer
       vc_name#set_cell_data_func renderer begin fun model row ->
         match (model#get ~row ~column:col_bc).Target.target_type with
-        | Target.Executable -> renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.start_16); `XALIGN 0.0]
-        | Target.Library -> renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.library); `XALIGN 0.0]
-        | Target.Plugin -> renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.plugin); `XALIGN 0.0]
-        | Target.Pack -> renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.library); `XALIGN 0.0]
-        | Target.External -> renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.etask_16); `XALIGN 0.0]
+        | Target.Executable -> renderer_pixbuf#set_properties [`VISIBLE true; `MARKUP Icon_set.target_executable; `XALIGN 0.0]
+        | Target.Library -> renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_library; `XALIGN 0.0]
+        | Target.Plugin -> renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_plugin; `XALIGN 0.0]
+        | Target.Pack -> renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_library; `XALIGN 0.0]
+        | Target.External -> renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_external; `XALIGN 0.0]
       end
 
     method model = model
@@ -119,7 +119,7 @@ class widget ~target_list ?packing () =
           self#update_targets ();
           let window = GWindow.window ~modal:true ~type_hint:`DIALOG
               ~title:"Select one or more targets"
-              ~icon:(??? Icons.oe) ~height:300 ~width:300 ~position:`CENTER
+              ~icon:(??? Logo.oe) ~height:300 ~width:300 ~position:`CENTER
               ~show:false ()
           in
           Gmisclib.Window.GeometryMemo.add ~key:"dialog-target-deps" ~window Preferences.geometry_memo;

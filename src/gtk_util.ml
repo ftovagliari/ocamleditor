@@ -207,6 +207,21 @@ class button_icon ?label ?(icon="") ?(icon_spacing=3) ?icon_width ?icon_height ?
     method button = button
   end
 
+(** Cell renderer that draws a glyph of the icon font ([Icon_set]); set the glyph through the [TEXT] property
+    (or map the "text" attribute to a string column). *)
+let cell_renderer_icon ?(xalign=0.0) ?(xpad=0) () =
+  GTree.cell_renderer_text [`FAMILY "OCamlEditor"; `XALIGN xalign; `XPAD xpad]
+
+(** Markup of the close button shown in notebook tabs. *)
+let tab_close_icon ?(modified=false) ?(hover=false) () =
+  let glyph, color =
+    match hover, modified with
+    | true, _ -> Icon_set.tab_close, "#e05050"
+    | false, true -> Icon_set.tab_close_modified, "#4da1ff"
+    | false, false -> Icon_set.tab_close, "#909090"
+  in
+  Printf.sprintf "<span foreground='%s'>%s</span>" color glyph
+
 let scroll_aligned (view : GText.view) ?(smooth=true) ~xalign ~yalign (where : GText.iter) =
   if smooth then
     Gmisclib.Idle.add ~prio:300 begin fun () ->

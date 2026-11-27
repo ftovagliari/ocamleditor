@@ -61,11 +61,11 @@ let create ~editor ~page () =
   gmenu#append (GMenu.separator_item ());
 
   (*  *)
-  let find_definition = Image_menu.item ~label:"Find Definition" ~image: (GMisc.image ~pixbuf:(??? Icons.definition) ()) ~packing:gmenu#append () in
-  let find_references = Image_menu.item ~label:"Find References" ~image: (GMisc.image ~pixbuf:(??? Icons.references) ()) ~packing:gmenu#append () in
+  let find_definition = Image_menu.item ~label:"Find Definition" ~packing:gmenu#append () in
+  let find_references = Image_menu.item ~label:"Find References" ~packing:gmenu#append () in
   (*  *)
   gmenu#append (GMenu.separator_item ());
-  let eval_in_toplevel = Image_menu.item ~label:"Eval in Toplevel" ~image:(Icons.create (??? Icons.toplevel)) ~packing:gmenu#append () in
+  let eval_in_toplevel = Image_menu.item ~label:"Eval in Toplevel" ~packing:gmenu#append () in
   ignore (eval_in_toplevel#connect#activate ~callback:begin fun () ->
       editor#with_current_page (fun page -> page#ocaml_view#obuffer#send_to_shell ());
     end);

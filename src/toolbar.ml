@@ -31,32 +31,32 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
   let toolbar                  = GButton.toolbar ~style:`ICONS () in
   let _                        = toolbar#set_icon_size `MENU in
   let tool_new_file            = GButton.tool_button (*~stock:`NEW*) ~label:"New" () in
-  let _                        = tool_new_file#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.new_file) ())#coerce in
+  let _                        = tool_new_file#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_new_file)#coerce in
   let tool_open_file           = GButton.tool_button (*~stock:`OPEN*) ~label:"Open" () in
-  let _                        = tool_open_file#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.open_file) ())#coerce in
+  let _                        = tool_open_file#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_open_file)#coerce in
   let tool_save                = GButton.tool_button ~stock:`SAVE ~homogeneous:false ~label:"Save" () in
   let tool_save_all            = Gmisclib.Toolbar.menu_tool_button ~homogeneous:false ~toolbar ~label:"Save All" () in
   let tool_close_file          = GButton.tool_button ~label:"Close" () in
-  let _                        = tool_close_file#set_icon_widget (Icons.create (??? Icons.close_16))#coerce in
+  let _                        = tool_close_file#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_close)#coerce in
   let tool_undo                = GButton.tool_button ~label:"Undo" () in
-  let _                        = tool_undo#set_icon_widget (Icons.create (??? Icons.undo_16))#coerce in
+  let _                        = tool_undo#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_undo)#coerce in
   let tool_redo                = GButton.tool_button ~label:"Redo" () in
-  let _                        = tool_redo#set_icon_widget (Icons.create (??? Icons.redo_16))#coerce in
+  let _                        = tool_redo#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_redo)#coerce in
   let tool_find_repl           = GButton.tool_button (*~stock:`FIND_AND_REPLACE*) ~label:"Find and Replace" () in
-  let _                        = tool_find_repl#set_icon_widget (GMisc.image  ~pixbuf:(??? Icons.find_replace) ())#coerce in
+  let _                        = tool_find_repl#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_find_in_buffer)#coerce in
   let tool_item_find_entry     = GButton.tool_item ~homogeneous:false () in
   let tool_find                = GButton.tool_button ~label:"Find" () in
   let tool_messages            = GButton.toggle_tool_button ~active:messages#visible ~label:"Messages" (*~homogeneous:false*) () in
-  let _                        = tool_messages#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.paned_bottom_large) ())#coerce in
+  let _                        = tool_messages#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_view_messages)#coerce in
   let _                        = tool_messages#set_homogeneous false in
   let tool_hmessages           = GButton.toggle_tool_button ~active:messages#visible ~label:"Messages" (*~homogeneous:false*) () in
-  let _                        = tool_hmessages#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.paned_right) ())#coerce in
+  let _                        = tool_hmessages#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_view_hmessages)#coerce in
   let tool_messages_sign       = tool_messages#connect#clicked ~callback:(fun () ->
       tool_messages_clicked#call (not messages#visible)) in
   let tool_hmessages_sign      = tool_hmessages#connect#clicked ~callback:(fun () ->
       tool_hmessages_clicked#call (not hmessages#visible)) in
   let tool_eval                = GButton.tool_button ~label:"Toplevel" () in
-  let _                        = tool_eval#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.toplevel) ())#coerce in
+  let _                        = tool_eval#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_eval_toplevel)#coerce in
   let tool_clean               = Gmisclib.Toolbar.menu_tool_button ~toolbar ~homogeneous:false () in
   let tool_targets             = GButton.tool_button ~label:"Targets" () in
   let tool_compile_file        = GButton.tool_button ~label:"Compile File" () in
@@ -64,11 +64,11 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
   let tool_build               = Gmisclib.Toolbar.menu_tool_button ~toolbar ~homogeneous:false () in
   let tool_run                 = Gmisclib.Toolbar.menu_tool_button ~toolbar ~homogeneous:false () in
   let tool_back                = Gmisclib.Toolbar.menu_tool_button ~toolbar ~label:"Previous Location" ~homogeneous:false () in
-  let _                        = tool_back#set_image (GMisc.image ~pixbuf:(??? Icons.go_back) ())#coerce in
+  let _                        = tool_back#set_image (Gtk_util.label_icon Icon_set.toolbar_back)#coerce in
   let tool_forward             = Gmisclib.Toolbar.menu_tool_button ~toolbar ~label:"Next Location" ~homogeneous:false () in
-  let _                        = tool_forward#set_image (GMisc.image ~pixbuf:(??? Icons.go_forward) ())#coerce in
+  let _                        = tool_forward#set_image (Gtk_util.label_icon Icon_set.toolbar_forward)#coerce in
   let tool_last_edit_loc       = GButton.tool_button ~label:"Last Edit Location" () in
-  let _                        = tool_last_edit_loc#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.goto_last) ())#coerce in
+  let _                        = tool_last_edit_loc#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_last_edit_loc)#coerce in
   let tool_entry_find          = GEdit.combo_box_entry
       ~wrap_width:3
       ~focus_on_click:false
@@ -196,9 +196,9 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
       toolbar#insert tool_new_file;
       toolbar#insert tool_open_file;
       toolbar#insert tool_save;
-      tool_save#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.save_16) ())#coerce;
+      tool_save#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_save)#coerce;
       toolbar#insert tool_save_all#as_tool_item;
-      tool_save_all#set_image (GMisc.image ~pixbuf:(??? Icons.save_all_16) ())#coerce;
+      tool_save_all#set_image (Gtk_util.label_icon Icon_set.toolbar_save_all)#coerce;
       (*tool_save_all#connect#popup ~callback:save_all_popup#call;*)
       (** Undo/Redo *)
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
@@ -209,7 +209,7 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
       toolbar#insert tool_find_repl;
       toolbar#insert tool_item_find_entry;
       toolbar#insert tool_find;
-      tool_find#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.search_again_16) ())#coerce;
+      tool_find#set_icon_widget (Gtk_util.label_icon Icon_set.search_again)#coerce;
       (** Messages, eval, compile file *)
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
       toolbar#insert tool_messages;
@@ -218,22 +218,22 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
       toolbar#insert tool_eval;
       tool_eval#misc#set_tooltip_text "Eval in Toplevel";
       toolbar#insert tool_compile_file;
-      tool_compile_file#set_icon_widget (Icons.create (??? Icons.compile_file_16))#coerce;
+      tool_compile_file#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_compile_file)#coerce;
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
       toolbar#insert tool_targets;
-      tool_targets#set_icon_widget (Icons.create (??? Icons.target_16))#coerce;
+      tool_targets#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_targets)#coerce;
       (** Clean, Compile, Build, Run *)
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
       toolbar#insert tool_clean#as_tool_item;
-      tool_clean#set_image (GMisc.image ~pixbuf:(??? Icons.clear_build_16) ())#coerce;
+      tool_clean#set_image (Gtk_util.label_icon Icon_set.toolbar_clean)#coerce;
       toolbar#insert tool_compile#as_tool_item;
-      tool_compile#set_image (GMisc.image ~pixbuf:(??? Icons.compile_all_16) ())#coerce;
+      tool_compile#set_image (Gtk_util.label_icon Icon_set.toolbar_compile)#coerce;
       tool_compile#misc#set_tooltip_text "Compile only";
       toolbar#insert tool_build#as_tool_item;
-      tool_build#set_image (GMisc.image ~pixbuf:(??? Icons.build_16) ())#coerce;
+      tool_build#set_image (Gtk_util.label_icon Icon_set.toolbar_build)#coerce;
       tool_build#misc#set_tooltip_text "Build";
       toolbar#insert tool_run#as_tool_item;
-      tool_run#set_image (GMisc.image ~icon_size:`MENU ~pixbuf:(??? Icons.start_16) ())#coerce;
+      tool_run#set_image (Gtk_util.label_icon ~color:"forestgreen" Icon_set.toolbar_run)#coerce;
       (** Location History *)
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
       toolbar#insert tool_back#as_tool_item;
@@ -241,7 +241,7 @@ class ['a] toolbar ~(messages : Messages.messages) ~(hmessages : Messages.messag
       toolbar#insert tool_last_edit_loc;
       let _ = GButton.separator_tool_item ~draw:false ~expand:true ~packing:toolbar#insert () in
       toolbar#insert tool_close_file;
-      tool_close_file#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.close_16) ())#coerce;
+      tool_close_file#set_icon_widget (Gtk_util.label_icon Icon_set.toolbar_close)#coerce;
       ()
 
     method bind_signals : 'a -> unit = fun browser ->

@@ -39,34 +39,13 @@
       "id": 10,
       "name": "icons",
       "opt": true,
-      "files": "icons/icons.ml",
+      "files": "icons/logo.ml",
       "package": "lablgtk3",
       "includes": "common icons",
       "cflags": "-g",
       "lflags": "-g",
       "target_type": "Library",
       "outname": "icons/icons",
-      "external_tasks": [
-        {
-          "name": "mkicons",
-          "always_run_in_project": true,
-          "always_run_in_script": true,
-          "dir": "..",
-          "cmd": "ocaml",
-          "args": [ [ true, "tools/mkicons.ml" ] ],
-          "outputs": [ [ true, "icons/icons.ml" ] ],
-          "deps": [
-            [ true, "../tools/mkicons.ml" ],
-            [ true, "../tools/scripting.ml" ],
-            [ true, "common/shell.ml" ],
-            [ true, "common/utils.ml" ],
-            [ true, "icons/light" ],
-            [ true, "icons/dark" ],
-            [ true, "icons/svg" ]
-          ],
-          "phase": [ "Some", "Before_compile" ]
-        }
-      ],
       "dependencies": [ 4 ]
     },
     {

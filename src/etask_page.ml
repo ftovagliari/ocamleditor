@@ -55,7 +55,7 @@ class view ?packing () =
   let button_cmd = GButton.button ~label:"  ...  " ~packing:hbox#pack () in
   let _ = button_cmd#connect#clicked ~callback:begin fun () ->
       let dialog = GWindow.file_chooser_dialog ~action:`OPEN ~position:`CENTER
-          ~title:"Choose program..." ~icon:(??? Icons.oe)
+          ~title:"Choose program..." ~icon:(??? Logo.oe)
           ~modal:true ~show:false () in
       dialog#add_select_button_stock `OK `OK;
       dialog#add_button_stock `CANCEL `CANCEL;

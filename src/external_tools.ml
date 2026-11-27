@@ -79,7 +79,7 @@ let create ~get_editor ~get_current_project () =
   let macros, macros_help, translate_macro = get_macros ~get_editor ~get_current_project () in
   (* Tools *)
   let tools = ref (read ()) in
-  let window = GWindow.window ~type_hint:`DIALOG ~icon:(??? Icons.oe) ~width:640 ~height:400
+  let window = GWindow.window ~type_hint:`DIALOG ~icon:(??? Logo.oe) ~width:640 ~height:400
       ~title:"Configure External Tools" ~position:`CENTER ~modal:true ~show:false () in
   Gmisclib.Window.GeometryMemo.add ~key:"dialog-external-tools" ~window Preferences.geometry_memo;
   window#show();

@@ -104,7 +104,7 @@ let recover () =
   let files = List.map (fun x -> true, x) (List.rev !files) in
   if files <> [] then begin
     let dialog = GWindow.dialog ~position:`CENTER ~border_width:5
-        ~icon:(??? Icons.oe) ~modal:true ~title:"Auto Recovery" () in
+        ~icon:(??? Logo.oe) ~modal:true ~title:"Auto Recovery" () in
     let checklist = new Checklist.checklist ~packing:dialog#vbox#add files in
     dialog#vbox#set_spacing 5;
     dialog#add_button_stock `OK `OK;

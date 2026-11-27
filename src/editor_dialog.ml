@@ -136,7 +136,7 @@ open Preferences
 let save_modified ~editor ~close ~callback pages =
   if pages <> [] then begin
     let dialog = GWindow.dialog ~position:`CENTER ~border_width:5
-        ~icon:(??? Icons.oe) ~modal:true ~title:"Save Modified" () in
+        ~icon:(??? Logo.oe) ~modal:true ~title:"Save Modified" () in
     let checklist = new Checklist.checklist
       ~packing:dialog#vbox#add
       (List.map (fun (x, p) -> x, p#get_filename) pages) in
@@ -169,7 +169,7 @@ let file_open ~editor () =
     ("All files", ["*"])]
   in
   let dialog = GWindow.file_chooser_dialog ~action:`OPEN ~width:600 ~height:600
-      ~title:"Open file..." ~icon:(??? Icons.oe) ~position:`CENTER ~show:false () in
+      ~title:"Open file..." ~icon:(??? Logo.oe) ~position:`CENTER ~show:false () in
   List.iter begin fun (name, patterns) ->
     dialog#add_filter (GFile.filter ~name ~patterns ())
   end filters;

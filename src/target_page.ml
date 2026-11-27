@@ -32,7 +32,7 @@ let mk_target_filenames project filenames =
   let size = 48 in
   let width, height = size, size in
   let scaled = GdkPixbuf.create ~width ~height ~has_alpha:true () in
-  GdkPixbuf.scale ~dest:scaled ~width ~height Icons.logo;
+  GdkPixbuf.scale ~dest:scaled ~width ~height Logo.logo;
   let pixbuf = GdkPixbuf.create ~width ~height ~has_alpha:true () in
   GdkPixbuf.saturate_and_pixelate ~saturation:0.0 ~pixelate:true ~dest:pixbuf scaled;
   pixbuf*)

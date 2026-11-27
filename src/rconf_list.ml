@@ -49,13 +49,13 @@ class view ~target_list ~editor ~project ~page ?packing () =
   let bbox = GPack.button_box `HORIZONTAL (*~layout:`SPREAD*) ~packing:vbox#pack () in
   let b_add = GButton.button ~packing:bbox#add () in
   let _ = b_add#misc#set_tooltip_text "Create new run configuration" in
-  let _ = b_add#set_image (GMisc.image  ~pixbuf:(??? Icons.new_file) (*~stock:`NEW*) ~icon_size:`BUTTON ())#coerce in
+  let _ = b_add#set_image (Gtk_util.label_icon Icon_set.toolbar_new_file)#coerce in
   let b_remove = GButton.button ~packing:bbox#add () in
   let _ = b_remove#misc#set_tooltip_text "Delete selected run configurations" in
-  let _ = b_remove#set_image (Icons.create (??? Icons.delete_16))#coerce in
+  let _ = b_remove#set_image (Gtk_util.label_icon Icon_set.delete)#coerce in
   let b_run = GButton.button ~packing:bbox#add () in
   let _ = b_run#misc#set_tooltip_text "Run" in
-  let _ = b_run#set_image (Icons.create (??? Icons.start_16))#coerce in
+  let _ = b_run#set_image (Gtk_util.label_icon ~color:"forestgreen" Icon_set.toolbar_run)#coerce in
   object (self)
     inherit GObj.widget vbox#as_widget
 

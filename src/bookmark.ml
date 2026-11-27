@@ -25,19 +25,6 @@ open Preferences
 
 let bookmarks_filename = Filename.concat App_config.ocamleditor_user_home "bookmarks-1.5.0"
 
-let icon = function
-  | 0 -> Some (??? Icons.b0)
-  | 1 -> Some (??? Icons.b1)
-  | 2 -> Some (??? Icons.b2)
-  | 3 -> Some (??? Icons.b3)
-  | 4 -> Some (??? Icons.b4)
-  | 5 -> Some (??? Icons.b5)
-  | 6 -> Some (??? Icons.b6)
-  | 7 -> Some (??? Icons.b7)
-  | 8 -> Some (??? Icons.b8)
-  | 9 -> Some (??? Icons.b9)
-  | _ -> None;;
-
 (** remove *)
 let rec remove bm =
   try

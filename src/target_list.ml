@@ -46,8 +46,9 @@ class view ~editor ~project ?packing () =
   let modelf            = (*GTree.model_filter*) model in
   (*let _                 = modelf#set_visible_column col_visible in*)
   let renderer          = GTree.cell_renderer_text [`XPAD 5] in
-  let renderer_pixbuf   = GTree.cell_renderer_pixbuf [] in
-  let renderer_pixbuf2  = GTree.cell_renderer_pixbuf [`VISIBLE false; `PIXBUF (??? Icons.findlib); `XPAD 3;`XALIGN 0.0] in
+  let renderer_pixbuf   = Gtk_util.cell_renderer_icon () in
+  let renderer_pixbuf2  = Gtk_util.cell_renderer_icon ~xpad:3 () in
+  let _                 = renderer_pixbuf2#set_properties [`VISIBLE false; `TEXT Icon_set.target_findlib] in
   let renderer_default  = GTree.cell_renderer_toggle [`RADIO false; `ACTIVATABLE true; `WIDTH 50] in
   let vc                = GTree.view_column ~title:"Name" () in
   let _                 = vc#pack ~expand:false renderer_pixbuf in
@@ -69,28 +70,28 @@ class view ~editor ~project ?packing () =
   (* Buttons *)
   let bbox              = GPack.hbox ~spacing:3 ~packing:vbox#pack () in
   let b_new             = Gmisclib.Button.button_menu ~packing:bbox#pack () in
-  let _                 = b_new#set_image  (GMisc.image  ~pixbuf:(??? Icons.new_file) (*~stock:`NEW*) ~icon_size:`MENU ())#coerce in
+  let _                 = b_new#set_image  (Gtk_util.label_icon Icon_set.toolbar_new_file)#coerce in
   let _                 = b_new#misc#set_tooltip_text "New..." in
   let _                 = GMisc.label ~text:"" ~packing:bbox#add () in
   let b_remove          = GButton.button ~packing:bbox#pack () in
   let _                 = b_remove#set_tooltip_text "Delete selected items" in
-  let _                 = b_remove#set_image (Icons.create (??? Icons.delete_16))#coerce in
+  let _                 = b_remove#set_image (Gtk_util.label_icon Icon_set.delete)#coerce in
   let b_up              = GButton.button ~packing:bbox#pack () in
   let _                 = b_up#set_tooltip_text "Move Up" in
-  let _                 = b_up#set_image (Icons.create (??? Icons.arrow_up))#coerce in
+  let _                 = b_up#set_image (Gtk_util.label_icon Icon_set.arrow_up)#coerce in
   let b_down            = GButton.button ~packing:bbox#pack () in
   let _                 = b_down#set_tooltip_text "Move Down" in
-  let _                 = b_down#set_image (Icons.create (??? Icons.arrow_down))#coerce in
+  let _                 = b_down#set_image (Gtk_util.label_icon Icon_set.arrow_down)#coerce in
   let _                 = GMisc.label ~text:"" ~packing:bbox#add () in
   let b_clean           = GButton.button ~packing:bbox#pack () in
   let _                 = b_clean#set_tooltip_text "Clean" in
-  let _                 = b_clean#set_image (Icons.create (??? Icons.clear_build_16))#coerce in
+  let _                 = b_clean#set_image (Gtk_util.label_icon Icon_set.toolbar_clean)#coerce in
   let b_compile         = GButton.button ~packing:bbox#pack () in
   let _                 = b_compile#set_tooltip_text "Build" in
-  let _                 = b_compile#set_image (Icons.create (??? Icons.build_16))#coerce in
+  let _                 = b_compile#set_image (Gtk_util.label_icon Icon_set.toolbar_build)#coerce in
   let b_run             = GButton.button ~packing:bbox#pack () in
   let _                 = b_run#set_tooltip_text "Run external task/Install library" in
-  let _                 = b_run#set_image (GMisc.image ~xalign:0.5 (*~width:24*) ~pixbuf:(??? Icons.start_16) ())#coerce in
+  let _                 = b_run#set_image (Gtk_util.label_icon ~color:"forestgreen" Icon_set.toolbar_run)#coerce in
   object (self)
     inherit GObj.widget vbox#as_widget
     val mutable sign_row_collapsed = None
@@ -109,9 +110,9 @@ class view ~editor ~project ?packing () =
       b_new#set_menu_only ();
       ignore (b_new#connect#show_menu ~callback:begin fun (label, menu) ->
           label := None;
-          let item = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.target_16) ())#coerce ~label:"Create new target" ~packing:menu#append () in
+          let item = Image_menu.item ~label:"Create new target" ~packing:menu#append () in
           ignore (item#connect#activate ~callback:(fun () -> ignore (self#add_target ())));
-          let item = Image_menu.item ~image:(GMisc.image ~pixbuf:(??? Icons.etask_16) ())#coerce ~label:"Add external build task" ~packing:menu#append () in
+          let item = Image_menu.item ~label:"Add external build task" ~packing:menu#append () in
           ignore (item#connect#activate ~callback:self#add_external_task);
           let item = Image_menu.item ~image:(GMisc.image ~stock:`COPY ())#coerce ~label:"Duplicate" ~packing:menu#append () in
           ignore (item#connect#activate ~callback:self#duplicate);
@@ -472,7 +473,6 @@ class view ~editor ~project ?packing () =
           | Target target ->
               renderer_pixbuf#set_properties [
                 `VISIBLE (self#has_errors target);
-                `PIXBUF ((GMisc.image ())#misc#render_icon ~size:`MENU `DIALOG_WARNING);
                 `XALIGN 0.0];
               let name = model#get ~row ~column:col_name in
               let descr =
@@ -484,18 +484,18 @@ class view ~editor ~project ?packing () =
               in
               renderer#set_properties [`MARKUP (if target.visible && not target.readonly then "<b>" ^ name ^ "</b>" ^ descr else "<b><i>" ^ name ^ "</i></b>" ^ descr)];
               if target.target_type = Executable then begin
-                renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.start_16); `XALIGN 0.0]
+                renderer_pixbuf#set_properties [`VISIBLE true; `MARKUP Icon_set.target_executable; `XALIGN 0.0]
               end else if target.target_type = Plugin then begin
-                renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.plugin); `XALIGN 0.0]
+                renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_plugin; `XALIGN 0.0]
               end else if target.target_type = External then begin
-                renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.etask_16); `XALIGN 0.0]
+                renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_external; `XALIGN 0.0]
               end else begin
-                renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? ((*if target.is_fl_package then Icons.findlib else*) Icons.library)); `XALIGN 0.0]
+                renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_library; `XALIGN 0.0]
               end;
               renderer_pixbuf2#set_properties [`VISIBLE target.is_fl_package];
           | ETask et ->
               renderer#set_properties [`MARKUP (if et.et_visible && (not et.et_readonly) then et.et_name else "<i>" ^ et.et_name ^ "</i>")];
-              renderer_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.etask_16); `XALIGN 0.0];
+              renderer_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_external; `XALIGN 0.0];
               renderer_pixbuf2#set_properties [`VISIBLE false];
         end
       with Not_found -> ()

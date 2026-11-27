@@ -49,7 +49,7 @@ class editorbar ~view ?packing () =
   let _ = GMisc.separator `VERTICAL ~packing:box#pack () in
   let lbox = GPack.hbox ~spacing:1 ~border_width:0 ~packing:box#add () in
   let button_font_incr = create_small_button
-      ~icon:"\u{f09f4}"
+      ~icon:Icon_set.editor_font_increase
       ~packing:lbox#pack
       ~callback:begin fun () ->
         let fd : GPango.font_description = view#misc#pango_context#font_description in
@@ -60,7 +60,7 @@ class editorbar ~view ?packing () =
   in
 
   let button_font_decr = create_small_button
-      ~icon:"\u{f09f3}"
+      ~icon:Icon_set.editor_font_decrease
       ~packing:lbox#pack
       ~callback:begin fun () ->
         let fd : GPango.font_description = view#misc#pango_context#font_description in
@@ -73,7 +73,7 @@ class editorbar ~view ?packing () =
       end ()
   in
   let button_rowspacing_incr = create_small_button
-      ~icon:"\u{f084f}"
+      ~icon:Icon_set.editor_rowspacing_incr
       ~packing:lbox#pack
       ~callback:begin fun () ->
         let above, below = Preferences.preferences#get.editor_pixels_lines in
@@ -83,7 +83,7 @@ class editorbar ~view ?packing () =
       end ()
   in
   let button_rowspacing_decr = create_small_button
-      ~icon:"\u{f084d}"
+      ~icon:Icon_set.editor_rowspacing_decr
       ~packing:lbox#pack
       ~callback:begin fun () ->
         view#set_pixels_above_lines (max 0 (view#pixels_above_lines - 1));
@@ -92,10 +92,10 @@ class editorbar ~view ?packing () =
       end ()
   in
 
-  let button_toggle_wrap = create_small_toggle_button ~icon:"\u{eb80}" ~packing:lbox#pack () in
+  let button_toggle_wrap = create_small_toggle_button ~icon:Icon_set.editor_word_wrap ~packing:lbox#pack () in
   let button_toggle_whitespace =
     let icon =
-      let icon = "\u{eb7d}" in
+      let icon = Icon_set.editor_whitespace in
       match font_size with
       | Some size -> sprintf "<span font='%d'>%s</span>" size icon
       | _ -> icon
@@ -103,7 +103,7 @@ class editorbar ~view ?packing () =
     create_small_toggle_button ~icon ~packing:lbox#pack () in (* f1dd *)
 
   let button_dotview = create_small_toggle_button
-      ~icon:"\u{f104a}"
+      ~icon:Icon_set.editor_dep_graph
       ~packing:lbox#pack ()
       ~show:(false (*Oe_config.dot_version <> None*))
   in
@@ -130,13 +130,13 @@ class editorbar ~view ?packing () =
   let pos_box = GPack.hbox ~spacing:3 ~packing:lbox#pack () in
 
   let _ = GMisc.separator `VERTICAL ~packing:pos_box#pack () in
-  let label_pos_lin = GMisc.label ~xalign:0.0 ~yalign:0.5 ~text:"\u{e0a1}\u{2009}" ~packing:pos_box#pack () in
+  let label_pos_lin = GMisc.label ~xalign:0.0 ~yalign:0.5 ~text:Icon_set.editor_line_number ~packing:pos_box#pack () in
   let _ = label_pos_lin#misc#modify_font_by_name icon_font_name in
   let status_pos_lin = GMisc.label ~xalign:0.0 ~yalign:0.5 ~width:34 ~packing:pos_box#pack () in
   let _ = set_label_font_size status_pos_lin in
   let _ = GMisc.separator `VERTICAL ~packing:pos_box#pack () in
 
-  let label_pos_col = GMisc.label ~xalign:0.0 ~yalign:0.5 ~markup:"<small>\u{e0a3}</small>\u{2009}" ~packing:pos_box#pack () in
+  let label_pos_col = GMisc.label ~xalign:0.0 ~yalign:0.5 ~markup:Icon_set.editor_column_number ~packing:pos_box#pack () in
   let _ = label_pos_col#misc#modify_font_by_name icon_font_name in
   let status_pos_col = GMisc.label ~xalign:0.0 ~yalign:0.5 ~width:34 ~packing:pos_box#pack () in
   let _ = set_label_font_size status_pos_col in
@@ -192,7 +192,7 @@ class opambar ?switch ?packing () =
     method set_switch switch =
       let sw = switch |> Option.value ~default:(Opam.switch_show()) in
       switch_changed#call sw;
-      button_switch#set_icon "<span size='large'>\u{e67a} </span>";
+      button_switch#set_icon Icon_set.opam_switch;
       button_switch#set_label sw
     initializer
       self#set_switch switch;
@@ -237,10 +237,10 @@ and opambar_signals ~switch_changed =
 
 class gitbar ?packing () =
   let box = GPack.hbox ~spacing:8 ?packing () in
-  let button_gitunpushed = create_button ~packing:box#add "\u{eaa1}" in
-  let button_gitpending = create_button ~packing:box#add "\u{ea73}" in
-  let button_gitbranch = create_button ~packing:box#add "\u{f062c}" in
-  let button_gitpath = create_button ~packing:box#add "\u{e65d} " in
+  let button_gitunpushed = create_button ~packing:box#add Icon_set.git_unpushed in
+  let button_gitpending = create_button ~packing:box#add Icon_set.git_pending in
+  let button_gitbranch = create_button ~packing:box#add Icon_set.git_branch in
+  let button_gitpath = create_button ~packing:box#add Icon_set.git_path in
   object (self)
     inherit GObj.widget box#as_widget
     initializer
@@ -283,7 +283,11 @@ class widget ?packing () =
     method spinner = spinner
 
     method private set_custom_style () =
-      ebox#misc#modify_bg [`NORMAL, `COLOR (ebox#misc#style#light `NORMAL)];
-      ebox#misc#modify_fg [`NORMAL, `COLOR (ebox#misc#style#fg `NORMAL)];
+      (* Derive the colors from the toplevel: reading them from [ebox] itself would feed the colors
+         set by [modify_bg] back into [style#light], making the bar lighter at every "style_set"
+         (e.g. each time the window gets or loses the focus). *)
+      let base = ebox#misc#toplevel in
+      ebox#misc#modify_bg [`NORMAL, `COLOR (base#misc#style#light `NORMAL)];
+      ebox#misc#modify_fg [`NORMAL, `COLOR (base#misc#style#fg `NORMAL)];
   end
 

@@ -715,13 +715,13 @@ class view ~(outline : Oe.outline) ~(source_view : Ocaml_text.view) ?packing () 
       tool_follow_cursor#misc#style_context#add_class "outline-button";
       (* Toolbar icons *)
       let mk_icon = Gtk_util.label_icon ~width:25 ~height:1 ~font_size:"medium" in
-      tool_refresh#set_label_widget (mk_icon "\u{f0453}")#coerce;
-      tool_collapse_all#set_label_widget (mk_icon "\u{f102}")#coerce;
-      tool_show_nested_defs#set_label_widget (mk_icon "\u{e681}")#coerce;
-      tool_goto_cursor_position#set_label_widget (mk_icon "\u{ea9b}")#coerce;
-      tool_follow_cursor#set_label_widget (mk_icon "\u{ebcb}")#coerce;
-      tool_sort_name#set_label_widget (mk_icon "\u{f05bd}")#coerce;
-      tool_sort_kind#set_label_widget (mk_icon "\u{f1385}")#coerce;
+      tool_refresh#set_label_widget (mk_icon Icon_set.outline_refresh)#coerce;
+      tool_collapse_all#set_label_widget (mk_icon Icon_set.outline_collapse)#coerce;
+      tool_show_nested_defs#set_label_widget (mk_icon Icon_set.outline_nested)#coerce;
+      tool_goto_cursor_position#set_label_widget (mk_icon Icon_set.outline_goto_cursor)#coerce;
+      tool_follow_cursor#set_label_widget (mk_icon Icon_set.outline_follow_cursor)#coerce;
+      tool_sort_name#set_label_widget (mk_icon Icon_set.outline_sort_by_name)#coerce;
+      tool_sort_kind#set_label_widget (mk_icon Icon_set.outline_sort_by_kind)#coerce;
       (* Toolbar tooltips *)
       tool_refresh#misc#set_tooltip_text "Refresh";
       tool_collapse_all#misc#set_tooltip_text "Collapse all";

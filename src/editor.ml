@@ -245,11 +245,7 @@ class editor () =
                 GtkText.Mark.get_buffer old_marker.Gutter.mark |> Option.iter (fun buf ->
                     self#get_page (`BUFFER buf) |> Option.iter (fun old_page ->
                         old.Oe.bm_marker |> Option.iter (fun m -> old_page#margin_markers#remove [m])))));
-        let icon = (* TODO refactor *)
-          match num with
-          | 1 -> "\u{f03a4}" | 2 -> "\u{f03a7}" | 3 -> "\u{f03aa}" | 4 -> "\u{f03ad}" | 5 -> "\u{f03b1}"
-          | 6 -> "\u{f03b3}" | 7 -> "\u{f03b6}" | 8 -> "\u{f03b9}" | 9 -> "\u{f03bc}" | _ -> "\u{f03a1}"
-        in
+        let icon = Icon_set.bookmark.(if num >= 0 && num <= 9 then num else 0) in
         let marker = page#margin_markers#add ~kind:(`Bookmark num) ~mark ~icon ~color:"#4da1ff" in
         let bm = Bookmark.create ~num ~filename ~mark ~marker () in
         Project.Bookmark.set project bm;
@@ -472,11 +468,11 @@ class editor () =
       GtkMenu.Menu.attach_to_widget menu#as_menu page#as_widget;
       let filename = page#get_filename in
       let basename = Filename.basename filename in
-      let item = Image_menu.item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_16)) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Close \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> ignore (self#dialog_confirm_close page)));
       let item = Image_menu.item ~label:(sprintf "Close All Except \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#close_all ~except:page ()));
-      let item = Image_menu.item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`MENU ()) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Revert \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#revert page));
       let _ = GMenu.separator_item ~packing:menu#add () in
       let item = GMenu.menu_item ~label:"Copy Full Path" ~packing:menu#add () in
@@ -503,21 +499,21 @@ class editor () =
         switch_viewer#misc#set_sensitive (Menu_view.get_switch_view_sensitive self#project page)
       end;
       let item = Image_menu.item
-          ~image:(GMisc.image ~pixbuf:(??? Icons.history) ())#coerce
+         
           ~label:"Revision History" ~packing:menu#add ()
       in
       ignore (item#connect#activate ~callback:(fun () -> self#with_current_page (fun page -> page#show_revision_history ())));
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = Image_menu.item ~label:"Save As..." ~image:(GMisc.image ~pixbuf:(??? Icons.save_as_16) (*~stock:`SAVE_AS*) ~icon_size:`MENU ()) ~packing:menu#add () in
+      let item = Image_menu.item ~label:"Save As..." ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_save_as page));
       let item = Image_menu.item ~label:(sprintf "Rename \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> self#dialog_rename page));
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
-      let item = Image_menu.item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~image:(Icons.create (??? Icons.close_window)) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Delete \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:self#dialog_delete_current);
       Gaux.may page#file ~f:(fun file -> item#misc#set_sensitive file#is_writeable);
       let _ = GMenu.separator_item ~packing:menu#add () in
-      let item = Image_menu.item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~image:(GMisc.image ~pixbuf:(??? Icons.compile_file_16) ()) ~packing:menu#add () in
+      let item = Image_menu.item ~label:(sprintf "Compile \xC2\xAB%s\xC2\xBB" basename) ~packing:menu#add () in
       ignore (item#connect#activate ~callback:(fun () -> page#compile_buffer ?join:None ()));
       item#misc#set_sensitive (Menu_file.get_file_switch_sensitive page);
       menu#popup ~time:(GdkEvent.Button.time ev) ~button:3;
@@ -559,25 +555,25 @@ class editor () =
                   ignore (page#connect#file_changed ~callback:(fun _ -> switch_page#call page));
                   (* Tab Label with close button *)
                   let button_close = GButton.button ~relief:`NONE () in
-                  let image = Icons.create (??? Icons.button_close) in
+                  let image = Gtk_util.label_icon ~width:14 ~height:14 ~font_size:"medium" (Gtk_util.tab_close_icon ()) in
                   ignore (button_close#event#connect#enter_notify ~callback:begin fun _ ->
-                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_hi_b) else (??? Icons.button_close_hi));
+                      image#set_label (Gtk_util.tab_close_icon ~hover:true ());
                       false
                     end);
                   ignore (button_close#event#connect#leave_notify ~callback:begin fun _ ->
-                      image#set_pixbuf (if page#buffer#modified then (??? Icons.button_close_b) else (??? Icons.button_close));
+                      image#set_label (Gtk_util.tab_close_icon ~modified:page#buffer#modified ());
                       false
                     end);
                   ignore (page#view#misc#connect#query_tooltip ~callback:(self#callback_query_tooltip page));
                   ignore (page#buffer#connect#modified_changed ~callback:begin fun () ->
                       if page#buffer#modified then begin
-                        page#status_modified_icon#set_label "\u{f0c7}\u{2005}";
+                        page#status_modified_icon#set_label Icon_set.file_status_modified;
                         page#status_modified_icon#misc#set_tooltip_text "Modified";
-                        image#set_pixbuf (??? Icons.button_close_b)
+                        image#set_label (Gtk_util.tab_close_icon ~modified:true ())
                       end else begin
                         page#status_modified_icon#set_label "    ";
                         page#status_modified_icon#misc#set_tooltip_text "";
-                        image#set_pixbuf (??? Icons.button_close)
+                        image#set_label (Gtk_util.tab_close_icon ())
                       end;
                       modified_changed#call();
                     end);
@@ -640,7 +636,7 @@ class editor () =
     method revert (page : Editor_page.page) = Gaux.may page#file ~f:begin fun _ ->
         if page#buffer#modified then ignore (Dialog.confirm
                                                ~title:"Revert File"
-                                               ~image:(GMisc.image ~pixbuf:(??? Icons.revert_to_saved_16) (*~stock:`REVERT_TO_SAVED*) ~icon_size:`DIALOG ())#coerce
+                                               ~image:(Gtk_util.label_icon Icon_set.revert_to_saved)#coerce
                                                ~message:("File\n\""^page#get_filename^"\"\nmodified, revert?")
                                                ~yes:("Revert", fun () -> page#revert())
                                                ~no:("Do Not Revert", ignore) page)

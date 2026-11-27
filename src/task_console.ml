@@ -38,12 +38,12 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = toolbar#set_icon_size `MENU in
   let sw                = GBin.scrolled_window ~shadow_type:`NONE ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:hbox#add () in
   let button_detach     = GButton.tool_button ~label:"Detach" ~packing:toolbar#insert () in
-  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon "\u{eb23}")#coerce in
+  let _                 = button_detach#set_icon_widget (Gtk_util.label_icon Icon_set.detach_window)#coerce in
   let _                 = button_detach#misc#set_name "menubarbutton" in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_stop       = GButton.tool_button ~packing:toolbar#insert () in
-  let _                 = button_stop#set_icon_widget (Gtk_util.label_icon ~color:"red" "\u{f04d}")#coerce in
+  let _                 = button_stop#set_icon_widget (Gtk_util.label_icon ~color:"red" Icon_set.search_stop)#coerce in
   let _                 = button_stop#misc#set_name "menubarbutton" in
   let _                 = button_stop#set_tooltip_text "Kill Process" in
   let button_run        = GButton.tool_button ~packing:toolbar#insert () in
@@ -51,32 +51,32 @@ class view ~(editor : Editor.editor) ?(task_kind=(`OTHER : Task.kind)) ~task ?pa
   let _                 = button_run#set_icon_widget begin match task_kind with
       | `OTHER | `RUN ->
           button_run#set_tooltip_text "Start";
-          (Gtk_util.label_icon ~color:"forestgreen" "\u{f04b}")#coerce;
+          (Gtk_util.label_icon ~color:"forestgreen" Icon_set.toolbar_run)#coerce;
       | `CLEAN | `CLEANALL ->
           button_run#set_tooltip_text task.Task.et_name;
-          (Icons.create (??? Icons.clear_build_16))#coerce;
+          (Gtk_util.label_icon Icon_set.toolbar_clean)#coerce;
       | `ANNOT | `COMPILE ->
           button_run#set_tooltip_text task.Task.et_name;
-          (Gtk_util.label_icon ~color:"forestgreen" "\u{eba2}")#coerce;
+          (Gtk_util.label_icon ~color:"forestgreen" Icon_set.console_compile)#coerce;
     end#coerce in
   let _                 = GButton.separator_tool_item ~packing:toolbar#insert () in
   (*  *)
   let button_clear      = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_clear#misc#set_name "menubarbutton" in
   let _                 = button_clear#set_tooltip_text "Clear Messages" in
-  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon "\u{eabf}")#coerce in
+  let _                 = button_clear#set_icon_widget (Gtk_util.label_icon Icon_set.console_clear)#coerce in
   let button_incr_font  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_incr_font#misc#set_name "menubarbutton" in
   let _                 = button_incr_font#set_tooltip_text "Increase Font Size" in
-  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f4}")#coerce in
+  let _                 = button_incr_font#set_icon_widget (Gtk_util.label_icon Icon_set.editor_font_increase)#coerce in
   let button_decr_font  = GButton.tool_button ~packing:toolbar#insert () in
   let _                 = button_decr_font#misc#set_name "menubarbutton" in
   let _                 = button_decr_font#set_tooltip_text "Decrease Font Size" in
-  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon "\u{f09f3}")#coerce in
+  let _                 = button_decr_font#set_icon_widget (Gtk_util.label_icon Icon_set.editor_font_decrease)#coerce in
   let button_wrap       = GButton.toggle_tool_button ~packing:toolbar#insert () in
   let _                 = button_wrap#misc#set_name "menubarbutton" in
   let _                 = button_wrap#set_tooltip_text "Word Wrap" in
-  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon "\u{eb80}")#coerce in
+  let _                 = button_wrap#set_icon_widget (Gtk_util.label_icon Icon_set.editor_word_wrap)#coerce in
   (*  *)
   let view              = GText.view ~editable:(task_kind = `RUN) ~cursor_visible:true ~packing:sw#add () in
   let _                 = view#set_right_margin 2 in
@@ -489,7 +489,7 @@ let create ~editor task_kind task =
         match task_kind with
         | `RUN (*| `OTHER*) ->
             let box = GPack.hbox ~spacing:3 () in
-            let icon = (Icons.create (??? Icons.start_10)) in
+            let icon = Gtk_util.label_icon ~color:"forestgreen" ~width:12 Icon_set.toolbar_run in
             box#pack icon#coerce;
             let label = GMisc.label ~text:task.Task.et_name ~packing:box#pack () in
             box#coerce, Some begin fun active ->
@@ -510,7 +510,6 @@ let create ~editor task_kind task =
       end;
       page#set_tab_label label;
       page#set_title task.Task.et_name;
-      Gaux.may icon ~f:(fun icon -> page#set_icon (Some icon#pixbuf));
       if task.Task.et_visible then (Messages.vmessages())#append_page ~label_widget ~with_spinner:(task_kind <> `RUN) page#as_page;
       page#connect#working_status_changed ~callback:begin fun active ->
         (match set_active_func with None -> page#is_working#set | Some f -> f) active

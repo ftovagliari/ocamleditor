@@ -142,9 +142,9 @@ end
 module Icon = struct
   let update_otherwidgets_icon pref =
     Otherwidgets_config.app_icon :=
-      (fun () -> if pref.theme_is_dark then Icons.Dark.oe else Icons.Light.oe);
+      (fun () -> if pref.theme_is_dark then Logo.Dark.oe else Logo.Light.oe);
     Otherwidgets_config.icon_path :=
-      (fun () -> if pref.theme_is_dark then Icons.Dark.path else Icons.Light.path)
+      (fun () -> if pref.theme_is_dark then Logo.Dark.path else Logo.Light.path)
 
   let _ =
     update_otherwidgets_icon preferences#get;
@@ -155,8 +155,8 @@ module Icon = struct
 
   let get_themed_filename basename =
     if preferences#get.theme_is_dark
-    then Filename.concat Icons.Dark.path basename
-    else Filename.concat Icons.Light.path basename
+    then Filename.concat Logo.Dark.path basename
+    else Filename.concat Logo.Light.path basename
 end
 
 module Color = struct

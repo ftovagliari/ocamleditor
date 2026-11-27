@@ -15,11 +15,6 @@ let _ =
   Log.set_print_timestamp true;
   Log.set_verbosity (if is_debug then `DEBUG else `ERROR)
 
-module Icons = struct
-  let expander_open = "\u{f47c}"
-  let expander_closed = "\u{f460}"
-end
-
 exception Invalid_linechar of int * int * int * int
 
 let counter = ref 1
@@ -103,8 +98,8 @@ type toggle_type = Expand | Collapse
 
 class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing () =
   let ebox = GBin.event_box ?packing () in
-  let markup = if is_debug then sprintf "<span size='x-small'>%d</span>%s" !counter Icons.expander_open
-    else Icons.expander_open in
+  let markup = if is_debug then sprintf "<span size='x-small'>%d</span>%s" !counter Icon_set.expander_open
+    else Icon_set.expander_open in
   let label = Gtk_util.label_icon markup ~packing:ebox#add in
   let buffer = view#buffer in
   let id = !counter in
@@ -259,8 +254,8 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
           |> Region.difference (self#body, self#foot)
         in
         label#set_label
-          (if is_debug then sprintf "<span size='x-small'>%d</span>%s" id Icons.expander_open
-           else sprintf "<big>%s</big>" Icons.expander_open);
+          (if is_debug then sprintf "<span size='x-small'>%d</span>%s" id Icon_set.expander_open
+           else sprintf "<big>%s</big>" Icon_set.expander_open);
         is_expanded <- true;
         self#show_region ?transition ~segments ~cont:begin fun () ->
           toggled#call Expand
@@ -276,8 +271,8 @@ class expander ~(view : Ocaml_text.view) ~tag_highlight ~tag_invisible ?packing 
         buffer#remove_tag tag_highlight ~start:self#head ~stop:self#foot;
         self#hide_region ~cont:begin fun () ->
           label#set_label
-            (if is_debug then sprintf "<span size='x-small'>%d</span>%s" id Icons.expander_closed
-             else sprintf "<big>%s</big>" Icons.expander_closed);
+            (if is_debug then sprintf "<span size='x-small'>%d</span>%s" id Icon_set.expander_closed
+             else sprintf "<big>%s</big>" Icon_set.expander_closed);
           is_expanded <- false;
           toggled#call Collapse
         end ();

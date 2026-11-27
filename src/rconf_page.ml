@@ -40,30 +40,30 @@ class view ~target_list ?packing () =
   let _ = GMisc.label ~text:"Target" ~xalign:0.0 ~packing:box#add () in
   let cols = new GTree.column_list in
   let col_bc = cols#add Gobject.Data.caml in
-  let col_bc_pixbuf = cols#add (Gobject.Data.gobject_by_name "GdkPixbuf") in
+  let col_bc_icon = cols#add Gobject.Data.string in
   let col_name = cols#add Gobject.Data.string in
   let model_bc = GTree.list_store cols in
   let combo_bc = GEdit.combo_box ~model:model_bc ~packing:box#add () in
   let rend = GTree.cell_renderer_text [`XPAD 5] in
-  let rend_pixbuf = GTree.cell_renderer_pixbuf [] in
+  let rend_pixbuf = Gtk_util.cell_renderer_icon () in
   let _ = combo_bc#pack rend_pixbuf in
   let _ = combo_bc#pack rend in
-  let _ = combo_bc#add_attribute rend_pixbuf "pixbuf" col_bc_pixbuf in
+  let _ = combo_bc#add_attribute rend_pixbuf "markup" col_bc_icon in
   let _ = combo_bc#add_attribute rend "text" col_name in
   (* Prior Build Task *)
   let box = GPack.vbox ~packing:vbox#pack () in
   let _ = GMisc.label ~text:"Prior build task" ~xalign:0.0 ~packing:box#pack () in
   let cols = new GTree.column_list in
-  let col_task_pb = cols#add (Gobject.Data.gobject_by_name "GdkPixbuf") in
+  let col_task_icon = cols#add Gobject.Data.string in
   let col_task_descr = cols#add Gobject.Data.string in
   let col_task = cols#add Gobject.Data.caml in
   let model_task = GTree.list_store cols in
   let combo_task = GEdit.combo_box ~active:0 ~model:model_task ~packing:box#pack () in
-  let rend_pb = GTree.cell_renderer_pixbuf [] in
+  let rend_pb = Gtk_util.cell_renderer_icon () in
   let rend = GTree.cell_renderer_text [`XPAD 5] in
   let _ = combo_task#pack rend_pb in
   let _ = combo_task#pack rend in
-  let _ = combo_task#add_attribute rend_pb "pixbuf" col_task_pb in
+  let _ = combo_task#add_attribute rend_pb "text" col_task_icon in
   let _ = combo_task#add_attribute rend "markup" col_task_descr in
   (* Command Line Arguments and Environment Variables *)
   let notebook = GPack.notebook ~packing:vbox#add () in
@@ -79,15 +79,15 @@ class view ~target_list ?packing () =
       | Some row ->
           let bc = model_bc#get ~row ~column:col_bc in
           let tasks = [
-            `NONE, (??? Icons.empty_16);
-            `CLEAN, (??? Icons.clear_build_16);
-            `COMPILE, (??? Icons.build_16);
-            `REBUILD, (??? Icons.empty_16)
-          ] @ (List.map (fun x -> (`ETASK x, (??? Icons.etask_16))) bc.Target.external_tasks) in
+            `NONE, "";
+            `CLEAN, Icon_set.toolbar_clean;
+            `COMPILE, Icon_set.toolbar_build;
+            `REBUILD, ""
+          ] @ (List.map (fun x -> (`ETASK x, Icon_set.target_external)) bc.Target.external_tasks) in
           model_task#clear();
           List.iter begin fun (task, icon) ->
             let row = model_task#append () in
-            model_task#set ~row ~column:col_task_pb icon;
+            model_task#set ~row ~column:col_task_icon icon;
             model_task#set ~row ~column:col_task_descr (Target.markup_of_task task);
             model_task#set ~row ~column:col_task task
           end tasks;
@@ -127,7 +127,7 @@ class view ~target_list ?packing () =
       List.iter begin fun bc ->
         let row = model_bc#append () in
         model_bc#set ~row ~column:col_bc bc;
-        model_bc#set ~row ~column:col_bc_pixbuf (??? Icons.start_16);
+        model_bc#set ~row ~column:col_bc_icon Icon_set.target_executable;
         model_bc#set ~row ~column:col_name bc.Target.name;
       end targets;
 

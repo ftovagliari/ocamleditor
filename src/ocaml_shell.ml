@@ -41,21 +41,21 @@ class ocaml_shell ?project () =
       let b_send = GButton.tool_button ~stock:`OK ~packing:toolbar#insert () in
       let _ = GButton.separator_tool_item ~packing:toolbar#insert () in*)
   let b_use = GButton.tool_button ~label:"Use File" ~packing:toolbar#insert () in
-  let _ = b_use#set_icon_widget (Icons.create (??? Icons.file_ml))#coerce in
+  let _ = b_use#set_icon_widget (Gtk_util.label_icon Icon_set.shell_use_file)#coerce in
   let b_load = GButton.tool_button ~label:"Load Bytecode" ~packing:toolbar#insert () in
-  let _ = b_load#set_icon_widget (Icons.create (??? Icons.file_cm))#coerce in
+  let _ = b_load#set_icon_widget (Gtk_util.label_icon Icon_set.shell_load_cm)#coerce in
   let b_directory = GButton.tool_button ~label:"Import Directory" ~packing:toolbar#insert () in
-  let _ = b_directory#set_icon_widget (Icons.create (??? Icons.dir))#coerce in
+  let _ = b_directory#set_icon_widget (Gtk_util.label_icon Icon_set.shell_directory)#coerce in
   let b_load_path = GButton.tool_button ~label:"Load Project Path" ~packing:toolbar#insert () in
-  let _ = b_load_path#set_icon_widget (Icons.create (??? Icons.load_proj))#coerce in
+  let _ = b_load_path#set_icon_widget (Gtk_util.label_icon Icon_set.shell_load_path)#coerce in
   let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
   let b_rename = GButton.tool_button ~label:"Rename" ~packing:toolbar#insert () in
-  let _ = b_rename#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.edit) ())#coerce in
+  let _ = b_rename#set_icon_widget (Gtk_util.label_icon Icon_set.edit)#coerce in
   let button_detach = GButton.tool_button ~label:"Detach" ~packing:toolbar#insert () in
-  let _ = button_detach#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.detach) ())#coerce in
+  let _ = button_detach#set_icon_widget (Gtk_util.label_icon Icon_set.detach_window)#coerce in
   let _ = GButton.separator_tool_item ~packing:toolbar#insert () in
   let b_kill = GButton.tool_button ~packing:toolbar#insert () in
-  let _ = b_kill#set_icon_widget (GMisc.image ~pixbuf:(??? Icons.stop_16) ())#coerce in
+  let _ = b_kill#set_icon_widget (Gtk_util.label_icon ~color:"red" Icon_set.search_stop)#coerce in
   (*  *)
   (*  let _ = tooltips#set_tip ~text:"Previous phrase (Ctrl+Up)" b_prev#coerce in
       let _ = tooltips#set_tip ~text:"Next phrase (Ctrl+Down)" b_next#coerce in
@@ -172,10 +172,9 @@ class ocaml_shell ?project () =
 let append_page ?project (messages : Messages.messages) =
   let sh = new ocaml_shell ?project () in
   sh#set_title "OCaml Toplevel";
-  sh#set_icon (Some (??? Icons.toplevel));
   let label_widget =
     let hbox = GPack.hbox ~spacing:1 () in
-    let icon = GMisc.image ~pixbuf:(??? Icons.toplevel) ~packing:hbox#pack () in
+    let icon = Gtk_util.label_icon ~packing:hbox#pack Icon_set.toolbar_eval_toplevel in
     let ebox = GBin.event_box ~packing:hbox#add () in
     ebox#misc#set_property "visible-window" (`BOOL false);
     let label = GMisc.label ~text:sh#title ~packing:ebox#add ~show:true () in

@@ -49,80 +49,80 @@ let pixbuf_empty =
 (** specs *)
 let specs ~browser =
   let editor : Editor.editor = browser#editor in [
-    30,  `BACK,       BM, L ("\u{f09c0}", None), "Go Back",
+    30,  `BACK,       BM, L (Icon_set.toolbar_back, None), "Go Back",
     (fun _ -> browser#goto_location `PREV),
     None;
 
-    40,  `FORWARD,       B, L ("\u{f09c2}", None), "Go Forward",
+    40,  `FORWARD,       B, L (Icon_set.toolbar_forward, None), "Go Forward",
     (fun _ -> browser#goto_location `NEXT),
     None;
 
-    50,  `LAST_EDIT_LOC,       B, L ("\u{f09b7}", None), "Go to Last Edit Location",
+    50,  `LAST_EDIT_LOC,       B, L (Icon_set.toolbar_last_edit_loc, None), "Go to Last Edit Location",
     (fun _ -> browser#goto_location `LAST),
     None;
 
     60,  `SEP,            I, N, "", ignore, None;
 
-    100,  `NEW_FILE,       B, L ("\u{ea7f}", None), "New File...",
+    100,  `NEW_FILE,       B, L (Icon_set.toolbar_new_file, None), "New File...",
     (fun _ -> browser#dialog_file_new()),
     None;
 
-    200,  `OPEN_FILE,      B, L ("\u{f115}", Some "#FFA500"), "Open File...",
+    200,  `OPEN_FILE,      B, L (Icon_set.toolbar_open_file, Some "#FFA500"), "Open File...",
     (fun _ -> editor#dialog_file_open ()),
     None;
 
-    300,  `SAVE,           B, L ("\u{f0c7}", Some "#1E90FF"), "Save",
+    300,  `SAVE,           B, L (Icon_set.toolbar_save, Some "#1E90FF"), "Save",
     (fun _ -> Gaux.may ~f:editor#save (editor#get_page `ACTIVE)),
     None;
 
-    400,  `SAVE_ALL,       B, L ("<span size='x-large'>\u{eb49}</span>", Some "#1E90FF" ), "Save All",
+    400,  `SAVE_ALL,       B, L (Icon_set.toolbar_save_all, Some "#1E90FF" ), "Save All",
     (fun _ -> browser#save_all ()),
     None;
 
-    500,  `CLOSE,          B, L ("<span size='medium'>\u{e20d}</span>", None), "Close Current File",
+    500,  `CLOSE,          B, L (Icon_set.toolbar_close, None), "Close Current File",
     (fun _ -> editor#with_current_page (fun p -> ignore (editor#dialog_confirm_close p))),
     None;
 
     600,  `SEP,            I, N, "", ignore, None;
 
-    700,  `FIND_REPL,      B, L ("\u{f0c7d}", None), "Find in Buffer", begin fun _ ->
+    700,  `FIND_REPL,      B, L (Icon_set.toolbar_find_in_buffer, None), "Find in Buffer", begin fun _ ->
       Menu_search.find_replace ?find_all:None ?search_word_at_cursor:None editor
     end, None;
 
-    800,  `FIND_REPL_PATH,      B, L ("\u{f0969}", None), "Find in Path", begin fun _ ->
+    800,  `FIND_REPL_PATH,      B, L (Icon_set.toolbar_find_in_path, None), "Find in Path", begin fun _ ->
       Menu_search.find_replace ?find_all:None ?find_in_buffer:(Some false) ?search_word_at_cursor:None editor
     end, None;
 
-    (*    800,  `SEARCH_AGAIN,   B, P (??? Icons.search_again_16), "Search Again",
+    (*    800,  `SEARCH_AGAIN,   B, L (Icon_set.search_again, None), "Search Again",
           (fun _ -> Menu_search.search_again editor),
           None;*)
 
     900,  `SEP,            I, N, "", ignore, None;
 
-    1000, `VIEW_MESSAGES,  B, L ("\u{f10a9}", None), "View Messages",
+    1000, `VIEW_MESSAGES,  B, L (Icon_set.toolbar_view_messages, None), "View Messages",
     (fun _ -> (Messages.vmessages())#set_visible  (not (Messages.vmessages())#visible)),
     None;
 
-    1100, `VIEW_HMESSAGES, B, L ("\u{f10ab}", None), "View Messages (Right Pane)",
+    1100, `VIEW_HMESSAGES, B, L (Icon_set.toolbar_view_hmessages, None), "View Messages (Right Pane)",
     (fun _ -> (Messages.hmessages())#set_visible (not (Messages.hmessages())#visible)),
     None;
 
     1200, `SEP,            I, N, "", ignore, None;
 
-    1300, `EVAL_TOPLEVEL,  B, L ("<span size='x-large'>\u{e00a}</span>", None), "Eval in Toplevel",
+    1300, `EVAL_TOPLEVEL,  B, L (Icon_set.toolbar_eval_toplevel, None), "Eval in Toplevel",
     (fun _ -> editor#with_current_page (fun page -> page#ocaml_view#obuffer#send_to_shell ())),
     None;
 
     1500, `SEP,            I, N, "", ignore, None;
 
-    1400, `COMPILE_FILE,   B, L ("\u{f0966}", None), "Compile Current File", begin fun _ ->
+    1400, `COMPILE_FILE,   B, L (Icon_set.toolbar_compile_file, None), "Compile Current File", begin fun _ ->
       browser#editor#with_current_page begin fun p ->
         if Preferences.preferences#get.editor_save_all_bef_comp then (editor#save_all());
         p#compile_buffer ?join:None ()
       end
     end, None;
 
-    1600, `SHOW_TARGETS,   B, L ("<span size='x-large'>\u{eab3}</span>", None), "Targets", begin fun _ ->
+    1600, `SHOW_TARGETS,   B, L (Icon_set.toolbar_targets, None), "Targets", begin fun _ ->
       browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) ()
     end, None;
 
@@ -132,17 +132,17 @@ let specs ~browser =
     browser#project_clean,
     None;
 
-    1800, `CLEAN,          BM, L ("\u{f00e2}", None), "Clean...",
+    1800, `CLEAN,          BM, L (Icon_set.toolbar_clean, None), "Clean...",
     (fun () -> browser#toolbar#clean_current browser),
     Some (browser#toolbar#clean_menu browser);
 
     1850, `SEP,            I, N, "", ignore, None;
 
-    1900, `COMPILE,        BM, L ("\u{e110}", None), "Compile...",
+    1900, `COMPILE,        BM, L (Icon_set.toolbar_compile, None), "Compile...",
     (fun () -> browser#toolbar#compile_current browser),
     Some (browser#toolbar#compile_menu browser);
 
-    2000, `BUILD,          BM, L ("\u{e111}", None), "Build...",
+    2000, `BUILD,          BM, L (Icon_set.toolbar_build, None), "Build...",
     (fun () -> browser#toolbar#build_current browser),
     Some (browser#toolbar#build_menu browser);
 
@@ -168,7 +168,7 @@ let specs ~browser =
         end
       end);
 
-    2200, `RUN,            BM, L ("\u{f04b}", Some "forestgreen"), "Run...",
+    2200, `RUN,            BM, L (Icon_set.toolbar_run, Some "forestgreen"), "Run...",
     (fun () -> browser#toolbar#run_current browser),
     Some (browser#toolbar#run_menu browser);
   ]
@@ -198,7 +198,7 @@ let items ~browser =
 let create_tool ~(toolbox : GPack.box) item =
   let image =
     match item.pixbuf with
-    | P _ when item.tag = `VIEW_MESSAGES -> Some ((GMisc.image ~pixbuf:(??? Icons.paned_bottom_large) ())#coerce)
+    | P _ when item.tag = `VIEW_MESSAGES -> Some ((Gtk_util.label_icon Icon_set.toolbar_view_messages)#coerce)
     | P pixbuf -> Some ((GMisc.image ~pixbuf ())#coerce)
     | S stock -> Some ((GMisc.image ~stock ~icon_size:`SMALL_TOOLBAR ())#coerce)
     | L (icon, color) when item.tag = `VIEW_MESSAGES -> Some (Gtk_util.label_icon ~width:70 ?color icon)#coerce

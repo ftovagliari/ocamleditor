@@ -60,7 +60,7 @@ let crono_sum time f x =
   result;;
 
 let cols         = new GTree.column_list
-let col_pixbuf   = cols#add (Gobject.Data.gobject_option : (GdkPixbuf.pixbuf option) Gobject.data_conv)
+let col_icon     = cols#add Gobject.Data.string_option
 let col_name     = cols#add Gobject.Data.string
 let col_path     = cols#add Gobject.Data.string
 let col_visible  = cols#add Gobject.Data.boolean
@@ -98,6 +98,8 @@ class widget ~source ~name ?filter ?packing () =
   let box               = GPack.hbox ~spacing:8 ~packing:vbox#pack () in
   let entry             = GEdit.entry ~packing:box#add () in
   let icon_progress     = GMisc.image ~width:16 ~file:(Icon.get_themed_filename "spinner_16.gif") ~packing:box#pack () in
+  let icon_find         = Gtk_util.label_icon ~packing:box#pack Icon_set.search_again in
+  let _                 = icon_find#misc#hide () in
   let label_count       = GMisc.label ~packing:box#pack () in
   let model, filelist =
     match source with
@@ -112,9 +114,9 @@ class widget ~source ~name ?filter ?packing () =
   let renderer          = GTree.cell_renderer_text [] in
   let renderer_basename = GTree.cell_renderer_text [] in
   let renderer_score    = GTree.cell_renderer_text [] in
-  let renderer_pixbuf   = GTree.cell_renderer_pixbuf [] in
+  let renderer_pixbuf   = Gtk_util.cell_renderer_icon () in
   let _                 = renderer_basename#set_properties [] in
-  let vc_pixbuf         = GTree.view_column ~title:"" ~renderer:(renderer_pixbuf, ["pixbuf", col_pixbuf]) () in
+  let vc_pixbuf         = GTree.view_column ~title:"" ~renderer:(renderer_pixbuf, ["text", col_icon]) () in
   let vc_score          = GTree.view_column ~title:"Score" ~renderer:(renderer_score, ["text", col_score]) () in
   let vc_name           = GTree.view_column ~title:"File" ~renderer:(renderer_basename, ["text", col_name]) () in
   let vc_path           = GTree.view_column ~title:"Path" ~renderer:(renderer, ["text", col_path]) () in
@@ -165,17 +167,17 @@ class widget ~source ~name ?filter ?packing () =
 
     method set_cell_data_func = vc_name#set_cell_data_func renderer_basename
 
-    method set_icon ~row pixbuf =
-      model.model#set ~row ~column:col_pixbuf pixbuf;
+    method set_icon ~row icon =
+      model.model#set ~row ~column:col_icon icon;
       let path = model.model#get_path row in
-      match pixbuf with
+      match icon with
       | None -> model.index_icons <- List.filter (fun x -> x <> path) model.index_icons
       | _ -> model.index_icons <- path :: model.index_icons
 
     method reset_icons () =
       List.iter begin fun path ->
         let row = model.model#get_iter path in
-        model.model#set ~row ~column:col_pixbuf None
+        model.model#set ~row ~column:col_icon None
       end model.index_icons;
       model.index_icons <- []
 
@@ -189,7 +191,7 @@ class widget ~source ~name ?filter ?packing () =
       | _ -> Gmisclib.Idle.add ~prio:300 scan
 
     method activate :
-      ?f:(filename:string -> has_cursor:bool -> [`clear | `set of GdkPixbuf.pixbuf | `ignore]) ->
+      ?f:(filename:string -> has_cursor:bool -> [`clear | `set of string | `ignore]) ->
       unit -> unit = fun ?f () ->
       let path_cursor, _ = view#get_cursor () in
       let has_cursor =
@@ -203,14 +205,14 @@ class widget ~source ~name ?filter ?packing () =
         let path, row = self#convert_path_to_child_path path in
         let dirname = model.model#get ~row ~column:col_path in
         let basename = model.model#get ~row ~column:col_name in
-        let pixbuf = f ~filename:(dirname // basename) ~has_cursor:(has_cursor path) in
-        match pixbuf with
+        let icon = f ~filename:(dirname // basename) ~has_cursor:(has_cursor path) in
+        match icon with
         | `ignore -> ()
         | `clear ->
-            model.model#set ~row ~column:col_pixbuf None;
+            model.model#set ~row ~column:col_icon None;
             model.index_icons <- List.filter (fun x -> x <> path) model.index_icons
-        | `set pixbuf ->
-            model.model#set ~row ~column:col_pixbuf (Some pixbuf);
+        | `set icon ->
+            model.model#set ~row ~column:col_icon (Some icon);
             model.index_icons <- path :: model.index_icons
       end view#selection#get_selected_rows
 
@@ -367,7 +369,8 @@ class widget ~source ~name ?filter ?packing () =
             self#prune ();
             if is_filelist then (self#apply_pattern());
             self#display_summary ();
-            icon_progress#set_pixbuf (??? Icons.find_16);
+            icon_progress#misc#hide ();
+            icon_find#misc#show ();
             false
           end else true
         end;

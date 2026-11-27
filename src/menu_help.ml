@@ -27,7 +27,7 @@ open Preferences
 
 (** system_properties *)
 let system_properties () =
-  let window = GWindow.window ~icon:(??? Icons.oe) ~title:"System Properties" ~position:`CENTER ~modal:true ~resizable:true ~show:false () in
+  let window = GWindow.window ~icon:(??? Logo.oe) ~title:"System Properties" ~position:`CENTER ~modal:true ~resizable:true ~show:false () in
   let text = Glib.Convert.locale_to_utf8 (System_properties.to_string ()) in
   let buffer = GText.buffer ~text () in
   let vbox = GPack.vbox ~spacing:0 ~border_width:0 ~packing:window#add () in
@@ -41,7 +41,7 @@ let system_properties () =
   view#set_cursor_visible false;
   let bbox = GPack.button_box `HORIZONTAL ~layout:`SPREAD ~border_width:8 ~packing:vbox#pack () in
   let button_close = GButton.button ~packing:bbox#pack () in
-  button_close#set_image (Icons.create (??? Icons.close_16))#coerce;
+  button_close#set_image (Gtk_util.label_icon Icon_set.toolbar_close)#coerce;
   button_close#connect#clicked ~callback:window#destroy |> ignore;
   Gmisclib.Util.esc_destroy_window window;
   window#resize ~width:1 ~height:1;
@@ -55,11 +55,11 @@ let about () =
       ~modal:true
       ~width:310
       ~position:`CENTER
-      ~icon:(??? Icons.oe)
+      ~icon:(??? Logo.oe)
       ~name:About.program_name
       ~version:About.version
       ~copyright:About.copyright
-      ~logo:(??? Icons.logo)
+      ~logo:(??? Logo.logo)
       ~license:{|OCamlEditor is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or

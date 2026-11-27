@@ -37,7 +37,7 @@ let find_replace
     in
     Gaux.may (GWindow.toplevel editor) ~f:(fun tl -> dialog#set_transient_for tl#as_window);
     let hbox = GPack.hbox ~spacing:1 () in
-    let _ = GMisc.image ~pixbuf:(??? Icons.search_results_16) ~packing:hbox#pack () in
+    let _ = Gtk_util.label_icon ~packing:hbox#pack Icon_set.search_find_all in
     let label = GMisc.label ~packing:hbox#pack () in
     ignore (page#connect#search_started ~callback:begin fun () ->
         try
@@ -45,7 +45,6 @@ let find_replace
             (ignore ((Messages.vmessages())#append_page ~label_widget:hbox#coerce page#as_page));
           label#set_text page#text_to_find;
           page#set_title page#text_to_find;
-          if page#icon = None then page#set_icon (Some (??? Icons.search_results_16));
           page#present ();
         with ex -> Printf.eprintf "File \"menu_search.ml\": %s\n%s\n%!" (Printexc.to_string ex) (Printexc.get_backtrace());
       end);
@@ -108,11 +107,11 @@ let set_has_references page item =
     (fun ranges -> item#misc#set_sensitive (ranges <> []))
 
 (** create_search_results_pane *)
-let create_search_results_pane ~pixbuf ~editor ~page =
+let create_search_results_pane ~icon ~editor ~page =
   let widget = new Search_results.widget ~editor () in
   widget#button_new_search#misc#set_sensitive false;
   let hbox = GPack.hbox ~spacing:1 () in
-  let _ = GMisc.image ~pixbuf ~packing:hbox#pack () in
+  let _ = Gtk_util.label_icon ~packing:hbox#pack icon in
   let label = GMisc.label ~packing:hbox#pack () in
   let iter = page#buffer#get_iter `INSERT in
   let mark = page#buffer#create_mark ?name:None ?left_gravity:None iter in
@@ -127,7 +126,7 @@ let create_search_results_pane ~pixbuf ~editor ~page =
 (** find_definition_references *)
 let find_definition_references editor =
   editor#with_current_page begin fun page ->
-    let widget, mark, label = create_search_results_pane ~pixbuf:(??? Icons.references) ~editor ~page in
+    let widget, mark, label = create_search_results_pane ~icon:Icon_set.find_references ~editor ~page in
     widget#set_title "TITLE";
     widget#connect#search_started ~callback:begin fun () ->
       let filename : string = page#get_filename in
@@ -141,7 +140,7 @@ let find_definition_references editor =
         match Definition.locate ~filename ~text ~iter with
         | Merlin.Ok (Some range) ->
             Some
-              (Some (??? Icons.edit),
+              (Some Icon_set.edit,
                { range with
                  start = { range.start with line = range.start.line + 1};
                  stop = { range.stop with line = range.stop.line + 1 } })
@@ -151,12 +150,12 @@ let find_definition_references editor =
       in
       Definition.references ~filename ~text ~iter
       |> Async.start_with_continuation begin fun ranges ->
-        let ranges = ranges |> List.map (fun r -> (None : GdkPixbuf.pixbuf option), r) in
+        let ranges = ranges |> List.map (fun r -> (None : string option), r) in
         let ranges =
           match def_range with
           | Some (_, dr) ->
               let is_def_range (_, r) = r.start.line = dr.start.line && r.start.col = dr.start.col && r.stop.line = dr.stop.line in
-              ranges |> List.map (fun ((_, r) as r') -> if is_def_range r' then Some (??? Icons.edit), r else r')
+              ranges |> List.map (fun ((_, r) as r') -> if is_def_range r' then Some Icon_set.edit, r else r')
           | _ -> (* Already at definition point: definition range is returned but we don't know what it is *)
               ranges
         in
@@ -172,7 +171,6 @@ let find_definition_references editor =
         end
         |> List.sort compare
         |> widget#set_results;
-        if widget#icon = None then widget#set_icon (Some (??? Icons.references));
         label#set_text ident;
         ksprintf widget#label_message#set_label
           "References to <tt>%s</tt>" (Glib.Markup.escape_text ident);

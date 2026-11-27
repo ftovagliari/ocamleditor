@@ -244,7 +244,7 @@ class incremental () =
         let set_secondary_icon ?(alloc=entry#misc#allocation) () =
           let style = entry#misc#style in
           let color = style#fg `NORMAL in
-          let icon = create_glyph_pixbuf alloc.Gtk.height color ~slashed:(not status#case_sensitive) "\u{eab1}" in
+          let icon = create_glyph_pixbuf alloc.Gtk.height color ~slashed:(not status#case_sensitive) Icon_set.isearch_case_sensitive in
           entry#set_secondary_icon_pixbuf icon;
           entry#set_secondary_icon_tooltip_markup "<tt>Alt-C</tt> to toggle case sensitivity.";
         in

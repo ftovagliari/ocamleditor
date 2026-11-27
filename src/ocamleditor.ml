@@ -57,7 +57,7 @@ let main () = begin
     Messages.hpaned := Some (GPack.paned `HORIZONTAL ());
     let window = GWindow.window
         ~title:About.program_name
-        ~icon:(??? Icons.oe)
+        ~icon:(??? Logo.oe)
         ~position:`CENTER
         ~decorated:true
         ~focus_on_map:true

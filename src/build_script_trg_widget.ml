@@ -39,7 +39,7 @@ class widget ~project ?packing () =
   let col_show          = cols#add Gobject.Data.boolean in
   (*let col_install_task  = cols#add Gobject.Data.string in*)
   let rend_target       = GTree.cell_renderer_text [] in
-  let rend_pixbuf       = GTree.cell_renderer_pixbuf [] in
+  let rend_pixbuf       = Gtk_util.cell_renderer_icon () in
   let rend_show         = GTree.cell_renderer_toggle [`XALIGN 0.0] in
   let rend_install_task = GTree.cell_renderer_combo [`EDITABLE true; `HAS_ENTRY false; `TEXT_COLUMN col_itask; `MODEL (Some model_itask#coerce)] in
   let model             = GTree.list_store cols in
@@ -63,11 +63,11 @@ class widget ~project ?packing () =
         rend_target#set_properties [`TEXT target.Target.name];
         rend_show#set_properties [`ACTIVATABLE target.Target.visible];
         match target.Target.target_type with
-        | Target.Executable -> rend_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.start_16); `XALIGN 0.0]
-        | Target.Library -> rend_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.library); `XALIGN 0.0]
-        | Target.Plugin -> rend_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.plugin); `XALIGN 0.0]
-        | Target.Pack -> rend_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.library); `XALIGN 0.0]
-        | Target.External -> rend_pixbuf#set_properties [`VISIBLE true; `PIXBUF (??? Icons.etask_16); `XALIGN 0.0]
+        | Target.Executable -> rend_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_executable; `XALIGN 0.0]
+        | Target.Library -> rend_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_library; `XALIGN 0.0]
+        | Target.Plugin -> rend_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_plugin; `XALIGN 0.0]
+        | Target.Pack -> rend_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_library; `XALIGN 0.0]
+        | Target.External -> rend_pixbuf#set_properties [`VISIBLE true; `TEXT Icon_set.target_external; `XALIGN 0.0]
       end;
       (*vc_install_task#set_cell_data_func rend_install_task begin fun model row ->
         let target = model#get ~row ~column:col_target in
