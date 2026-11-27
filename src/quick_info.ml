@@ -603,11 +603,15 @@ let create page =
       key_press_signal = OneShotSignal.create();
     }
   in
-  Preferences.preferences#connect#changed ~callback:begin fun pref ->
-    qi.is_active <- pref.Settings_j.editor_quick_info_enabled;
-    qi.view#misc#set_has_tooltip qi.is_active;
-    qi.markup_odoc <- new Markup.odoc(); (* Reset preferences *)
-  end |> ignore;
+  let signal_id = Preferences.preferences#connect#changed ~callback:begin fun pref ->
+      qi.is_active <- pref.Settings_j.editor_quick_info_enabled;
+      qi.view#misc#set_has_tooltip qi.is_active;
+      qi.markup_odoc <- new Markup.odoc(); (* Reset preferences *)
+    end
+  in
+  (* The preferences outlive the page: without this the callback would run for every page ever opened
+     and keep the view alive. *)
+  ignore (view#misc#connect#destroy ~callback:(fun () -> Preferences.preferences#connect#disconnect signal_id));
   let filename = match page#file with Some file -> file#filename | _ -> "" in
   if view#obuffer#is_ocaml_file filename then
     connect_to_view qi view;
