@@ -610,14 +610,22 @@ class page ?file ~project ~offset ~editor () =
         editorbar#button_dotview#misc#set_sensitive (Menu_view.get_switch_view_sensitive editor#project self);
       end
 
-    method show_outline () =
-      let outline_view = new Outline.view ~outline ~source_view:self#ocaml_view () in
-      paned#add1 (outline_view :> GObj.widget);
-      Gmisclib.Idle.add ~prio:300 outline_view#refresh
+    val mutable outline_view : Outline.view option = None
 
-    method hide_outline () =
-      try paned#child1#destroy()
-      with Gpointer.Null -> ()
+    (** The outline view of the page, created when first needed. It is not packed anywhere: the browser
+        puts the one of the current page in the sidebar. *)
+    method outline_view () =
+      match outline_view with
+      | Some view -> view
+      | None ->
+          let view = new Outline.view ~outline ~source_view:self#ocaml_view () in
+          outline_view <- Some view;
+          Gmisclib.Idle.add ~prio:300 view#refresh;
+          view
+
+    method destroy_outline () =
+      Option.iter (fun (view : Outline.view) -> view#destroy ()) outline_view;
+      outline_view <- None
 
     method connect = signals
     method disconnect = signals#disconnect

@@ -70,7 +70,6 @@ class editor () =
     val show_global_gutter = new GUtil.variable false
     val mutable show_whitespace_chars = Preferences.preferences#get.editor_show_whitespace_chars
     val mutable word_wrap = Preferences.preferences#get.editor_wrap
-    val mutable show_outline = true
 
     method status_message = notification#call
 
@@ -88,8 +87,6 @@ class editor () =
         if not history_switch_page_locked then (switch_page#call page)
       end
 
-    method show_outline = show_outline
-
     (** Closes the popups that are still open (quick info, error and warning tooltips), including the
         ones of the other pages. Returns whether there was any. *)
     method dismiss_popups () =
@@ -101,13 +98,6 @@ class editor () =
         end
       end pages;
       !dismissed
-
-    method set_show_outline show =
-      if show then
-        pages |> List.iter (fun page -> page#show_outline())
-      else
-        pages |> List.iter (fun page -> page#hide_outline());
-      show_outline <- show;
 
     method show_whitespace_chars = show_whitespace_chars
     method set_show_whitespace_chars x =

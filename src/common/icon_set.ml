@@ -195,3 +195,12 @@ let shell_directory = "\u{f024b}" (** 󰉋 *)
 
 let shell_load_path = "\u{f107f}" (** 󱁿 *)
 
+let file_tree_folder = "\u{f024b}" (** 󰉋 *)
+
+let file_tree_folder_open = "\u{f0770}" (** 󰝰 *)
+
+let file_tree_source = "\u{f022e}" (** 󰈮 *)
+
+let file_tree_config = "\u{f0493}" (** 󰒓 *)
+
+let file_tree_other = "\u{f0219}" (** 󰈙 *)

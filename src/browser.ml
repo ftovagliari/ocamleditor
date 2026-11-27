@@ -36,6 +36,18 @@ class browser window =
   (*  *)
   (* Packing *)
   let editor = new Editor.editor () in
+  (* Sidebar on the left of the editor: the files tree and the outline of the current page *)
+  let files_panel = new File_panel.widget ~editor () in
+  let outline_box = GPack.vbox () in
+  let sidebar = GPack.notebook ~tab_pos:`TOP ~show_border:false () in
+  let _ = sidebar#append_page ~tab_label:(GMisc.label ~text:"Files" ())#coerce files_panel#coerce in
+  let _ = sidebar#append_page ~tab_label:(GMisc.label ~text:"Outline" ())#coerce outline_box#coerce in
+  let _ = editor#paned#pack1 ~resize:false ~shrink:false sidebar#coerce in
+  (* Puts the outline of the current page in the sidebar *)
+  let show_current_outline () =
+    List.iter (fun w -> outline_box#remove w) outline_box#children;
+    editor#with_current_page (fun page -> outline_box#add (page#outline_view ())#coerce)
+  in
   let _ = Option.iter (fun hpaned -> window#add hpaned#coerce) !Messages.hpaned in
   let vbox = GPack.vbox ~packing:(Option.get !Messages.hpaned)#add1 () in
   let menubarbox = GPack.hbox ~spacing:0 ~packing:vbox#pack () in
@@ -118,6 +130,7 @@ class browser window =
     val toolbar_visible = new GUtil.variable true;
     val tabbar_visible = new GUtil.variable true;
     val outline_visible = new GUtil.variable true;
+    val files_visible = new GUtil.variable false;
     val mutable maximized_view_action = `NONE
     val mutable geometry = "";
     val mutable project_history =
@@ -370,11 +383,13 @@ class browser window =
 
     method outline_visible = outline_visible
 
+    method files_visible = files_visible
+
     method private set_geometry () =
       let width, height = window#get_size () in
-      geometry <- sprintf "%d\n%d\n%d\n%d\n%b\n%b\n%b\n%b\n"
+      geometry <- sprintf "%d\n%d\n%d\n%d\n%b\n%b\n%b\n%b\n%b\n"
           width height 0 0
-          menubar_visible#get editor#show_tabs toolbar_visible#get outline_visible#get;
+          menubar_visible#get editor#show_tabs toolbar_visible#get outline_visible#get files_visible#get;
 
     method update_git_status () =
       Gmisclib_util.idle_add ~prio:300 begin fun () ->
@@ -733,7 +748,6 @@ class browser window =
       List.iter menubar#append menu_items.menu_items;
       (* Update Window menu with files added to the editor *)
       editor#connect#add_page ~callback:begin fun page ->
-        if outline_visible#get then page#show_outline();
         Gaux.may menu ~f:begin fun menu ->
           menu.window_signal_locked <- true;
           let basename = Filename.basename page#get_filename in
@@ -801,6 +815,33 @@ class browser window =
 
       Editor_menu.menu_item_view_menubar := (fun () -> menu_item_view_menubar);
 
+      (* Files tree: follows the current project and the current page *)
+      (* Files and Outline share the sidebar: only one of them is shown at a time, none hides the sidebar. *)
+      let update_sidebar () =
+        if files_visible#get then (sidebar#goto_page 0; sidebar#misc#show ())
+        else if outline_visible#get then (sidebar#goto_page 1; sidebar#misc#show (); show_current_outline ())
+        else sidebar#misc#hide ()
+      in
+      files_visible#connect#changed ~callback:begin fun visible ->
+        if visible then outline_visible#set false;
+        update_sidebar ()
+      end |> ignore;
+      outline_visible#connect#changed ~callback:begin fun visible ->
+        if visible then files_visible#set false;
+        update_sidebar ()
+      end |> ignore;
+      (* The user picks a tab *)
+      ignore (sidebar#connect#switch_page ~callback:begin fun n ->
+          if n = 0 then files_visible#set true else outline_visible#set true
+        end);
+      ignore (editor#connect#remove_page ~callback:(fun page -> page#destroy_outline ()));
+      current_project#connect#changed ~callback:begin fun project ->
+        files_panel#set_root (Option.map (fun p -> p.Prj.local.Prj.root) project)
+      end |> ignore;
+      ignore (editor#connect#switch_page ~callback:begin fun page ->
+          if files_visible#get then files_panel#reveal page#get_filename
+        end);
+      ignore (editor#connect#file_saved ~callback:(fun _ -> files_panel#refresh_if_changed ()));
       (* Load current project *)
       let rec load_current_proj history =
         match history with [] -> () | filename :: _ ->
@@ -830,9 +871,6 @@ class browser window =
       end |> ignore;
       tabbar_visible#connect#changed ~callback:begin fun visible ->
         editor#set_show_tabs visible
-      end |> ignore;
-      outline_visible#connect#changed ~callback:begin fun visible ->
-        editor#set_show_outline visible
       end |> ignore;
       let update_view_vmessages_items visible =
         toolbar#tool_messages_handler_block ();
@@ -886,6 +924,7 @@ class browser window =
       in
       let callback _ =
         toolbar#update current_project#get;
+        if outline_visible#get then show_current_outline ();
         update_toolbar_save();
         update_toolbar_undo();
         Gaux.may (editor#get_page `ACTIVE) ~f:(fun _ -> self#set_title ());
@@ -915,6 +954,7 @@ class browser window =
       let is_toolbar_visible = ref true in
       let is_tabbar_visible = ref true in
       let is_outline_visible = ref true in
+      let is_files_visible = ref false in
       begin
         try
           let chan = open_in (Filename.concat App_config.ocamleditor_user_home "geometry") in
@@ -926,6 +966,7 @@ class browser window =
           (try is_tabbar_visible := (bool_of_string (input_line chan)) with End_of_file -> ());
           (try is_toolbar_visible := (bool_of_string (input_line chan)) with End_of_file -> ());
           (try is_outline_visible := (bool_of_string (input_line chan)) with End_of_file -> ());
+          (try is_files_visible := (bool_of_string (input_line chan)) with End_of_file -> ());
           close_in chan;
         with _ -> ()
       end;
@@ -933,6 +974,8 @@ class browser window =
       self#toolbar_visible#set !is_toolbar_visible;
       self#tabbar_visible#set !is_tabbar_visible;
       outline_visible#set !is_outline_visible;
+      files_visible#set !is_files_visible;
+      update_sidebar ();
       window#resize ~width:!width ~height:!height;
       Gmisclib.Idle.add ~prio:300 begin fun () ->
         (Messages.vmessages())#set_position (Preferences.preferences#get.vmessages_height);
@@ -955,6 +998,7 @@ class browser window =
       window#event#connect#focus_in ~callback:begin fun _ ->
         self#set_title();
         self#update_git_status();
+        files_panel#refresh_if_changed ();
         false
       end |> ignore;
       (* Key sequences ("chords") *)

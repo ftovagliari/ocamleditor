@@ -23,8 +23,10 @@ let register ~browser =
     (fun () -> browser#toolbar_visible#set (not browser#toolbar_visible#get));
   reg "tabbar" "Tabbar" ~accels:[ctrl_alt, _b] ~checked:(fun () -> editor#show_tabs)
     (fun () -> browser#tabbar_visible#set (not editor#show_tabs));
-  reg "outline" "Outline" ~accels:[ctrl_alt, _z] ~checked:(fun () -> editor#show_outline)
-    (fun () -> browser#outline_visible#set (not editor#show_outline));
+  reg "outline" "Outline" ~accels:[ctrl_alt, _z] ~checked:(fun () -> browser#outline_visible#get)
+    (fun () -> browser#outline_visible#set (not browser#outline_visible#get));
+  reg "files" "Files" ~accels:[ctrl_alt, _e] ~checked:(fun () -> browser#files_visible#get)
+    (fun () -> browser#files_visible#set (not browser#files_visible#get));
   reg "messages" "Messages" ~accels:[ctrl_alt, _m] ~checked:(fun () -> (Messages.vmessages())#visible)
     (fun () -> let m = Messages.vmessages() in m#set_visible (not m#visible));
   reg "hmessages" "Messages (right pane)" ~checked:(fun () -> (Messages.hmessages())#visible)
@@ -67,7 +69,7 @@ let register ~browser =
 let create ~browser ~group =
   let is_ocaml_source = register ~browser in
   Menu_builder.create ~group ~label:"View" Menu_builder.[
-      item "view.toolbar"; item "view.tabbar"; item "view.outline"; item "view.messages"; item "view.hmessages";
+      item "view.toolbar"; item "view.tabbar"; item "view.outline"; item "view.files"; item "view.messages"; item "view.hmessages";
       sub "Appearance" [item "view.compact_mode"; item "view.fullscreen"; item "view.restore_layout"];
       separator;
       item "view.remove_messages";

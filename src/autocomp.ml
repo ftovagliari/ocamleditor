@@ -141,7 +141,6 @@ let compile_buffer ~project ~editor ~page ?(join=false) () =
             GtkThread.async page#error_manager#apply_tag errors;
             (* Outline *)
             let no_errors = errors.Oe.er_errors = [] in
-            if editor#show_outline then begin end;
             Activity.remove activity_name;
           with ex ->
             Activity.remove activity_name;
