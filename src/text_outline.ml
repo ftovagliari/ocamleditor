@@ -17,7 +17,7 @@ let draw view (drawable : Gdk.cairo) metrics approx_char_width hadjust y0 bounds
             let rect_start = view#get_iter_location start_iter in
             let rect_stop = view#get_iter_location stop_iter in
 
-            let x = Gdk.Rectangle.x rect_start - 1(*- hadjust *) in (* +/-1 is to avoid hiding the cursor *)
+            let x = Gdk.Rectangle.x rect_start - hadjust - 1 in (* +/-1 is to avoid hiding the cursor *)
             let y = Gdk.Rectangle.y rect_start - y0 - line_width in
             let width = (Gdk.Rectangle.x rect_stop) - (Gdk.Rectangle.x rect_start) + 1 + line_width in
             let height = (metrics#ascent + metrics#descent) / Pango.scale + line_width in
