@@ -100,6 +100,33 @@ class manager (view : Ocaml_text.view) =
 
     method has_errors_or_warnings = has_errors_or_warnings
     method first_error_or_warning = match self#first_error with None -> self#first_warning | x -> x
+    method error_count = List.length tag_error_bounds
+    method warning_count = List.length tag_warning_bounds
+
+    (** Moves the cursor to the first error or warning after it (wrapping around at the end of the
+        file) and shows its message. *)
+    method goto_next_problem () =
+      let located =
+        List.filter_map begin fun x ->
+          try Some ((buffer#get_iter_at_mark (`MARK x.Oe.ei_start))#offset, x) with _ -> None
+        end (tag_error_bounds @ tag_warning_bounds)
+        |> List.sort (fun (o1, _) (o2, _) -> compare o1 o2)
+      in
+      match located with
+      | [] -> ()
+      | first :: _ ->
+          let cursor = (buffer#get_iter `INSERT)#offset in
+          let offset, _ = try List.find (fun (o, _) -> o > cursor) located with Not_found -> first in
+          let iter = buffer#get_iter (`OFFSET offset) in
+          view#scroll_aligned iter;
+          buffer#place_cursor ~where:iter;
+          view#misc#grab_focus ();
+          (* The view scrolls smoothly: wait for it before positioning the popup. *)
+          Gmisclib.Timeout.add __FUNCTION__ ~ms:150 ~callback:begin fun () ->
+            self#tooltip ~sticky:true ~need_focus:false (`ITER (buffer#get_iter (`OFFSET offset)));
+            false
+          end |> ignore
+
     method scroll_to_first_error () =
       let iter =
         match self#first_error_or_warning with

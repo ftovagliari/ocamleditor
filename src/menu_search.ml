@@ -254,6 +254,12 @@ let register ~browser =
       editor#with_current_page (fun page -> set_has_references_with page set_sensitive)
     end
     (fun () -> find_definition_references editor);
+  reg "next_problem" "Go to Next Problem"
+    ~enabled:(fun () ->
+        match editor#get_page `ACTIVE with
+        | Some page -> page#error_manager#has_errors_or_warnings#get
+        | None -> false)
+    (fun () -> editor#with_current_page (fun page -> page#error_manager#goto_next_problem ()));
   reg "find_file" "Find File..." ~accels:[ctrl_shift, _L] (fun () -> browser#dialog_find_file ?all:(Some true) ());
   List.iter2 begin fun num key ->
     reg (sprintf "goto_bookmark_%d" num) (sprintf "Goto Bookmark %d" num) ~accels:[ctrl, key]
@@ -277,6 +283,7 @@ let create ~browser ~group =
       item "search.find_in_path"; item "search.clear_history";
       separator;
       item "search.goto_line"; item "search.find_definition"; item "search.find_references";
+      item "search.next_problem";
       item "search.find_file";
       separator;
       sub "Bookmarks" bookmarks;

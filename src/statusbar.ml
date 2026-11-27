@@ -43,6 +43,14 @@ let create_button ?packing icon =
   button#button#misc#style_context#add_class "statusbar-button";
   button;;
 
+(** Markup of the problems counter: errors and warnings, grayed out when there are none. *)
+let problems_markup ~errors ~warnings =
+  let item glyph color n =
+    let color = if n = 0 then "#808080" else color in
+    sprintf "<span foreground='%s'><span font_family='OCamlEditor'>%s</span>   %d</span>" color glyph n
+  in
+  sprintf "%s  %s" (item Icon_set.error "red" errors) (item Icon_set.warning "darkorange" warnings)
+
 class editorbar ~view ?packing () =
   let icon_font_name = sprintf "OCamlEditor %s" (match font_size with Some x -> string_of_int x | _ -> "") in
   let box = GPack.hbox ~spacing:1 ~border_width:0 ?packing () in
@@ -127,6 +135,14 @@ class editorbar ~view ?packing () =
   let _ = status_modified#set_use_markup true in
   let _ = set_label_font_size status_modified in
 
+  (* Errors and warnings of the file; clicking goes to the next one *)
+  let _ = GMisc.separator `VERTICAL ~packing:lbox#pack () in
+  let problems = GButton.button ~relief:`NONE ~packing:lbox#pack () in
+  let _ = problems#set_focus_on_click false in
+  let _ = problems#misc#style_context#add_class "statusbar-button" in
+  let problems_label = GMisc.label ~markup:(problems_markup ~errors:0 ~warnings:0) ~packing:problems#add () in
+  let _ = set_label_font_size problems_label in
+
   let pos_box = GPack.hbox ~spacing:3 ~packing:lbox#pack () in
 
   let _ = GMisc.separator `VERTICAL ~packing:pos_box#pack () in
@@ -167,6 +183,11 @@ class editorbar ~view ?packing () =
       view#connect#destroy ~callback:self#destroy |> ignore;
     method filename = status_filename
     method modified = status_modified
+    method problems = problems
+    method set_problems ~errors ~warnings =
+      problems_label#set_label (problems_markup ~errors ~warnings);
+      problems#misc#set_tooltip_text
+        (sprintf "%d error(s), %d warning(s)\nClick to go to the next problem" errors warnings)
     method pos_box = pos_box
     method pos_lin = status_pos_lin
     method pos_col = status_pos_col

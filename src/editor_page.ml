@@ -508,6 +508,13 @@ class page ?file ~project ~offset ~editor () =
       end |> ignore;
 
     initializer
+      (* Problems counter in the statusbar *)
+      let update_problems _ =
+        editorbar#set_problems ~errors:error_manager#error_count ~warnings:error_manager#warning_count
+      in
+      ignore (error_manager#connect#tag_applied ~callback:update_problems);
+      ignore (error_manager#connect#tag_removed ~callback:update_problems);
+      ignore (editorbar#problems#connect#clicked ~callback:(fun () -> error_manager#goto_next_problem ()));
       margin_manager#add (margin_line_numbers :> Margin.margin);
       margin_manager#add (margin_markers :> Margin.margin);
       margin_manager#add (margin_errors :> Margin.margin);
