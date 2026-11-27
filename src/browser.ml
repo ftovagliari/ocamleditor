@@ -34,11 +34,6 @@ class browser window =
   let project_opened                     = new project_opened () in
   let project_closed                     = new project_closed () in
   (*  *)
-  let get_menu_item_nav_history_backward = ref (fun () -> failwith "get_menu_item_nav_history_backward") in
-  let get_menu_item_nav_history_forward  = ref (fun () -> failwith "get_menu_item_nav_history_forward") in
-  let get_menu_item_nav_history_last     = ref (fun () -> failwith "get_menu_item_nav_history_last") in
-  let get_menu_item_undo                 = ref (fun () -> failwith "get_menu_item_undo") in
-  let get_menu_item_redo                 = ref (fun () -> failwith "get_menu_item_redo") in
   (* Packing *)
   let editor = new Editor.editor () in
   let _ = Option.iter (fun hpaned -> window#add hpaned#coerce) !Messages.hpaned in
@@ -544,9 +539,6 @@ class browser window =
         (List.length (Location_history.get_history_forward editor#location_history))
         (Location_history.current_index editor#location_history)
         last;*)
-      (!get_menu_item_nav_history_backward())#misc#set_sensitive (not back);
-      (!get_menu_item_nav_history_forward())#misc#set_sensitive (not forward);
-      (!get_menu_item_nav_history_last())#misc#set_sensitive (not last);
       toolbar#tool_back#misc#set_sensitive (not back);
       toolbar#tool_forward#misc#set_sensitive (not forward);
       toolbar#tool_last_edit_loc#misc#set_sensitive (not last);
@@ -732,26 +724,11 @@ class browser window =
       (* Menubar items *)
       let open! Menu_types in
       let menu_item_view_menubar = ref [] in
-      let menu_item_view_toolbar = ref [] in
-      let menu_item_view_tabbar = ref [] in
-      let menu_item_view_outline = ref [] in
-      let menu_item_view_messages = ref [] in
-      let menu_item_view_hmessages = ref [] in
       let accel_group = GtkData.AccelGroup.create () in
-      Menu_items.accel_group := Some accel_group;
       window#add_accel_group accel_group;
       let group = accel_group in
       let menu_items = Menu.create ~browser:self ~group
-          ~get_menu_item_undo
-          ~get_menu_item_redo
-          ~get_menu_item_nav_history_backward
-          ~get_menu_item_nav_history_forward
-          ~get_menu_item_nav_history_last
-          ~menu_item_view_menubar
-          ~menu_item_view_toolbar
-          ~menu_item_view_tabbar
-          ~menu_item_view_outline
-          ~menu_item_view_messages ~menu_item_view_hmessages () in
+          () in
       menu <- Some menu_items;
       List.iter menubar#append menu_items.menu_items;
       (* Update Window menu with files added to the editor *)
@@ -794,13 +771,6 @@ class browser window =
       ignore (editor#connect#switch_page ~callback:begin fun page ->
           Gaux.may menu ~f:begin fun menu ->
             let basename = Filename.basename page#get_filename in
-            ksprintf (Menu.set_label menu.file_rename) "Rename \xC2\xAB%s\xC2\xBB" basename;
-            menu.file_switch#misc#set_sensitive
-              ((basename ^^^ ".ml") || (basename ^^^ ".mli"));
-            ksprintf (Menu.set_label menu.file_close) "Close \xC2\xAB%s\xC2\xBB" basename;
-            ksprintf (Menu.set_label menu.file_close_all) "Close All Except \xC2\xAB%s\xC2\xBB" basename;
-            ksprintf (Menu.set_label menu.file_revert) "Revert to Saved \xC2\xAB%s\xC2\xBB" basename;
-            ksprintf (Menu.set_label menu.file_delete) "Delete \xC2\xAB%s\xC2\xBB" basename;
             match List.assoc_opt page#misc#get_oid menu.window_pages with
             | Some item ->ksprintf (Menu.set_label item) "%s" basename
             | _ -> ()
@@ -856,49 +826,24 @@ class browser window =
         end !menu_item_view_menubar
       end |> ignore;
       toolbar_visible#connect#changed ~callback:begin fun visible ->
-        if visible then toolbar#misc#show_all() else (toolbar#misc#hide());
-        List.iter begin fun (mi, sign) ->
-          mi#misc#handler_block sign;
-          mi#set_active visible;
-          mi#misc#handler_unblock sign;
-        end !menu_item_view_toolbar
+        if visible then toolbar#misc#show_all() else (toolbar#misc#hide())
       end |> ignore;
       tabbar_visible#connect#changed ~callback:begin fun visible ->
-        editor#set_show_tabs visible;
-        List.iter begin fun (mi, sign) ->
-          mi#misc#handler_block sign;
-          mi#set_active visible;
-          mi#misc#handler_unblock sign;
-        end !menu_item_view_tabbar
+        editor#set_show_tabs visible
       end |> ignore;
       outline_visible#connect#changed ~callback:begin fun visible ->
-        editor#set_show_outline visible;
-        List.iter begin fun (mi, sign) ->
-          mi#misc#handler_block sign;
-          mi#set_active visible;
-          mi#misc#handler_unblock sign;
-        end !menu_item_view_outline
+        editor#set_show_outline visible
       end |> ignore;
       let update_view_vmessages_items visible =
-        List.iter begin fun (mi, sign) ->
-          toolbar#tool_messages_handler_block ();
-          mi#misc#handler_block sign;
-          mi#set_active visible;
-          toolbar#tool_messages_set_active visible;
-          mi#misc#handler_unblock sign;
-          toolbar#tool_messages_handler_unblock ();
-        end !menu_item_view_messages
+        toolbar#tool_messages_handler_block ();
+        toolbar#tool_messages_set_active visible;
+        toolbar#tool_messages_handler_unblock ()
       in
       (Messages.vmessages())#connect#visible_changed ~callback:update_view_vmessages_items |> ignore;
       let update_view_hmessages_items visible =
-        List.iter begin fun (mi, sign) ->
-          toolbar#tool_hmessages_handler_block ();
-          mi#misc#handler_block sign;
-          mi#set_active visible;
-          toolbar#tool_hmessages_set_active visible;
-          mi#misc#handler_unblock sign;
-          toolbar#tool_hmessages_handler_unblock ();
-        end !menu_item_view_hmessages
+        toolbar#tool_hmessages_handler_block ();
+        toolbar#tool_hmessages_set_active visible;
+        toolbar#tool_hmessages_handler_unblock ()
       in
       (Messages.hmessages())#connect#visible_changed ~callback:update_view_hmessages_items |> ignore;
 
@@ -937,8 +882,6 @@ class browser window =
           let can_redo = (*page#buffer#modified &&*) page#buffer#undo#can_redo in
           toolbar#tool_undo#misc#set_sensitive can_undo;
           toolbar#tool_redo#misc#set_sensitive can_redo;
-          (!get_menu_item_undo())#misc#set_sensitive can_undo;
-          (!get_menu_item_redo())#misc#set_sensitive can_redo;
         end;
       in
       let callback _ =
@@ -954,19 +897,6 @@ class browser window =
       ignore (editor#connect#after#changed ~callback:update_toolbar_undo);
       editor#connect#after#modified_changed ~callback:update_toolbar_save |> ignore;
       editor#connect#file_saved ~callback:(fun _ -> self#update_git_status()) |> ignore;
-      ignore (editor#connect#file_history_changed ~callback:begin fun fh ->
-          Gaux.may menu ~f:begin fun menu ->
-            let f =
-              if List.length fh.File_history.content > 0
-              then (fun x -> x#misc#show()) else (fun x -> x#misc#hide())
-            in
-            List.iter f [
-              menu.file_recent_select;
-              menu.file_recent_clear;
-              menu.file_recent_sep;
-            ]
-          end;
-        end);
       ignore (self#connect#project_opened ~callback:begin fun _ ->
           toolbar#update current_project#get;
           self#set_menu_item_nav_history_sensitive()
@@ -1077,7 +1007,6 @@ class browser window =
         self#update_git_status();
         self#with_current_project (fun proj ->
             opambar#set_switch (if proj.local.opam_switch = "" then None else Some proj.local.opam_switch));
-        !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive true);
       end |> ignore;
 
     method private connect_project_closed () =
@@ -1087,7 +1016,6 @@ class browser window =
         editor#set_history_switch_page_locked false;
         self#update_git_status();
         opambar#set_switch None;
-        !Menu_items.File.close_project |> Option.iter (fun i -> i#misc#set_sensitive false);
       end |> ignore;
 
     initializer

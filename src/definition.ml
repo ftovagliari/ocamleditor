@@ -1,10 +1,10 @@
-let locate ~filename ~text ~(iter : GText.iter) =
+(** Non-blocking version: the result is computed by a background task (see [Async]). *)
+let locate_async ~filename ~text ~(iter : GText.iter) =
   Merlin.locate ~position:(iter#line + 1, iter#line_offset)
     ~filename
     ~buffer:text
     ~look_for:`Implementation ()
-  |> Async.run_synchronously
-  |> begin function
+  |> Async.map ~name:"locate" begin function
   | Merlin.Ok result ->
       begin
         match result with
@@ -27,6 +27,10 @@ let locate ~filename ~text ~(iter : GText.iter) =
   | Merlin.Failure msg
   | Merlin.Error msg -> Merlin.Error msg
   end
+
+(** Blocks until Merlin answers: do not use it to refresh the UI. *)
+let locate ~filename ~text ~(iter : GText.iter) =
+  locate_async ~filename ~text ~iter |> Async.run_synchronously
 
 let references ~filename ~text ~(iter : GText.iter) =
   let line = iter#line + 1 in

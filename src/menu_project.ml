@@ -25,298 +25,183 @@ open Printf
 open Utils
 open Menu_types
 
-let set_label item text = item#misc#set_property "label" (`STRING (Some text));;
-
-let state_changed_callback
-    ~project_clean_default_target
-    ~project_compile_only
-    ~project_build
-    ~project_run
-    ~project_comp_file
-    ~project_script
-    ~build_dep_item
-    ~clean_item
-    ~build_item
-    ~run_item
-    ~project_clean
-    ~project_refresh
-    ~project_targets
-    ~dialog_project_properties
-    ~sep1
-    ~sep2
-    ~sep3
-    ~clean_menu
-    ~build_menu
-    ~build_dep_menu
-    ~run_menu
-    ~items
-    ~group
-    ~flags
-    editor browser =
-  browser#with_default_target begin fun target ->
-    ksprintf (set_label project_clean_default_target) "Clean \xC2\xAB%s\xC2\xBB" target.Target.name;
-    ksprintf (set_label project_compile_only) "Compile \xC2\xAB%s\xC2\xBB" target.Target.name;
-    ksprintf (set_label project_build) "Build \xC2\xAB%s\xC2\xBB" target.Target.name;
-  end;
-  browser#with_default_runtime_config ~open_dialog:false begin fun rc ->
-    ksprintf (set_label project_run) "Run \xC2\xAB%s\xC2\xBB" rc.Rconf.name;
-  end;
-  editor#with_current_page begin fun page ->
-    let name = Filename.basename page#get_filename in
-    if name ^^^ ".ml" || name ^^^ ".mli" then begin
-      ksprintf (set_label project_comp_file) "Compile \xC2\xAB%s\xC2\xBB" name;
-      project_comp_file#misc#set_sensitive true
-    end else begin
-      ksprintf (set_label project_comp_file) "Compile";
-      project_comp_file#misc#set_sensitive false
-    end;
-  end;
-  (*  *)
-  let has_current_project = browser#current_project#get <> None in
-  let has_default_target = match browser#current_project#get with Some x when Project.default_target x <> None -> true | _ -> false in
-  project_clean_default_target#misc#set_sensitive has_default_target;
-  project_clean_default_target#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_compile_only#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_build#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_run#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_script#misc#set_property "sensitive" (`BOOL has_default_target);
-  build_dep_item#misc#set_property "sensitive" (`BOOL has_default_target);
-  clean_item#misc#set_property "sensitive" (`BOOL has_default_target);
-  build_item#misc#set_property "sensitive" (`BOOL has_default_target);
-  run_item#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_clean#misc#set_property "sensitive" (`BOOL has_default_target);
-  project_refresh#misc#set_property "sensitive" (`BOOL has_current_project);
-  project_targets#misc#set_property "sensitive" (`BOOL has_current_project);
-  dialog_project_properties#misc#set_property "sensitive" (`BOOL has_current_project);
-  project_comp_file#misc#set_property "sensitive" (`BOOL has_current_project);
-  sep1#misc#set_property "sensitive" (`BOOL has_default_target);
-  sep2#misc#set_property "sensitive" (`BOOL has_default_target);
-  sep3#misc#set_property "visible" (`BOOL (browser#project_history.File_history.content <> []));
-  (*  *)
-  Gmisclib.Idle.add (fun () -> List.iter clean_menu#remove clean_menu#children);
-  Gmisclib.Idle.add (fun () -> List.iter build_menu#remove build_menu#children);
-  Gmisclib.Idle.add (fun () -> List.iter build_dep_menu#remove build_dep_menu#children);
-  Gmisclib.Idle.add (fun () -> List.iter run_menu#remove run_menu#children);
-  browser#with_current_project begin fun project ->
-    let current_project_filename = Project.Path.fullname project in
-    List.iter  begin fun (filename, item) ->
-      items.project_history_signal_locked <- true;
-      item#set_active (filename = current_project_filename);
-      items.project_history_signal_locked <- false;
-    end items.project_history;
-    List.iter begin fun tg ->
-      Gmisclib.Idle.add begin fun () ->
-        let item = GMenu.menu_item ~label:tg.Target.name ~packing:clean_menu#add () in
-        ignore (item#connect#activate ~callback:begin fun () ->
-            ignore (Task_console.exec ~editor `CLEAN tg)
-          end);
-      end;
-    end project.Prj.targets;
-    Gmisclib.Idle.add begin fun () ->
-      let item_all = GMenu.menu_item ~label:"All targets" ~packing:build_menu#add () in
-      let _ = item_all#connect#activate ~callback:(fun () -> browser#build_all project.Prj.targets) in
-      item_all#add_accelerator ~group ~modi:[`CONTROL;`MOD1] GdkKeysyms._F10 ~flags;
-      ignore (GMenu.separator_item ~packing:build_menu#add ());
-    end;
-    List.iter begin fun tg ->
-      Gmisclib.Idle.add begin fun () ->
-        let item = GMenu.menu_item ~label:tg.Target.name ~packing:build_menu#add () in
-        ignore (item#connect#activate ~callback:begin fun () ->
-            ignore (Task_console.exec ~editor `COMPILE tg)
-          end);
-        let item = GMenu.menu_item ~label:tg.Target.name ~packing:build_dep_menu#add () in
-        ignore (item#connect#activate ~callback:begin fun () ->
-            ignore (Task_console.exec ~editor ~with_deps:true `COMPILE tg)
-          end);
-      end
-    end project.Prj.targets;
-    List.iter begin fun rc ->
-      Gmisclib.Idle.add begin fun () ->
-        let item = GMenu.menu_item ~label:rc.Rconf.name ~packing:run_menu#add () in
-        ignore (item#connect#activate ~callback:begin fun () ->
-            try
-              let bc = List.find (fun b -> b.Target.id = rc.Rconf.target_id) project.Prj.targets in
-              ignore (Task_console.exec ~editor (`RCONF rc) bc)
-            with Not_found -> ()
-          end);
-      end
-    end project.Prj.executables;
-  end
-
-let project ~browser ~group ~flags items =
+(** Commands of the Project menu. *)
+let register ~browser =
+  let open GdkKeysyms in
   let editor = browser#editor in
-  let project = GMenu.menu_item ~label:"Project" () in
-  let menu = items.project in
-  let cursor = Gdk.Cursor.create `ARROW in
-  ignore (menu#misc#connect#draw ~callback:begin fun _ ->
-      Gdk.Window.set_cursor menu#misc#window cursor;
-      false
-    end);
-  project#set_submenu menu;
+  let has_project () = browser#current_project#get <> None in
+  let has_default_target () =
+    match browser#current_project#get with Some x when Project.default_target x <> None -> true | _ -> false
+  in
+  let is_ocaml_source () =
+    match editor#get_page `ACTIVE with
+    | Some page -> let name = Filename.basename page#get_filename in name ^^^ ".ml" || name ^^^ ".mli"
+    | None -> false
+  in
+  (* Labels that mention the default target / runtime configuration / current file. *)
+  let with_target fmt default () =
+    let label = ref default in
+    browser#with_default_target (fun target -> label := sprintf fmt target.Target.name);
+    !label
+  in
+  let with_runtime_config fmt default () =
+    let label = ref default in
+    browser#with_default_runtime_config ~open_dialog:false (fun rc -> label := sprintf fmt rc.Rconf.name);
+    !label
+  in
+  let compile_file_label () =
+    match editor#get_page `ACTIVE with
+    | Some page when is_ocaml_source () -> sprintf "Compile \xC2\xAB%s\xC2\xBB" (Filename.basename page#get_filename)
+    | _ -> "Compile"
+  in
+  let exec_on_default_target kind () =
+    browser#with_current_project (fun _ ->
+        browser#with_default_target (fun target -> ignore (Task_console.exec ~editor kind target)))
+  in
+  let ctrl = [`CONTROL] and ctrl_shift = [`CONTROL; `SHIFT] and ctrl_alt = [`CONTROL; `MOD1] in
+  let reg id label ?label_fn ?accels ?enabled run =
+    ignore (Command.register ~id:("project." ^ id) ~label ?label_fn ?accels ?enabled run)
+  in
+  reg "clean_default" "Clean" ~label_fn:(with_target "Clean \xC2\xAB%s\xC2\xBB" "Clean")
+    ~accels:[ctrl_shift, _Delete; ctrl, _F9] ~enabled:has_default_target (exec_on_default_target `CLEAN);
+  reg "compile_only" "Compile" ~label_fn:(with_target "Compile \xC2\xAB%s\xC2\xBB" "Compile")
+    ~accels:[ctrl, _B; ctrl, _F10] ~enabled:has_default_target (exec_on_default_target `COMPILE_ONLY);
+  reg "build" "Build" ~label_fn:(with_target "Build \xC2\xAB%s\xC2\xBB" "Build")
+    ~accels:[ctrl_shift, _B] ~enabled:has_default_target (exec_on_default_target `COMPILE);
+  reg "run" "Run" ~label_fn:(with_runtime_config "Run \xC2\xAB%s\xC2\xBB" "Run")
+    ~accels:[[], _F5] ~enabled:has_default_target begin fun () ->
+    browser#with_current_project (fun project ->
+        browser#with_default_runtime_config ~open_dialog:true (fun rc ->
+            let bc = List.find (fun b -> b.Target.id = rc.Rconf.target_id) project.Prj.targets in
+            ignore (Task_console.exec ~editor (`RCONF rc) bc)))
+  end;
+  reg "build_all" "All targets" ~accels:[ctrl_alt, _F10] ~enabled:has_project begin fun () ->
+    browser#with_current_project (fun project -> browser#build_all project.Prj.targets)
+  end;
+  reg "clean_project" "Clean Project" ~accels:[ctrl_alt, _F9] ~enabled:has_default_target browser#project_clean;
+  reg "compile_file" "Compile file" ~label_fn:compile_file_label
+    ~enabled:(fun () -> has_project () && is_ocaml_source ()) begin fun () ->
+    editor#with_current_page begin fun p ->
+      if Preferences.preferences#get.Settings_j.editor_save_all_bef_comp then (editor#save_all());
+      p#compile_buffer ?join:None ()
+    end
+  end;
+  reg "properties" "Project Properties" ~accels:[[`MOD1], _p] ~enabled:has_project begin fun () ->
+    browser#dialog_project_properties ?page_num:(Some "general") ?show:(Some true) (())
+  end;
+  reg "targets" "Targets" ~accels:[[`MOD1], _Return] ~enabled:has_project begin fun () ->
+    browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) (())
+  end;
+  reg "build_script" "Generate Build Script" ~enabled:has_default_target begin fun () ->
+    browser#with_current_project begin fun project ->
+      let dialog = Build_script_ui.window ~project () in
+      Gaux.may (GWindow.toplevel editor) ~f:(fun w -> dialog#set_transient_for w#as_window)
+    end
+  end;
+  reg "dune" "Generate dune Files" begin fun () ->
+    browser#with_current_project begin fun project ->
+      let summary =
+        try
+          let outcome = Project_dune.write project in
+          let listing label = function
+            | [] -> []
+            | files -> [sprintf "%s:\n  %s" label (String.concat "\n  " files)]
+          in
+          let diagnostics =
+            outcome.Project_dune.oc_diagnostics
+            |> List.filter (fun d -> d.Project_dune.dg_severity <> `INFO)
+            |> List.map begin fun d ->
+              sprintf "  %s: %s%s"
+                (Project_dune.string_of_severity d.Project_dune.dg_severity)
+                (if d.Project_dune.dg_file <> "" then d.Project_dune.dg_file ^ ": " else "")
+                d.Project_dune.dg_message
+            end
+          in
+          let parts =
+            listing "Updated" outcome.Project_dune.oc_changed
+            @ listing "Removed" outcome.Project_dune.oc_removed
+            @ (match diagnostics with
+                | [] -> []
+                | _ -> [sprintf "Not expressible in dune:\n%s" (String.concat "\n" diagnostics)])
+          in
+          match parts with
+          | [] -> "The dune files are already up to date."
+          | parts -> String.concat "\n\n" parts
+        with ex -> sprintf "Cannot generate the dune files.\n\n%s" (Printexc.to_string ex)
+      in
+      Dialog.info ~title:"Generate dune Files" ~message:summary editor
+    end
+  end;
+  reg "refresh" "Refresh" ~enabled:has_project browser#refresh;
+  reg "clear_cache" "Clear Cache" browser#clear_cache;
+  has_default_target
 
-  (* Clean default target *)
-  let open Preferences in
-  let project_clean_default_target = Image_menu.item ~label:"Clean" ~packing:menu#add () in
-  project_clean_default_target#add_accelerator ~group ~modi:[`CONTROL;`SHIFT] GdkKeysyms._Delete ~flags;
-  project_clean_default_target#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F9 ~flags;
-  ignore (project_clean_default_target#connect#activate ~callback:begin fun () ->
-      browser#with_current_project (fun _ ->
-          browser#with_default_target (fun target ->
-              ignore (Task_console.exec ~editor `CLEAN target)))
-    end);
-
-  (* Compile *)
-  let project_compile_only = Image_menu.item ~label:"Compile" ~packing:menu#add () in
-  project_compile_only#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._B ~flags;
-  project_compile_only#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F10 ~flags;
-  ignore (project_compile_only#connect#activate ~callback:begin fun () ->
-      browser#with_current_project (fun _ ->
-          browser#with_default_target (fun target ->
-              ignore (Task_console.exec ~editor `COMPILE_ONLY target)))
-    end);
-
-  (* Build *)
-  let project_build = Image_menu.item ~label:"Build" ~packing:menu#add () in
-  project_build#add_accelerator ~group ~modi:[`CONTROL;`SHIFT] GdkKeysyms._B ~flags;
-  ignore (project_build#connect#activate ~callback:begin fun () ->
-      browser#with_current_project (fun _ ->
-          browser#with_default_target (fun target ->
-              ignore (Task_console.exec ~editor `COMPILE target)))
-    end);
-
-  (* Run current *)
-  let project_run = Image_menu.item ~label:"Run" ~packing:menu#add () in
-  project_run#add_accelerator ~group ~modi:[] ~flags GdkKeysyms._F5;
-  ignore (project_run#connect#activate ~callback:begin fun () ->
-      browser#with_current_project (fun project ->
-          browser#with_default_runtime_config ~open_dialog:true (fun rc ->
-              let bc = List.find (fun b -> b.Target.id = rc.Rconf.target_id) project.Prj.targets in
-              ignore (Task_console.exec ~editor (`RCONF rc) bc)))
-    end);
-
-  (* Clean... *)
-  let clean_item = Image_menu.item ~label:"Clean..." ~packing:menu#add () in
-  let clean_menu = GMenu.menu ~packing:clean_item#set_submenu () in
-
-  (* Build... *)
-  let build_item = Image_menu.item ~label:"Build..." ~packing:(menu#insert ~pos:5) () in
-  let build_menu = GMenu.menu ~packing:build_item#set_submenu () in
-
-  (* Build with dependencies... *)
-  let build_dep_item = Image_menu.item ~label:"Build with dependencies..." ~packing:(menu#insert ~pos:6) () in
-  let build_dep_menu = GMenu.menu ~packing:build_dep_item#set_submenu () in
-
-  (* Run... *)
-  let run_item = Image_menu.item ~label:"Run..." ~packing:menu#add () in
-  let run_menu = GMenu.menu ~packing:run_item#set_submenu () in
-
-  (* Clean Project *)
-  let project_clean = Image_menu.item ~label:"Clean Project" ~packing:menu#add () in
-  project_clean#add_accelerator ~group ~modi:[`CONTROL; `MOD1] GdkKeysyms._F9 ~flags;
-  ignore (project_clean#connect#activate ~callback:browser#project_clean);
-  let sep1 = GMenu.separator_item ~packing:menu#add () in
-
-  (* Compile file *)
-  let project_comp_file = Image_menu.item ~label:"Compile file" ~packing:menu#add () in
-  ignore (project_comp_file#connect#activate ~callback:begin fun () ->
-      browser#editor#with_current_page begin fun p ->
-        if Preferences.preferences#get.editor_save_all_bef_comp then (editor#save_all());
-        p#compile_buffer ?join:None ()
+(** Creates the Project menu. [items.project] is the menu to fill: the browser appends to it the
+    entries of the project history. *)
+let create ~browser ~group ~items =
+  let has_default_target = register ~browser in
+  let editor = browser#editor in
+  (* One entry per target / runtime configuration, rebuilt every time the menu opens. *)
+  let per_target ~label ~enabled ~static ~targets ~exec =
+    Menu_builder.dynamic_submenu ~group ~category:"Project" ~label ~enabled ~static ~fill:begin fun submenu ->
+      match browser#current_project#get with
+      | None -> []
+      | Some project ->
+          List.map begin fun x ->
+            let item = GMenu.menu_item ~label:(fst x) ~packing:submenu#add () in
+            ignore (item#connect#activate ~callback:(fun () -> exec project (snd x)));
+            item
+          end (targets project)
+    end
+  in
+  let target_names project = List.map (fun tg -> tg.Target.name, tg) project.Prj.targets in
+  let clean_menu =
+    per_target ~label:"Clean..." ~enabled:has_default_target ~static:[]
+      ~targets:target_names ~exec:(fun _ tg -> ignore (Task_console.exec ~editor `CLEAN tg))
+  in
+  let build_menu =
+    per_target ~label:"Build..." ~enabled:has_default_target
+      ~static:Menu_builder.[item "project.build_all"; separator]
+      ~targets:target_names ~exec:(fun _ tg -> ignore (Task_console.exec ~editor `COMPILE tg))
+  in
+  let build_dep_menu =
+    per_target ~label:"Build with dependencies..." ~enabled:has_default_target ~static:[]
+      ~targets:target_names
+      ~exec:(fun _ tg -> ignore (Task_console.exec ~editor ~with_deps:true `COMPILE tg))
+  in
+  let run_menu =
+    per_target ~label:"Run..." ~enabled:has_default_target ~static:[]
+      ~targets:(fun project -> List.map (fun rc -> rc.Rconf.name, rc) project.Prj.executables)
+      ~exec:begin fun project rc ->
+        try
+          let bc = List.find (fun b -> b.Target.id = rc.Rconf.target_id) project.Prj.targets in
+          ignore (Task_console.exec ~editor (`RCONF rc) bc)
+        with Not_found -> ()
       end
-    end);
-  let sep2 = GMenu.separator_item ~packing:menu#add () in
-
-  (* Project Properties *)
-  let dialog_project_properties = Image_menu.item ~label:"Project Properties" ~packing:menu#add () in
-  ignore (dialog_project_properties#connect#activate ~callback:(fun () ->
-      browser#dialog_project_properties ?page_num:(Some "general") ?show:(Some true) (())));
-  dialog_project_properties#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._p ~flags;
-
-  (* Targets *)
-  let project_targets = Image_menu.item ~label:"Targets" ~packing:menu#add () in
-  ignore (project_targets#connect#activate ~callback:(fun () ->
-      browser#dialog_project_properties ?page_num:(Some "targets") ?show:(Some true) (())));
-  project_targets#add_accelerator ~group ~modi:[`MOD1] GdkKeysyms._Return ~flags;
-
-  (* Generate build script *)
-  let project_script = Image_menu.item ~label:"Generate Build Script" ~packing:menu#add () in
-  ignore (project_script#connect#activate ~callback:(fun () ->
-      browser#with_current_project begin fun project ->
-        let dialog = Build_script_ui.window ~project () in
-        Gaux.may (GWindow.toplevel editor) ~f:(fun w -> dialog#set_transient_for w#as_window);
-      end));
-
-  (* Generate dune files *)
-  let project_dune = Image_menu.item ~label:"Generate dune Files" ~packing:menu#add () in
-  ignore (project_dune#connect#activate ~callback:begin fun () ->
-      browser#with_current_project begin fun project ->
-        let summary =
-          try
-            let outcome = Project_dune.write project in
-            let listing label = function
-              | [] -> []
-              | files -> [sprintf "%s:\n  %s" label (String.concat "\n  " files)]
-            in
-            let diagnostics =
-              outcome.Project_dune.oc_diagnostics
-              |> List.filter (fun d -> d.Project_dune.dg_severity <> `INFO)
-              |> List.map begin fun d ->
-                sprintf "  %s: %s%s"
-                  (Project_dune.string_of_severity d.Project_dune.dg_severity)
-                  (if d.Project_dune.dg_file <> "" then d.Project_dune.dg_file ^ ": " else "")
-                  d.Project_dune.dg_message
-              end
-            in
-            let parts =
-              listing "Updated" outcome.Project_dune.oc_changed
-              @ listing "Removed" outcome.Project_dune.oc_removed
-              @ (match diagnostics with
-                  | [] -> []
-                  | _ -> [sprintf "Not expressible in dune:\n%s" (String.concat "\n" diagnostics)])
-            in
-            match parts with
-            | [] -> "The dune files are already up to date."
-            | parts -> String.concat "\n\n" parts
-          with ex -> sprintf "Cannot generate the dune files.\n\n%s" (Printexc.to_string ex)
-        in
-        Dialog.info ~title:"Generate dune Files" ~message:summary editor
-      end
-    end);
-
-  (* Project Refresh *)
-  let project_refresh = Image_menu.item ~label:"Refresh" ~packing:menu#add () in
-  ignore (project_refresh#connect#activate ~callback:browser#refresh);
-
-  (* Project Clear Cache *)
-  let project_clear_cache = Image_menu.item ~label:"Clear Cache" ~packing:menu#add () in
-  ignore (project_clear_cache#connect#activate ~callback:browser#clear_cache);
-
-  let sep3 = GMenu.separator_item ~packing:menu#add () in
-  (* Callback *)
-  ignore (project#misc#connect#state_changed ~callback:(fun _ -> state_changed_callback
-                                                           ~project_clean_default_target
-                                                           ~project_compile_only
-                                                           ~project_build
-                                                           ~project_run
-                                                           ~project_comp_file
-                                                           ~project_script
-                                                           ~build_dep_item
-                                                           ~clean_item
-                                                           ~build_item
-                                                           ~run_item
-                                                           ~project_clean
-                                                           ~project_refresh
-                                                           ~project_targets
-                                                           ~dialog_project_properties
-                                                           ~sep1
-                                                           ~sep2
-                                                           ~sep3
-                                                           ~clean_menu
-                                                           ~build_menu
-                                                           ~build_dep_menu
-                                                           ~run_menu
-                                                           ~items
-                                                           ~group
-                                                           ~flags
-                                                           editor browser));
-  project, menu
+  in
+  (* Separator and check items of the project history (the latter are added by the browser). *)
+  let history menu =
+    let sep = GMenu.separator_item ~packing:menu#add () in
+    ignore (menu#misc#connect#map ~callback:begin fun () ->
+        if browser#project_history.File_history.content <> [] then sep#misc#show () else sep#misc#hide ();
+        browser#with_current_project begin fun project ->
+          let current_project_filename = Project.Path.fullname project in
+          List.iter begin fun (filename, item) ->
+            items.project_history_signal_locked <- true;
+            item#set_active (filename = current_project_filename);
+            items.project_history_signal_locked <- false;
+          end items.project_history
+        end
+      end)
+  in
+  Menu_builder.create ~group ~label:"Project" ~menu:items.project Menu_builder.[
+      item "project.clean_default"; item "project.compile_only"; item "project.build"; item "project.run";
+      custom clean_menu; custom build_menu; custom build_dep_menu; custom run_menu;
+      item "project.clean_project";
+      separator;
+      item "project.compile_file";
+      separator;
+      item "project.properties"; item "project.targets"; item "project.build_script"; item "project.dune";
+      item "project.refresh"; item "project.clear_cache";
+      custom history;
+    ]

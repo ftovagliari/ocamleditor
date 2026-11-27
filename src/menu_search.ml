@@ -81,30 +81,34 @@ let search_again editor =
     end
   with Find_text.No_current_regexp -> find_replace editor
 
-(** set_has_definition *)
-let set_has_definition page item =
-  let def =
-    Definition.locate
-      ~filename:page#get_filename
-      ~text:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
-      ~iter: (page#buffer#get_iter `INSERT)
-  in
-  match def with
-  | Merlin.Ok def -> item#misc#set_sensitive (def <> None);
+(** set_has_definition
+
+    The answer comes from Merlin in a background thread: [set_sensitive] is called later, from the
+    GTK main loop. *)
+let set_has_definition_with page set_sensitive =
+  Definition.locate_async
+    ~filename:page#get_filename
+    ~text:(page#buffer#get_text ?start:None ?stop:None ?slice:None ?visible:None ())
+    ~iter:(page#buffer#get_iter `INSERT)
+  |> Async.start_with_continuation begin function
+  | Merlin.Ok def -> Gmisclib.Idle.add ~prio:100 (fun () -> set_sensitive (def <> None))
   | Merlin.Failure _ -> ()
   | Merlin.Error _ -> ()
+  end
+
+let set_has_definition page item = set_has_definition_with page item#misc#set_sensitive
 
 (** set_has_references *)
-let set_has_references page item =
+let set_has_references_with page set_sensitive =
   let filename : string = page#get_filename in
   let buffer : Ocaml_text.buffer = page#buffer in
   let text = buffer#get_text () in
   let iter = buffer#get_iter `INSERT in
-  let line = iter#line + 1 in
-  let col = iter#line_offset in
   Definition.references ~filename ~text ~iter
   |> Async.start_with_continuation
-    (fun ranges -> item#misc#set_sensitive (ranges <> []))
+    (fun ranges -> Gmisclib.Idle.add ~prio:100 (fun () -> set_sensitive (ranges <> [])))
+
+let set_has_references page item = set_has_references_with page item#misc#set_sensitive
 
 (** create_search_results_pane *)
 let create_search_results_pane ~icon ~editor ~page =
@@ -196,3 +200,84 @@ let update_items_visibility
   end
 ;;
 
+(** {1 "Search" menu} *)
+
+let register ~browser =
+  let open GdkKeysyms in
+  let editor = browser#editor in
+  let has_page () = editor#get_page `ACTIVE <> None in
+  let ctrl = [`CONTROL] and ctrl_shift = [`CONTROL; `SHIFT] in
+  let reg id label ?accels ?enabled ?on_menu_open run =
+    ignore (Command.register ~id:("search." ^ id) ~label ?accels ?enabled ?on_menu_open run)
+  in
+  reg "find_replace" "Find and Replace" ~enabled:has_page (fun () -> find_replace editor);
+  reg "find_next" "Find Next" ~accels:[[], _F3] ~enabled:has_page (fun () -> find_next editor);
+  reg "find_prev" "Find Previous" ~accels:[[`SHIFT], _F3] ~enabled:has_page (fun () -> find_prev editor);
+  reg "search_again" "Search Again" ~accels:[ctrl, _F3] ~enabled:has_page (fun () -> search_again editor);
+  reg "find_all" "Find All" ~accels:[[`MOD1], _f] ~enabled:has_page begin fun () ->
+    find_replace ~find_all:true ~search_word_at_cursor:true editor
+  end;
+  (* Incremental search: a second invocation falls back to the full dialog. *)
+  let is_activated = ref None in
+  ignore (editor#connect#switch_page ~callback:(fun _ -> !is_activated |> Option.iter (fun c -> c#destroy())));
+  reg "incremental" "Search Incremental" ~accels:[ctrl, _f] ~enabled:has_page begin fun () ->
+    match !is_activated with
+    | Some child ->
+        child#destroy();
+        is_activated := None;
+        find_replace editor
+    | _ ->
+        is_activated := editor#i_search ();
+        !is_activated |> Option.iter begin fun child ->
+          ignore (child#misc#connect#destroy ~callback:(fun () -> is_activated := None))
+        end
+  end;
+  reg "find_in_path" "Find/Replace in Path" ~accels:[ctrl_shift, _f; ctrl, _p] begin fun () ->
+    find_replace ~find_in_buffer:false ~search_word_at_cursor:true editor
+  end;
+  reg "clear_history" "Clear Find/Replace History" Find_text.clear_history;
+  reg "goto_line" "Go to Line..." ~accels:[ctrl, _g] ~enabled:has_page begin fun () ->
+    editor#with_current_page (fun page -> page#ocaml_view#goto ())
+  end;
+  (* The availability of definition/references is only known to Merlin (slow, asynchronous): it is
+     shown as a hint while the menu is open, but never blocks the shortcut. *)
+  reg "find_definition" "Find Definition" ~accels:[[], _F12] ~enabled:has_page
+    ~on_menu_open:begin fun set_sensitive ->
+      editor#with_current_page (fun page -> set_has_definition_with page set_sensitive)
+    end
+    begin fun () ->
+      editor#with_current_page (fun page ->
+          ignore (editor#scroll_to_definition ~page ~iter:(page#buffer#get_iter `INSERT)))
+    end;
+  reg "find_references" "Find References" ~accels:[[`SHIFT], _F12] ~enabled:has_page
+    ~on_menu_open:begin fun set_sensitive ->
+      editor#with_current_page (fun page -> set_has_references_with page set_sensitive)
+    end
+    (fun () -> find_definition_references editor);
+  reg "find_file" "Find File..." ~accels:[ctrl_shift, _L] (fun () -> browser#dialog_find_file ?all:(Some true) ());
+  List.iter2 begin fun num key ->
+    reg (sprintf "goto_bookmark_%d" num) (sprintf "Goto Bookmark %d" num) ~accels:[ctrl, key]
+      (fun () -> editor#bookmark_goto ~num);
+    reg (sprintf "set_bookmark_%d" num) (sprintf "Bookmark %d" num) ~accels:[[`MOD1; `CONTROL], key]
+      (fun () -> editor#bookmark_create ~num ?where:None ())
+  end [1; 2; 3; 4; 5; 6; 7; 8; 9; 0] [_1; _2; _3; _4; _5; _6; _7; _8; _9; _0]
+
+(** Creates the Search menu. *)
+let create ~browser ~group =
+  register ~browser;
+  let nums = [1; 2; 3; 4; 5; 6; 7; 8; 9; 0] in
+  let bookmarks =
+    List.map (fun n -> Menu_builder.item (sprintf "search.goto_bookmark_%d" n)) nums
+    @ [Menu_builder.separator]
+    @ List.map (fun n -> Menu_builder.item (sprintf "search.set_bookmark_%d" n)) nums
+  in
+  Menu_builder.create ~group ~label:"Search" Menu_builder.[
+      item "search.find_replace"; item "search.find_next"; item "search.find_prev";
+      item "search.search_again"; item "search.find_all"; item "search.incremental";
+      item "search.find_in_path"; item "search.clear_history";
+      separator;
+      item "search.goto_line"; item "search.find_definition"; item "search.find_references";
+      item "search.find_file";
+      separator;
+      sub "Bookmarks" bookmarks;
+    ]

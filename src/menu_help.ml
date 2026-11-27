@@ -80,7 +80,21 @@ let about () =
     vbox#reorder_child image#coerce ~pos:1;*)
   match dialog#run() with _ -> dialog#destroy()
 
+(** Commands of the Help menu. *)
+let register ~browser =
+  let editor = browser#editor in
+  let reg id label ?accels run = ignore (Command.register ~id:("help." ^ id) ~label ?accels run) in
+  reg "clear_cache" "Clear Editor Cache" editor#clear_cache;
+  reg "print_debug_info" "Print Debug Info"
+    ~accels:[[`CONTROL; `MOD1], GdkKeysyms._apostrophe] (Print_debug_info.print ~editor);
+  reg "system_properties" "System Properties" system_properties;
+  reg "about" (Printf.sprintf "About %s" About.program_name) about
 
-
-
-
+(** Creates the Help menu. *)
+let create ~browser ~group =
+  register ~browser;
+  Menu_builder.create ~group ~label:"Help" Menu_builder.[
+      item "help.clear_cache"; item "help.print_debug_info"; item "help.system_properties";
+      separator;
+      item "help.about";
+    ]

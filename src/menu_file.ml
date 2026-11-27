@@ -46,41 +46,36 @@ let get_file_switch_sensitive page =
   let name = page#get_filename in (name ^^^ ".ml" || name ^^^ ".mli")
 
 open Preferences
-let file ~browser ~group ~flags items =
+
+(** Commands of the File menu. *)
+let register ~browser =
   let editor = browser#editor in
-  let file = GMenu.menu_item ~label:"File" () in
-  let menu = GMenu.menu ~packing:file#set_submenu () in
-  (* New Project *)
-  let new_project = GMenu.menu_item ~label:"New Project..." ~packing:menu#add () in
-  ignore (new_project#connect#activate ~callback:browser#dialog_project_new);
-  (* New file *)
-  let new_file = Image_menu.item
-      ~label:"New File..." ~packing:menu#add () in
-  new_file#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._n ~flags;
-  ignore (new_file#connect#activate ~callback:browser#dialog_file_new);
-  (* Open Project *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  let project_open = Image_menu.item
-      ~label:"Open Project..." ~packing:menu#add () in
-  ignore (project_open#connect#activate ~callback:browser#dialog_project_open);
-  project_open#add_accelerator ~group ~modi:[`CONTROL;`SHIFT] GdkKeysyms._o ~flags;
-  (* Open File *)
-  let open_file = Image_menu.item
-      ~label:"Open File..." ~packing:menu#add () in
-  open_file#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._o ~flags;
-  ignore (open_file#connect#activate ~callback:editor#dialog_file_open);
-  let open_remote = Image_menu.item ~label:"Open Remote File..." ~packing:menu#add () in
-  open_remote#connect#activate ~callback:begin fun () ->
-    let title =
-      match open_remote#misc#get_property "label" with
-      | `STRING (Some x) -> x
-      | _ -> ""
-    in
+  let has_page () = editor#get_page `ACTIVE <> None in
+  let has_project () = browser#current_project#get <> None in
+  let has_history () = List.length editor#file_history.File_history.content > 0 in
+  let is_ocaml_source () =
+    match editor#get_page `ACTIVE with Some page -> get_file_switch_sensitive page | None -> false
+  in
+  (* Label that mentions the current file, e.g. "Close «file.ml»". *)
+  let with_file_name fmt default () =
+    match editor#get_page `ACTIVE with
+    | Some page -> Printf.sprintf fmt (Filename.basename page#get_filename)
+    | None -> default
+  in
+  let ctrl = [`CONTROL] and ctrl_shift = [`CONTROL; `SHIFT] in
+  let reg id label ?label_fn ?accels ?enabled run =
+    ignore (Command.register ~id:("file." ^ id) ~label ?label_fn ?accels ?enabled run)
+  in
+  reg "new_project" "New Project..." browser#dialog_project_new;
+  reg "new_file" "New File..." ~accels:[ctrl, GdkKeysyms._n] ~enabled:has_project browser#dialog_file_new;
+  reg "open_project" "Open Project..." ~accels:[ctrl_shift, GdkKeysyms._o] browser#dialog_project_open;
+  reg "open_file" "Open File..." ~accels:[ctrl, GdkKeysyms._o] editor#dialog_file_open;
+  reg "open_remote" "Open Remote File..." begin fun () ->
     let window = GWindow.window
         ~resizable:false
         ~type_hint:`DIALOG
         ~position:`CENTER ~border_width:8
-        ~icon:(??? Logo.oe) ~title ~modal:true ~show:false ()
+        ~icon:(??? Logo.oe) ~title:"Open Remote File..." ~modal:true ~show:false ()
     in
     Gmisclib.Window.GeometryMemo.add ~key:"dialog-remote-edit" ~window Preferences.geometry_memo;
     let vbox = GPack.vbox ~spacing:8 ~packing:window#add () in
@@ -101,109 +96,70 @@ let file ~browser ~group ~flags items =
         ignore (editor#open_file ~active:true ~offset:0 ?remote:(Some remote) filename);
         window#destroy();
       end);
-    window#show();
-  end |> ignore;
-
-  (* Recent Files... *)
-  let file_recent = GMenu.menu_item ~label:"Recent Files" ~packing:menu#add () in
-  let file_recent_menu = GMenu.menu ~packing:file_recent#set_submenu () in
-  (* file_recent_select *)
-  file_recent_menu#add items.file_recent_select;
-  ignore (items.file_recent_select#connect#activate ~callback:begin fun () ->
-      browser#dialog_find_file ?all:(Some false) ()
-    end);
-  (* recent items *)
-  ignore (file_recent#connect#activate ~callback:(fun () -> file_recent_callback ~file_recent_menu editor));
-  (* file_recent_clear *)
-  file_recent_menu#add items.file_recent_sep;
-  file_recent_menu#add items.file_recent_clear;
-  ignore (items.file_recent_clear#connect#activate ~callback:editor#file_history_clear);
-  (* Switch Implementation/Interface *)
-  menu#add items.file_switch;
-  ignore (items.file_switch#connect#activate ~callback:(fun () -> editor#with_current_page editor#switch_mli_ml));
-  items.file_switch#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._I ~flags;
-  (* Save *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  let save_file = Image_menu.item ~label:"Save" ~packing:menu#add () in
-  save_file#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._s ~flags;
-  ignore (save_file#connect#activate ~callback:begin fun () ->
-      Gaux.may ~f:editor#save (editor#get_page `ACTIVE)
-    end);
-  (* Save as.. *)
-  let save_as = Image_menu.item
-     
-      ~label:"Save As..." ~packing:menu#add () in
-  save_as#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._s ~flags;
-  ignore (save_as#connect#activate ~callback:begin fun () ->
-      Gaux.may ~f:editor#dialog_save_as (editor#get_page `ACTIVE)
-    end);
-  (* Save All *)
-  let save_all = Image_menu.item ~label:"Save All" ~packing:menu#add () in
-  save_all#add_accelerator ~group ~modi:[`CONTROL; `SHIFT] GdkKeysyms._a ~flags;
-  ignore (save_all#connect#activate ~callback:browser#save_all);
-  (* Rename *)
-  menu#add items.file_rename;
-  ignore (items.file_rename#connect#activate ~callback:begin fun () ->
-      editor#with_current_page begin fun current_page ->
-        editor#dialog_rename current_page;
-        browser#set_title ()
-      end
-    end);
-  (* Close current project *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  let close_project = Menu_items.create Menu_items.File.close_project
-      ~label:"Close Project" ~packing:menu#add in
-  close_project#connect#activate ~callback:browser#project_close |> ignore;
-  (* Close current file *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  menu#add (items.file_close :> GMenu.menu_item);
-  items.file_close#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._F4 ~flags;
-  ignore (items.file_close#connect#activate ~callback:begin fun () ->
-      editor#with_current_page (fun p -> ignore (editor#dialog_confirm_close p))
-    end);
-  (* Close all except current *)
-  menu#add items.file_close_all;
-  ignore (items.file_close_all#connect#activate ~callback:begin fun () ->
-      editor#with_current_page (fun p -> editor#close_all ?except:(Some p) ())
-    end);
-  (* Revert current *)
-  menu#add (items.file_revert :> GMenu.menu_item);
-  ignore (items.file_revert#connect#activate ~callback:begin fun () ->
-      editor#with_current_page editor#revert
-    end);
-  (* Delete current *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  menu#add (items.file_delete :> GMenu.menu_item);
-  ignore (items.file_delete#connect#activate ~callback:editor#dialog_delete_current);
-  (* Exit *)
-  let _ = GMenu.separator_item ~packing:menu#add () in
-  let quit = Image_menu.item ~label:"Exit" ~packing:menu#add () in
-  quit#connect#activate ~callback:begin fun () ->
+    window#show()
+  end;
+  reg "recent_select" "Select File..." ~enabled:has_history (fun () -> browser#dialog_find_file ?all:(Some false) ());
+  reg "recent_clear" "Clear File History" ~enabled:has_history editor#file_history_clear;
+  reg "switch" "Switch to Implementation/Interface" ~accels:[ctrl_shift, GdkKeysyms._I]
+    ~enabled:is_ocaml_source (fun () -> editor#with_current_page editor#switch_mli_ml);
+  reg "save" "Save" ~accels:[ctrl, GdkKeysyms._s] ~enabled:has_page begin fun () ->
+    Gaux.may ~f:editor#save (editor#get_page `ACTIVE)
+  end;
+  reg "save_as" "Save As..." ~accels:[ctrl_shift, GdkKeysyms._s] ~enabled:has_page begin fun () ->
+    Gaux.may ~f:editor#dialog_save_as (editor#get_page `ACTIVE)
+  end;
+  reg "save_all" "Save All" ~accels:[ctrl_shift, GdkKeysyms._a] ~enabled:has_page browser#save_all;
+  reg "rename" "Rename" ~label_fn:(with_file_name "Rename \xC2\xAB%s\xC2\xBB" "Rename") ~enabled:has_page begin fun () ->
+    editor#with_current_page begin fun current_page ->
+      editor#dialog_rename current_page;
+      browser#set_title ()
+    end
+  end;
+  reg "close_project" "Close Project" ~enabled:has_project browser#project_close;
+  reg "close" "Close" ~label_fn:(with_file_name "Close \xC2\xAB%s\xC2\xBB" "Close")
+    ~accels:[ctrl, GdkKeysyms._F4] ~enabled:has_page begin fun () ->
+    editor#with_current_page (fun p -> ignore (editor#dialog_confirm_close p))
+  end;
+  reg "close_all" "Close All" ~label_fn:(with_file_name "Close All Except \xC2\xAB%s\xC2\xBB" "Close All")
+    ~enabled:has_page begin fun () ->
+    editor#with_current_page (fun p -> editor#close_all ?except:(Some p) ())
+  end;
+  reg "revert" "Revert" ~label_fn:(with_file_name "Revert to Saved \xC2\xAB%s\xC2\xBB" "Revert")
+    ~enabled:has_page (fun () -> editor#with_current_page editor#revert);
+  reg "delete" "Delete" ~label_fn:(with_file_name "Delete \xC2\xAB%s\xC2\xBB" "Delete")
+    ~enabled:has_page editor#dialog_delete_current;
+  reg "exit" "Exit" ~accels:[ctrl, GdkKeysyms._q] begin fun () ->
     let confirm =
       Dialog.confirm ~title:"Confirm exit" ~message:"Are you sure you want to close the editor?"
         ~yes:("Close", ignore) ~no:("Cancel", ignore) ~cancel:false browser#window
     in
     match confirm with `YES -> browser#exit editor () | _ -> ()
-  end |> ignore;
-  quit#add_accelerator ~group ~modi:[`CONTROL] GdkKeysyms._q ~flags;
-  (* callback *)
-  ignore (file#misc#connect#state_changed ~callback:begin fun _ ->
-      let page = editor#get_page `ACTIVE in
-      let has_current_page = page <> None in
-      List.iter (fun i -> i#misc#set_sensitive has_current_page) [
-        (items.file_switch :> GMenu.menu_item);
-        (save_file :> GMenu.menu_item);
-        (save_as :> GMenu.menu_item);
-        (save_all :> GMenu.menu_item);
-        (items.file_rename :> GMenu.menu_item);
-        (items.file_close :> GMenu.menu_item);
-        (items.file_close_all :> GMenu.menu_item);
-        (items.file_revert :> GMenu.menu_item);
-        (items.file_delete :> GMenu.menu_item);
-      ];
-      Option.iter (fun page -> items.file_switch#misc#set_sensitive (get_file_switch_sensitive page)) page;
-      let has_current_project = browser#current_project#get <> None in
-      new_file#misc#set_sensitive has_current_project;
-    end);
-  file, menu;;
+  end
 
+(** Creates the File menu. *)
+let create ~browser ~group =
+  register ~browser;
+  let editor = browser#editor in
+  (* The recent files are dynamic: they are rebuilt every time the menu opens. *)
+  let recent =
+    Menu_builder.dynamic_submenu ~group ~category:"File" ~label:"Recent Files"
+      ~static:Menu_builder.[item "file.recent_select"; separator; item "file.recent_clear"]
+      ~fill:(fun submenu -> file_recent_callback ~file_recent_menu:submenu editor; [])
+  in
+  Menu_builder.create ~group ~label:"File" Menu_builder.[
+      item "file.new_project"; item "file.new_file";
+      separator;
+      item "file.open_project"; item "file.open_file"; item "file.open_remote";
+      custom recent;
+      item "file.switch";
+      separator;
+      item "file.save"; item "file.save_as"; item "file.save_all"; item "file.rename";
+      separator;
+      item "file.close_project";
+      separator;
+      item "file.close"; item "file.close_all"; item "file.revert";
+      separator;
+      item "file.delete";
+      separator;
+      item "file.exit";
+    ]
