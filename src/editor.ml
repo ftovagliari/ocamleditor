@@ -90,6 +90,18 @@ class editor () =
 
     method show_outline = show_outline
 
+    (** Closes the popups that are still open (quick info, error and warning tooltips), including the
+        ones of the other pages. Returns whether there was any. *)
+    method dismiss_popups () =
+      let dismissed = ref (Quick_info.dismiss ()) in
+      List.iter begin fun (page : Editor_page.page) ->
+        if page#error_manager#has_tooltip then begin
+          page#error_manager#hide_tooltip ();
+          dismissed := true
+        end
+      end pages;
+      !dismissed
+
     method set_show_outline show =
       if show then
         pages |> List.iter (fun page -> page#show_outline())

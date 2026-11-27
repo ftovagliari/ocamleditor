@@ -997,8 +997,12 @@ class browser window =
             result
           end |> ignore;
           true
-        end else false
+        end else if keyval = GdkKeysyms._Escape && editor#dismiss_popups () then
+          true (* The popups cannot take the focus, so Escape is handled here *)
+        else false
       end |> ignore;
+      (* A popup must not outlive the page it refers to *)
+      ignore (editor#connect#switch_page ~callback:(fun _ -> ignore (editor#dismiss_popups ())));
 
     method connect = new signals ~startup ~project_history_changed ~project_opened ~project_closed
 

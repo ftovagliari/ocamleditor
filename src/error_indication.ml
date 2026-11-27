@@ -196,6 +196,8 @@ class manager (view : Ocaml_text.view) =
         sticky_popup <- false
       end
 
+    method has_tooltip = tag_popup <> []
+
     method private filter_messages iter tags =
       match
         List.filter (fun { Oe.ei_start; ei_stop; _ } -> iter#equal (buffer#get_iter_at_mark (`MARK ei_start))) tags

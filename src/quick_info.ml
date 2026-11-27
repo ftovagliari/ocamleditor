@@ -152,29 +152,48 @@ let remove_highlight hover =
       end
   | _ -> ()
 
+(** Hides the popup and forgets what it was showing. *)
+let clear ?(hide=true) hover =
+  remove_highlight hover;
+  if hide then hover.window#misc#hide();
+  hover.fullname_label#set_label "";
+  hover.typexpr_label#set_label "";
+  hover.vars_label#set_label "";
+  hover.doc_label#set_label "";
+  hover.fullname_label#misc#hide();
+  hover.vars_label#misc#hide();
+  hover.doc_label#misc#hide();
+  hover.range <- None;
+  hover.is_pointer_over <- false;
+  unpin();
+  hover.doc_label#set_width_chars 45
+
 let reset ?(hide=true) ?(ms=0) () =
   let callback () =
     !hover |> Option.iter begin fun hover ->
-      if hover.range <> None && not hover.is_pointer_over then begin
-        remove_highlight hover;
-        if hide then hover.window#misc#hide();
-        hover.fullname_label#set_label "";
-        hover.typexpr_label#set_label "";
-        hover.vars_label#set_label "";
-        hover.doc_label#set_label "";
-        hover.fullname_label#misc#hide();
-        hover.vars_label#misc#hide();
-        hover.doc_label#misc#hide();
-        hover.range <- None;
-        hover.is_pointer_over <- false;
-        unpin();
-        hover.doc_label#set_width_chars 45;
-      end
+      if hover.range <> None && not hover.is_pointer_over then clear ~hide hover
     end;
     false
   in
   if ms > 0 then Gmisclib.Timeout.add __FUNCTION__ ~ms ~callback |> ignore
   else callback () |> ignore
+
+(** Closes the popup whatever its state: pinned, with the pointer over it, or left behind after a tab
+    switch. [reset] must not do this, because it runs on every mouse movement. Returns whether a
+    popup was visible. *)
+let dismiss () =
+  match !hover with
+  | None -> false
+  | Some hover ->
+      let was_visible = hover.window#misc#visible in
+      hover.effect_timer |> Option.iter Gmisclib.Timeout.remove;
+      hover.effect_timer <- None;
+      hover.window#misc#hide();
+      begin
+        try clear hover
+        with ex -> Log.println `WARN "dismiss: %s" (Printexc.to_string ex)
+      end;
+      was_visible
 
 let set_active qi value = qi.is_active <- value;;
 
@@ -191,7 +210,6 @@ let setup_hover () =
       ~show:false ()
   in
   window#misc#style_context#add_class "quick-info-window";
-  Gmisclib.Util.esc_destroy_window window;
   window#set_skip_pager_hint true;
   window#set_skip_taskbar_hint true;
   window#set_urgency_hint false;
@@ -296,6 +314,7 @@ let show qi hover x y =
 
 let display qi tooltip_x tooltip_y start stop =
   !hover |> Option.iter begin fun hover ->
+    if qi.view#has_focus then
     try
       let rstart = qi.view#get_iter_location start in
       let _, ystart = qi.view#buffer_to_window_coords ~tag:`WIDGET
@@ -317,6 +336,8 @@ let display qi tooltip_x tooltip_y start stop =
             let _, lh = qi.view#get_line_yrange start in
             pX (*- px + xstart*) - 13, pY - py + ystart + lh - qi.view#pixels_below_lines
       in
+      (* The marks have a fixed name: GTK refuses to create them again if the previous ones are still there. *)
+      remove_highlight hover;
       hover.range <-
         Some (qi.view#as_gtext_view,
               qi.view#buffer#create_mark ~name:"qi-start" start,
